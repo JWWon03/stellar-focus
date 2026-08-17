@@ -1647,8 +1647,10 @@ cv.addEventListener('pointermove',e=>{
   if(!_drag.moved)return;
   const dx=e.clientX-_drag.lx, dy=e.clientY-_drag.ly;
   _drag.lx=e.clientX;_drag.ly=e.clientY;
-  VIEW.azTo  += dx*0.008;
-  VIEW.tiltTo = clamp(VIEW.tiltTo+dy*0.006, 0, 1.53);
+  // 손으로 항성계를 붙잡고 돌리는 느낌이 되도록 부호를 맞춘다.
+  // 오른쪽으로 끌면 앞쪽(화면 아래) 천체가 오른쪽으로, 아래로 끌면 원반이 눕는다.
+  VIEW.azTo  -= dx*0.008;
+  VIEW.tiltTo = clamp(VIEW.tiltTo - dy*0.006, 0, 1.53);
   VIEW.az=VIEW.azTo;VIEW.tilt=VIEW.tiltTo;      // 드래그 중에는 즉시 반영
   updateViewUI();
 });
