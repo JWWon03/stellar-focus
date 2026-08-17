@@ -98,6 +98,14 @@ button,input,select{font-family:inherit;color:inherit}
 .cbtn.danger:hover{background:linear-gradient(160deg,#c04c34,#8f3222)}
 .cbtn:disabled{opacity:.38;cursor:not-allowed;transform:none}
 
+/* 계정 버튼 / 동기화 상태 */
+#btnAccount{display:flex;align-items:center;padding:9px 14px;font-size:12px;align-self:flex-start}
+#accIcon{font-size:10px;color:var(--txt-3);line-height:1}
+#accIcon.st-ok{color:var(--ok);text-shadow:0 0 8px rgba(111,230,176,.7)}
+#accIcon.st-sync{color:var(--acc)}
+#accIcon.st-err{color:var(--warn)}
+.st-ok{color:var(--ok)} .st-sync{color:var(--acc)} .st-err{color:var(--warn)}
+
 /* 시점 조작 바 */
 .viewBar{display:flex;align-items:center;gap:3px;padding:5px 6px}
 .vb{
@@ -502,6 +510,7 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="time" id="timeTxt">--:--:--</div>
     <div class="sub" id="clockSub"></div>
   </div>
+  <button class="cbtn" id="btnAccount"><span id="accIcon">○</span>&nbsp; <span id="accLabel">게스트</span></button>
 </div>
 
 <!-- 우상단: 가챠 -->
@@ -676,6 +685,17 @@ body.locked #timerPanel input{cursor:not-allowed}
   </div>
 </div>
 
+<!-- ============ 모달: 계정 ============ -->
+<div class="mask" id="mAccount">
+  <div class="modal" style="max-width:430px">
+    <div class="mHead">
+      <div style="flex:1"><h2>계정</h2><p>기기 간에 항성계를 이어서 키웁니다</p></div>
+      <button class="mClose" data-close="mAccount">✕</button>
+    </div>
+    <div class="mBody" id="acBody"></div>
+  </div>
+</div>
+
 <!-- ============ 모달: 천체 상세 ============ -->
 <div class="mask" id="mDetail">
   <div class="modal" style="max-width:420px">
@@ -749,7 +769,7 @@ function mulberry(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;
 const pad=n=>String(n).padStart(2,'0');
 function mmss(ms){ms=Math.max(0,ms);const s=Math.round(ms/1000);return pad(Math.floor(s/60))+':'+pad(s%60);}
 
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.remove('warn');t.classList.add('on');
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2100);}
 
 /* ==========================================================================
@@ -832,7 +852,21 @@ const PALETTE=[
 /* ==========================================================================
    2. 상태 & 저장
    ========================================================================== */
-const LS='stellarFocus.v1';
+/* ===== 클라우드 설정 (요구사항 7) =====
+   Supabase 프로젝트를 만든 뒤 아래 두 값을 채우면 계정 기능이 켜진다.
+   비워두면 계정 메뉴가 "미설정"으로 표시되고, 앱은 지금처럼 완전히
+   오프라인으로 동작한다. anon 키는 공개되어도 되는 값이다 — 테이블은
+   RLS로 잠겨 있고 supabase/schema.sql 의 함수로만 접근할 수 있다. */
+const CLOUD={
+  url:'',   // 예: 'https://abcdefghijkl.supabase.co'
+  key:''    // Project Settings → API → anon public
+};
+const cloudReady=()=>!!(CLOUD.url&&CLOUD.key);
+
+const LS_BASE='stellarFocus.v1';
+const LS_AUTH='stellarFocus.auth';
+let AUTH=null;                                   // {id, token} | null
+const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
 
 function freshState(){
@@ -860,11 +894,11 @@ function freshState(){
 }
 let S=freshState();
 
-function load(){
+function load(raw0){
   try{
-    const raw=localStorage.getItem(LS);
-    if(!raw) return;
-    const o=JSON.parse(raw);
+    const raw=raw0!==undefined?raw0:localStorage.getItem(lsKey());
+    if(!raw) {S=freshState();return;}
+    const o=typeof raw==='string'?JSON.parse(raw):raw;
     S=Object.assign(freshState(),o);
     S.star=Object.assign({name:'',color:'#ffd97a'},o.star||{});
     S.owned=Object.assign({star:[],planet:[],moon:[]},o.owned||{});
@@ -894,10 +928,12 @@ function load(){
   }catch(e){console.warn('load fail',e);S=freshState();}
 }
 let saveT=0;
-function save(){clearTimeout(saveT);saveT=setTimeout(()=>{
-  try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}
-},180);}
-function saveNow(){clearTimeout(saveT);try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
+function writeLocal(){
+  try{localStorage.setItem(lsKey(),JSON.stringify(S));}catch(e){}
+  if(AUTH) cloudPush();
+}
+function save(){clearTimeout(saveT);saveT=setTimeout(writeLocal,180);}
+function saveNow(){clearTimeout(saveT);writeLocal();}
 
 /* ==========================================================================
    3. 천체 렌더러 (캔버스 공용)
@@ -2440,10 +2476,231 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){updateTim
 window.addEventListener('beforeunload',saveNow);
 
 /* ==========================================================================
+   13. 계정 · 클라우드 동기화 (요구사항 7)
+   ========================================================================== */
+async function api(fn,body){
+  const r=await fetch(`${CLOUD.url}/rest/v1/rpc/${fn}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':CLOUD.key,'Authorization':'Bearer '+CLOUD.key},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+const ERRMSG={
+  id_format:'아이디는 영문·숫자·_·- 3~16자여야 합니다',
+  pin_format:'PIN은 숫자 4~6자리여야 합니다',
+  taken:'이미 사용 중인 아이디입니다',
+  bad_login:'아이디 또는 PIN이 올바르지 않습니다',
+  auth:'세션이 만료되었습니다. 다시 로그인해 주세요',
+  too_large:'저장 용량을 초과했습니다'
+};
+
+let cloudT=0, cloudState='idle';
+function setCloudState(s){cloudState=s;paintAccount();}
+function cloudPush(immediate){
+  if(!AUTH||!cloudReady())return;
+  clearTimeout(cloudT);
+  const run=async()=>{
+    setCloudState('sync');
+    try{
+      const r=await api('sf_push',{p_id:AUTH.id,p_token:AUTH.token,p_data:S});
+      if(r&&r.ok) setCloudState('ok');
+      else if(r&&r.error==='auth'){doLogout(true);warn(ERRMSG.auth);}
+      else setCloudState('err');
+    }catch(e){setCloudState('err');}
+  };
+  if(immediate) run(); else cloudT=setTimeout(run,4000);
+}
+
+/** 지속 데이터만 비교한다 — 타이머 런타임 상태는 기기마다 다르므로 제외 */
+function fingerprint(o){
+  if(!o)return '';
+  return JSON.stringify({c:o.created,s:o.star,t:o.tokens,w:o.owned,y:o.sys,st:o.stats});
+}
+/** 시작 시 클라우드와 맞춰본다 */
+function cloudSyncOnBoot(){
+  if(!AUTH||!cloudReady())return;
+  setCloudState('sync');
+  api('sf_pull',{p_id:AUTH.id,p_token:AUTH.token}).then(r=>{
+    if(!r||!r.ok){
+      if(r&&r.error==='auth'){doLogout(true);warn(ERRMSG.auth);}
+      else setCloudState('err');
+      return;
+    }
+    const cd=r.data&&Object.keys(r.data).length?r.data:null;
+    if(!cd){setCloudState('ok');cloudPush(true);return;}          // 클라우드가 비었으면 올린다
+    if(fingerprint(cd)===fingerprint(S)){setCloudState('ok');return;}
+    if(!S.created){load(cd);saveNow();afterAccountSwitch();setCloudState('ok');return;}
+    setCloudState('ok');adoptCloud(cd);                           // 둘 다 있고 다르면 물어본다
+  }).catch(()=>setCloudState('err'));
+}
+
+function saveAuth(){
+  try{
+    if(AUTH) localStorage.setItem(LS_AUTH,JSON.stringify(AUTH));
+    else localStorage.removeItem(LS_AUTH);
+  }catch(e){}
+}
+function loadAuth(){
+  try{const raw=localStorage.getItem(LS_AUTH);AUTH=raw?JSON.parse(raw):null;}catch(e){AUTH=null;}
+}
+
+/** 로그인/가입 성공 후: 서버 데이터와 로컬 데이터를 어떻게 합칠지 결정 */
+function adoptCloud(serverData){
+  const localRaw=localStorage.getItem(lsKey());
+  const localHas=(()=>{try{return localRaw&&JSON.parse(localRaw).created;}catch(e){return false;}})();
+  const serverHas=serverData&&serverData.created;
+
+  const useServer=()=>{load(serverData);saveNow();afterAccountSwitch();};
+  const useLocal =()=>{load(localRaw);saveNow();cloudPush(true);afterAccountSwitch();};
+
+  if(serverHas&&localHas){
+    // 양쪽에 데이터가 있으면 사용자가 고르게 한다 (덮어쓰기 사고 방지)
+    $('#dtName').textContent='';
+    $('#doneBody').innerHTML=`
+      <div class="em" style="filter:drop-shadow(0 0 24px rgba(138,180,255,.6))">⇅</div>
+      <h3>어느 항성계를 쓸까요?</h3>
+      <p>이 기기와 클라우드 양쪽에 저장된 항성계가 있습니다.<br>선택하지 않은 쪽은 덮어쓰기 됩니다.</p>
+      <div class="statLine">
+        <div class="statBox"><div class="v">${esc((JSON.parse(localRaw).star||{}).name||'—')}</div><div class="k">이 기기</div></div>
+        <div class="statBox"><div class="v">${esc((serverData.star||{}).name||'—')}</div><div class="k">클라우드</div></div>
+      </div>`;
+    $('#doneFoot').innerHTML=`<div class="spacer"></div>
+      <button class="cbtn" id="mgLocal">이 기기 것 쓰기</button>
+      <button class="cbtn primary" id="mgCloud">클라우드 것 쓰기</button>`;
+    $('#mgLocal').onclick=()=>{close('mDone');useLocal();};
+    $('#mgCloud').onclick=()=>{close('mDone');useServer();};
+    open('mDone');
+    return;
+  }
+  if(serverHas) useServer(); else useLocal();
+}
+function afterAccountSwitch(){
+  paintTokens();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
+  $('#inCount').value=S.timer.count;$('#inFocus').value=S.timer.focus;
+  $('#inBreak').value=S.timer.brk;$('#inLong').value=S.timer.long;$('#inEvery').value=S.timer.every;
+  $('#mdCount').classList.toggle('on',S.timer.mode==='count');
+  $('#mdPomo').classList.toggle('on',S.timer.mode==='pomo');
+  $('#cfgCount').style.display=S.timer.mode==='count'?'':'none';
+  $('#cfgPomo').style.display=S.timer.mode==='pomo'?'':'none';
+  VIEW.follow=null;VIEW.zoom=VIEW.zoomTo=fitZoom();updateViewUI();
+  paintAccount();renderAccount();
+  if(!S.created){open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);}
+  else close('mIntro');
+}
+
+async function doAuth(kind){
+  const id=$('#acId').value.trim(), pin=$('#acPin').value.trim();
+  if(!/^[A-Za-z0-9_-]{3,16}$/.test(id)){warn(ERRMSG.id_format);return;}
+  if(!/^[0-9]{4,6}$/.test(pin)){warn(ERRMSG.pin_format);return;}
+  const btns=$$('#acBtns .cbtn');btns.forEach(b=>b.disabled=true);
+  try{
+    const r=await api(kind==='signup'?'sf_signup':'sf_login',{p_id:id,p_pin:pin});
+    if(!r||!r.ok){
+      if(r&&r.error==='locked') warn(`PIN을 여러 번 틀렸습니다. ${Math.ceil((r.seconds||900)/60)}분 뒤에 다시 시도해 주세요`);
+      else warn((r&&ERRMSG[r.error])||'요청에 실패했습니다'+(r&&r.left!==undefined?` (남은 시도 ${r.left}회)`:''));
+      return;
+    }
+    AUTH={id,token:r.token};saveAuth();
+    $('#acPin').value='';
+    setCloudState('ok');
+    adoptCloud(r.data&&Object.keys(r.data).length?r.data:null);
+    toast(kind==='signup'?`${id} 계정을 만들었습니다`:`${id}(으)로 로그인했습니다`);
+  }catch(e){
+    warn('서버에 연결하지 못했습니다 · 네트워크를 확인해 주세요');
+  }finally{btns.forEach(b=>b.disabled=false);}
+}
+function doLogout(silent){
+  AUTH=null;saveAuth();setCloudState('idle');
+  load();                       // 게스트 저장본으로 되돌아간다
+  afterAccountSwitch();
+  if(!silent) toast('로그아웃했습니다 · 게스트 항성계로 돌아갑니다');
+}
+
+function paintAccount(){
+  const lbl=$('#accLabel'), ico=$('#accIcon');
+  if(!cloudReady()){lbl.textContent='게스트';ico.textContent='○';ico.className='';return;}
+  if(!AUTH){lbl.textContent='로그인';ico.textContent='○';ico.className='';return;}
+  lbl.textContent=AUTH.id;
+  ico.className='st-'+cloudState;
+  ico.textContent=cloudState==='sync'?'◐':cloudState==='err'?'⚠':'●';
+}
+function renderAccount(){
+  const body=$('#acBody');
+  if(!cloudReady()){
+    body.innerHTML=`<div class="emptyMsg" style="text-align:left;line-height:1.85">
+      클라우드 동기화가 아직 설정되지 않았습니다.<br><br>
+      리포지토리의 <b>supabase/schema.sql</b> 을 Supabase SQL Editor에서 실행하고,
+      <b>index.html</b> 상단의 <b>CLOUD</b> 상수에 프로젝트 URL과 anon 키를 넣으면 켜집니다.<br><br>
+      설정 전까지 항성계는 이 기기에만 저장되며, 게임은 정상 동작합니다.</div>`;
+    return;
+  }
+  if(!AUTH){
+    body.innerHTML=`
+      <div class="pickerHint">아이디와 PIN이 같으면 어느 기기에서든 같은 항성계를 이어서 키울 수 있습니다.</div>
+      <div class="field" style="margin-bottom:11px">
+        <label>아이디 (영문·숫자 3~16자)</label>
+        <input id="acId" maxlength="16" autocomplete="username" spellcheck="false" style="text-align:left">
+      </div>
+      <div class="field">
+        <label>PIN (숫자 4~6자리)</label>
+        <input id="acPin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password">
+      </div>
+      <div class="btnRow" id="acBtns" style="margin-top:16px">
+        <button class="cbtn" id="acSignup">가입</button>
+        <button class="cbtn primary" id="acLogin">로그인</button>
+      </div>
+      <div class="pickerHint" style="margin:14px 0 0">
+        PIN은 서버에 해시로만 저장되고, 10회 틀리면 15분간 잠깁니다.
+        다만 자릿수가 짧으니 다른 곳에서 쓰는 비밀번호는 쓰지 마세요.
+      </div>`;
+    $('#acSignup').onclick=()=>doAuth('signup');
+    $('#acLogin').onclick=()=>doAuth('login');
+    $('#acPin').onkeydown=e=>{if(e.key==='Enter')doAuth('login');};
+    return;
+  }
+  const stTxt={ok:'동기화됨',sync:'동기화 중…',err:'동기화 실패 · 다시 시도해 주세요',idle:'대기'}[cloudState]||'';
+  body.innerHTML=`
+    <div class="starCard">
+      <div style="width:44px;height:44px;border-radius:50%;flex:0 0 auto;
+        background:linear-gradient(140deg,#3b63c9,#2a3f8f);display:flex;align-items:center;
+        justify-content:center;font-size:17px;font-weight:700">${esc(AUTH.id[0].toUpperCase())}</div>
+      <div class="info"><div class="n">${esc(AUTH.id)}</div>
+        <div class="d st-${cloudState}">${stTxt}</div></div>
+    </div>
+    <div class="btnRow" style="margin-top:14px">
+      <button class="cbtn" id="acSync">지금 동기화</button>
+      <button class="cbtn" id="acPull">클라우드에서 불러오기</button>
+    </div>
+    <div class="btnRow" style="margin-top:8px">
+      <button class="cbtn ghost" id="acLogout">로그아웃</button>
+    </div>
+    <div class="pickerHint" style="margin:14px 0 0">
+      변경사항은 자동으로 저장됩니다. 다른 기기에서 항성계를 키웠다면
+      <b>클라우드에서 불러오기</b>로 이 기기에 덮어쓸 수 있습니다.
+    </div>`;
+  $('#acSync').onclick=()=>{cloudPush(true);toast('동기화 중…');};
+  $('#acLogout').onclick=()=>{if(confirm('로그아웃할까요? 클라우드 저장본은 남아 있습니다.'))doLogout();};
+  $('#acPull').onclick=async()=>{
+    if(!confirm('클라우드 저장본으로 이 기기의 항성계를 덮어쓸까요?'))return;
+    try{
+      const r=await api('sf_pull',{p_id:AUTH.id,p_token:AUTH.token});
+      if(!r||!r.ok){warn((r&&ERRMSG[r.error])||'불러오지 못했습니다');return;}
+      load(r.data&&Object.keys(r.data).length?r.data:null);
+      saveNow();afterAccountSwitch();toast('클라우드에서 불러왔습니다');
+    }catch(e){warn('서버에 연결하지 못했습니다');}
+  };
+}
+$('#btnAccount').onclick=()=>{if(guard())return;renderAccount();open('mAccount');};
+
+/* ==========================================================================
    12. 부팅
    ========================================================================== */
 function boot(){
+  loadAuth();
   load();
+  paintAccount();
   resize();
   for(let i=0;i<70;i++)twinkleStars.push({x:Math.random(),y:Math.random(),r:.5+Math.random()*1.1,sp:.6+Math.random()*2.2,ph:Math.random()*TAU});
 
@@ -2481,6 +2738,7 @@ function boot(){
     else if(cnt===0&&S.owned.planet.length>0)
       showHint('우하단 <b>항성계 설정</b>에서 보관함의 행성을 궤도에 배치해 보세요');
   }
+  cloudSyncOnBoot();
   requestAnimationFrame(frame);
 }
 boot();
