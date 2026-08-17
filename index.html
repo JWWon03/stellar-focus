@@ -94,7 +94,31 @@ button,input,select{font-family:inherit;color:inherit}
 .cbtn.primary{background:linear-gradient(160deg,#3b63c9,#2a3f8f);border-color:rgba(160,190,255,.4);color:#fff}
 .cbtn.primary:hover{background:linear-gradient(160deg,#4874e0,#33499f)}
 .cbtn.ghost{background:rgba(255,255,255,.03)}
+.cbtn.danger{background:linear-gradient(160deg,#a8402c,#7a2a1c);border-color:rgba(255,150,120,.45);color:#fff}
+.cbtn.danger:hover{background:linear-gradient(160deg,#c04c34,#8f3222)}
 .cbtn:disabled{opacity:.38;cursor:not-allowed;transform:none}
+
+/* 시점 조작 바 */
+.viewBar{display:flex;align-items:center;gap:3px;padding:5px 6px}
+.vb{
+  background:transparent;border:1px solid transparent;border-radius:9px;
+  padding:7px 10px;font-size:11.5px;font-weight:600;color:var(--txt-2);
+  cursor:pointer;transition:.15s;white-space:nowrap;line-height:1
+}
+.vb:hover{background:rgba(255,255,255,.07);color:var(--txt)}
+.vb.on{background:rgba(58,90,180,.34);border-color:rgba(138,180,255,.5);color:#fff}
+.vb.ic{font-size:15px;padding:6px 10px;font-weight:400}
+.vsep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:0 0 auto}
+
+.followChip{
+  display:none;align-items:center;gap:8px;padding:7px 8px 7px 13px;font-size:12px;font-weight:600
+}
+.followChip.on{display:flex}
+.followChip button{
+  background:transparent;border:none;color:var(--txt-3);cursor:pointer;font-size:12px;
+  padding:3px 6px;border-radius:6px;line-height:1
+}
+.followChip button:hover{background:rgba(255,255,255,.08);color:var(--warn)}
 
 /* 토큰 칩 */
 #tokenChip{display:flex;align-items:center;gap:7px;padding:8px 14px;font-size:13px}
@@ -133,6 +157,7 @@ button,input,select{font-family:inherit;color:inherit}
 }
 .chk.on{border-color:rgba(138,180,255,.6);background:rgba(58,90,180,.22);color:#fff}
 .chk.on .box{background:var(--acc);border-color:var(--acc);color:#08101f}
+.chk.sm{margin-bottom:9px;padding:7px 10px;font-size:11.5px}
 
 /* 시간 설정 */
 .setGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
@@ -337,6 +362,12 @@ button,input,select{font-family:inherit;color:inherit}
 .moonChip canvas{width:20px;height:20px}
 .moonChip .x{color:var(--warn);font-size:12px;padding:0 2px;font-weight:700}
 
+.dtStats{display:flex;gap:8px}
+.dtStats div{flex:1;padding:10px 6px;border:1px solid var(--line);border-radius:11px;
+  background:rgba(255,255,255,.02);text-align:center}
+.dtStats b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+.dtStats span{display:block;font-size:9.5px;color:var(--txt-3);margin-top:3px}
+
 .pickerHint{font-size:11.5px;color:var(--txt-3);margin-bottom:10px;line-height:1.6}
 .emptyMsg{text-align:center;color:var(--txt-3);font-size:12.5px;padding:32px 16px;line-height:1.7}
 
@@ -366,14 +397,60 @@ button,input,select{font-family:inherit;color:inherit}
 }
 #hint.hide{opacity:0}
 
+/* 토큰 획득 팝업 (7초) */
+#tokenPop{
+  position:fixed;left:50%;top:14%;transform:translate(-50%,-10px);
+  z-index:70;opacity:0;pointer-events:none;transition:.3s cubic-bezier(.2,1,.4,1)
+}
+#tokenPop.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.tpCard{
+  width:min(340px,calc(100vw - 32px));padding:0 0 14px;border-radius:18px;overflow:hidden;
+  background:linear-gradient(170deg,rgba(24,30,54,.97),rgba(10,14,28,.98));
+  border:1px solid rgba(255,198,92,.42);
+  box-shadow:0 24px 70px rgba(0,0,0,.72), 0 0 46px rgba(255,190,80,.16);
+  text-align:center
+}
+.tpBar{height:3px;background:rgba(255,255,255,.08)}
+.tpBar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--gold),#ff9d4d)}
+.tpTop{display:flex;align-items:center;gap:12px;padding:15px 18px 0;text-align:left}
+.tpIcon{font-size:26px;color:var(--gold);filter:drop-shadow(0 0 14px rgba(255,198,92,.65));line-height:1}
+.tpTitle{font-size:16px;font-weight:700}
+.tpSub{font-size:11px;color:var(--txt-3);margin-top:3px;line-height:1.5}
+.tpGain{
+  margin:13px 18px 0;padding:10px;border-radius:12px;font-size:14px;font-weight:700;color:var(--gold);
+  background:linear-gradient(140deg,rgba(255,198,92,.16),rgba(255,150,60,.07));
+  border:1px solid rgba(255,198,92,.34)
+}
+.tpGain b{font-size:17px}
+.tpB{font-size:10px;font-weight:700;margin-left:7px;padding:2px 7px;border-radius:20px;
+  background:rgba(255,198,92,.22);color:var(--gold)}
+.tpStats{display:flex;gap:7px;margin:11px 18px 0}
+.tpStats div{flex:1;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+.tpStats b{display:block;font-size:14px;font-variant-numeric:tabular-nums}
+.tpStats span{display:block;font-size:9.5px;color:var(--txt-3);margin-top:2px}
+.tpOk{
+  margin:13px 18px 0;width:calc(100% - 36px);padding:10px;border-radius:11px;cursor:pointer;
+  background:linear-gradient(160deg,#3b63c9,#2a3f8f);border:1px solid rgba(160,190,255,.4);
+  color:#fff;font-size:13px;font-weight:700
+}
+.tpOk:hover{background:linear-gradient(160deg,#4874e0,#33499f)}
+.tpAuto{font-size:10px;color:var(--txt-3);margin-top:9px;letter-spacing:.02em}
+
+/* 집중 중 잠금 표시 (요구사항 16) */
+body.locked #btnGacha,body.locked #btnSystem{opacity:.42}
+body.locked .chk,body.locked .pre,body.locked .field{opacity:.45}
+body.locked #timerPanel input{cursor:not-allowed}
+
 /* 토스트 */
 #toast{
   position:fixed;left:50%;top:calc(24px + var(--safe-t));transform:translateX(-50%) translateY(-24px);
   z-index:90;padding:11px 20px;border-radius:13px;font-size:13px;font-weight:600;
   background:rgba(16,22,42,.95);border:1px solid var(--line-2);
-  box-shadow:0 14px 44px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.28s
+  box-shadow:0 14px 44px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.28s;
+  max-width:min(420px,calc(100vw - 32px));text-align:center;line-height:1.5
 }
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.warn{border-color:rgba(255,138,107,.55);color:#ffd2c4;background:rgba(48,22,18,.95)}
 
 /* ---------- 반응형 ---------- */
 @media (max-width:760px){
@@ -451,20 +528,21 @@ button,input,select{font-family:inherit;color:inherit}
         <div class="setGrid" id="presets"></div>
         <div class="fieldRow">
           <div class="field">
-            <label>집중 시간 (분)</label>
-            <input type="number" id="inCount" min="1" max="300" value="25" inputmode="numeric">
+            <label>집중 시간 (분, 최소 10)</label>
+            <input type="number" id="inCount" min="10" max="300" step="1" value="25" inputmode="numeric">
           </div>
         </div>
       </div>
 
       <div id="cfgPomo" style="display:none">
         <div class="fieldRow">
-          <div class="field"><label>집중</label><input type="number" id="inFocus" min="1" max="180" value="25" inputmode="numeric"></div>
-          <div class="field"><label>휴식</label><input type="number" id="inBreak" min="1" max="60" value="5" inputmode="numeric"></div>
+          <div class="field"><label>집중 (최소 10)</label><input type="number" id="inFocus" min="10" max="180" step="1" value="25" inputmode="numeric"></div>
+          <div class="field"><label>휴식</label><input type="number" id="inBreak" min="1" max="60" step="1" value="5" inputmode="numeric"></div>
         </div>
-        <div class="fieldRow">
-          <div class="field"><label>긴 휴식</label><input type="number" id="inLong" min="1" max="90" value="20" inputmode="numeric"></div>
-          <div class="field"><label>긴 휴식 주기</label><input type="number" id="inEvery" min="2" max="10" value="4" inputmode="numeric"></div>
+        <div class="chk sm on" id="mdLong"><span class="box">✓</span>긴 휴식 사용</div>
+        <div class="fieldRow" id="longRow">
+          <div class="field"><label>긴 휴식</label><input type="number" id="inLong" min="5" max="90" step="1" value="20" inputmode="numeric"></div>
+          <div class="field"><label>주기 (회)</label><input type="number" id="inEvery" min="2" max="10" step="1" value="4" inputmode="numeric"></div>
         </div>
       </div>
 
@@ -494,8 +572,17 @@ button,input,select{font-family:inherit;color:inherit}
   </div>
 </div>
 
-<!-- 우하단: 항성계 설정 -->
+<!-- 우하단: 시점 조작 + 항성계 설정 -->
 <div class="hud br">
+  <div class="followChip panel" id="followChip"><span id="followName"></span><button id="followOff">✕</button></div>
+  <div class="viewBar panel">
+    <button class="vb" id="vbFace" title="위에서 보기 (face-on)">위에서</button>
+    <button class="vb" id="vbEdge" title="옆에서 보기 (edge-on)">옆에서</button>
+    <span class="vsep"></span>
+    <button class="vb ic" id="vbOut" title="축소">−</button>
+    <button class="vb ic" id="vbIn" title="확대">+</button>
+    <button class="vb ic" id="vbFit" title="전체 보기">⤢</button>
+  </div>
   <button class="cbtn" id="btnSystem">◎&nbsp; 항성계 설정</button>
 </div>
 
@@ -589,6 +676,17 @@ button,input,select{font-family:inherit;color:inherit}
   </div>
 </div>
 
+<!-- ============ 모달: 천체 상세 ============ -->
+<div class="mask" id="mDetail">
+  <div class="modal" style="max-width:420px">
+    <div class="mHead">
+      <div style="flex:1"><h2 id="dtName">천체</h2><p id="dtKind"></p></div>
+      <button class="mClose" data-close="mDetail">✕</button>
+    </div>
+    <div class="mBody" id="dtBody"></div>
+  </div>
+</div>
+
 <!-- ============ 모달: 세션 완료 ============ -->
 <div class="mask" id="mDone">
   <div class="modal" style="max-width:400px">
@@ -620,6 +718,7 @@ button,input,select{font-family:inherit;color:inherit}
   </div>
 </div>
 
+<div id="tokenPop"></div>
 <div id="toast"></div>
 
 <script>
@@ -656,19 +755,20 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');
 /* ==========================================================================
    1. 천체 데이터 풀  (가챠 3종 · 중복 없음)
    ========================================================================== */
+/* m = 질량(태양질량). 질량중심 궤도 계산에 쓰인다 (요구사항 17) */
 const STAR_POOL=[
-  {id:'s_red',   n:'적색왜성',      t:3,sz:.60,c1:'#ff7a52',c2:'#a82e14',f:{glow:1},          d:'가장 흔하고 가장 오래 사는 별. 조용히 수조 년을 탄다.'},
-  {id:'s_brown', n:'갈색왜성',      t:3,sz:.50,c1:'#a9663f',c2:'#4a2413',f:{},               d:'별이 되지 못한 실패한 별. 그래도 희미하게 빛난다.'},
-  {id:'s_orange',n:'오렌지왜성',    t:3,sz:.68,c1:'#ffab5e',c2:'#c2621f',f:{glow:1},         d:'K형 주계열성. 생명이 살기 좋은 안정적인 빛.'},
-  {id:'s_yellow',n:'황색왜성',      t:3,sz:.75,c1:'#ffe08a',c2:'#e08e2a',f:{glow:1},         d:'우리 태양과 같은 G형 별. 익숙하고 따뜻하다.'},
-  {id:'s_white', n:'백색왜성',      t:4,sz:.34,c1:'#eaf4ff',c2:'#7fb4e8',f:{glow:1},         d:'다 타버린 별의 핵. 작지만 눈부시게 뜨겁다.'},
-  {id:'s_bluem', n:'청백색 주계열성',t:4,sz:.85,c1:'#c6dcff',c2:'#5a92ff',f:{glow:1},        d:'A형의 젊은 별. 짧고 강렬하게 타오른다.'},
-  {id:'s_rgiant',n:'적색거성',      t:4,sz:1.30,c1:'#ff8a5c',c2:'#a92c14',f:{glow:1},        d:'수명의 끝에서 부풀어 오른 거대한 노년의 별.'},
-  {id:'s_cep',   n:'세페이드 변광성',t:4,sz:.95,c1:'#ffedc9',c2:'#e59a4a',f:{glow:1,puls:1}, d:'일정한 주기로 밝기가 뛰는 우주의 등대.'},
-  {id:'s_neut',  n:'중성자별',      t:5,sz:.24,c1:'#e6f6ff',c2:'#69c6ff',f:{glow:1,beam:1},  d:'한 스푼이 10억 톤. 극한으로 압축된 별의 시체.'},
-  {id:'s_bsuper',n:'청색초거성',    t:5,sz:1.55,c1:'#dbe9ff',c2:'#3f7bff',f:{glow:1},        d:'은하에서 가장 밝은 별 중 하나. 수백만 년 뒤 초신성이 된다.'},
-  {id:'s_wr',    n:'볼프–레이에별', t:5,sz:1.10,c1:'#e6fff7',c2:'#33d9b8',f:{glow:1,wind:1}, d:'자기 껍질을 우주로 날려버리는 격렬한 별.'},
-  {id:'s_bh',    n:'블랙홀',        t:5,sz:.55,c1:'#0d0912',c2:'#ffb45c',f:{acc:1},          d:'빛조차 빠져나오지 못하는 시공간의 구멍.'},
+  {id:'s_red',   n:'적색왜성',      t:3,sz:.60,m:0.25,c1:'#ff7a52',c2:'#a82e14',f:{glow:1},          d:'가장 흔하고 가장 오래 사는 별. 조용히 수조 년을 탄다.'},
+  {id:'s_brown', n:'갈색왜성',      t:3,sz:.50,m:0.06,c1:'#a9663f',c2:'#4a2413',f:{},               d:'별이 되지 못한 실패한 별. 그래도 희미하게 빛난다.'},
+  {id:'s_orange',n:'오렌지왜성',    t:3,sz:.68,m:0.75,c1:'#ffab5e',c2:'#c2621f',f:{glow:1},         d:'K형 주계열성. 생명이 살기 좋은 안정적인 빛.'},
+  {id:'s_yellow',n:'황색왜성',      t:3,sz:.75,m:1.00,c1:'#ffe08a',c2:'#e08e2a',f:{glow:1},         d:'우리 태양과 같은 G형 별. 익숙하고 따뜻하다.'},
+  {id:'s_white', n:'백색왜성',      t:4,sz:.34,m:0.60,c1:'#eaf4ff',c2:'#7fb4e8',f:{glow:1},         d:'다 타버린 별의 핵. 작지만 눈부시게 뜨겁다.'},
+  {id:'s_bluem', n:'청백색 주계열성',t:4,sz:.85,m:2.10,c1:'#c6dcff',c2:'#5a92ff',f:{glow:1},        d:'A형의 젊은 별. 짧고 강렬하게 타오른다.'},
+  {id:'s_rgiant',n:'적색거성',      t:4,sz:1.30,m:1.20,c1:'#ff8a5c',c2:'#a92c14',f:{glow:1},        d:'수명의 끝에서 부풀어 오른 거대한 노년의 별.'},
+  {id:'s_cep',   n:'세페이드 변광성',t:4,sz:.95,m:5.00,c1:'#ffedc9',c2:'#e59a4a',f:{glow:1,puls:1}, d:'일정한 주기로 밝기가 뛰는 우주의 등대.'},
+  {id:'s_neut',  n:'중성자별',      t:5,sz:.24,m:1.40,c1:'#e6f6ff',c2:'#69c6ff',f:{glow:1,beam:1},  d:'한 스푼이 10억 톤. 극한으로 압축된 별의 시체.'},
+  {id:'s_bsuper',n:'청색초거성',    t:5,sz:1.55,m:25.0,c1:'#dbe9ff',c2:'#3f7bff',f:{glow:1},        d:'은하에서 가장 밝은 별 중 하나. 수백만 년 뒤 초신성이 된다.'},
+  {id:'s_wr',    n:'볼프–레이에별', t:5,sz:1.10,m:15.0,c1:'#e6fff7',c2:'#33d9b8',f:{glow:1,wind:1}, d:'자기 껍질을 우주로 날려버리는 격렬한 별.'},
+  {id:'s_bh',    n:'블랙홀',        t:5,sz:.55,m:10.0,c1:'#0d0912',c2:'#ffb45c',f:{acc:1},          d:'빛조차 빠져나오지 못하는 시공간의 구멍.'},
 ];
 const PLANET_POOL=[
   {id:'p_rock',  n:'암석 행성',    t:3,sz:.95,c1:'#8d8a86',c2:'#4f4c48',f:{crat:1},        d:'단단한 규산염 지각으로 덮인 평범한 세계.'},
@@ -719,13 +819,14 @@ const TIER_COLOR={3:'#8ea5c9',4:'#c396ff',5:'#ffc65c'};
 const RATE={5:.04,4:.22,3:.74};
 const PITY4=10, PITY5=30;
 
+/* 분광형에 대응하는 실제 질량(태양질량)을 함께 둔다 */
 const PALETTE=[
-  {c:'#9dbcff',n:'O형 · 청색'},   {c:'#c3d8ff',n:'B형 · 청백색'},
-  {c:'#f2f6ff',n:'A형 · 백색'},   {c:'#fff3d6',n:'F형 · 황백색'},
-  {c:'#ffd97a',n:'G형 · 황색'},   {c:'#ffb45c',n:'K형 · 주황색'},
-  {c:'#ff8a5c',n:'M형 · 적색'},   {c:'#ff6b8a',n:'심홍'},
-  {c:'#c79cff',n:'자수정'},       {c:'#6fe6d0',n:'청록'},
-  {c:'#8ef0a0',n:'에메랄드'},     {c:'#dfe7f5',n:'은백'},
+  {c:'#9dbcff',n:'O형 · 청색',m:20},   {c:'#c3d8ff',n:'B형 · 청백색',m:8},
+  {c:'#f2f6ff',n:'A형 · 백색',m:2.1},  {c:'#fff3d6',n:'F형 · 황백색',m:1.4},
+  {c:'#ffd97a',n:'G형 · 황색',m:1.0},  {c:'#ffb45c',n:'K형 · 주황색',m:0.75},
+  {c:'#ff8a5c',n:'M형 · 적색',m:0.3},  {c:'#ff6b8a',n:'심홍',m:0.9},
+  {c:'#c79cff',n:'자수정',m:1.2},      {c:'#6fe6d0',n:'청록',m:1.1},
+  {c:'#8ef0a0',n:'에메랄드',m:1.0},    {c:'#dfe7f5',n:'은백',m:1.6},
 ];
 
 /* ==========================================================================
@@ -750,7 +851,8 @@ function freshState(){
       phase:'idle',           // 'idle' | 'focus' | 'break' | 'longbreak'
       running:false,
       endAt:0, remain:0, total:0,
-      count:25, focus:25, brk:5, long:20, every:4, round:0
+      count:25, focus:25, brk:5, long:20, every:4, round:0,
+      useLong:true
     },
     stats:{sessions:0,focusMs:0,day:'',dayMs:0},
     sound:true, mini:false
@@ -1075,44 +1177,200 @@ function buildBg(){
 }
 window.addEventListener('resize',resize);
 
-const SQ=0.62;                  // 궤도 기울기(세로 압축)
 let phase=0;                    // 기준 궤도 기준 누적 회전수
 let reveal={on:false,t:0};
 let blaze=1;                    // 중심별 밝기 0~1
 const twinkleStars=[];
 
+/* ---- 카메라 ----
+   tilt 0 = face-on(궤도면을 수직으로 내려다봄), PI/2 = edge-on(궤도면을 옆에서 봄).
+   ox/oy 는 투영 좌표계에서의 추적 오프셋(단위: 기준 장반경). */
+const VIEW={tilt:.90,tiltTo:.90, zoom:1,zoomTo:1, ox:0,oy:0,oxTo:0,oyTo:0, follow:null};
+const TILT_FACE=0.06, TILT_EDGE=1.48, TILT_DEFAULT=0.90;
+const ZOOM_MIN=0.45, ZOOM_MAX=5;
+
 function geom(){
-  // 좁은 화면에서는 하단 위젯을 피해 항성계를 위로 올리고 축소한다
+  // 좁은 화면에서는 하단 위젯을 피해 항성계를 위로 올린다.
+  // face-on일 때도 넘치지 않도록 세로는 압축 없이 잡는다.
   const narrow=W<760;
-  const R=narrow?Math.min(W*.46,(H*.30)/SQ):Math.min(W*.44,(H*.44)/SQ);
+  const R=narrow?Math.min(W*.46,H*.30):Math.min(W*.44,H*.42);
   return {cx:W/2, cy:H*(narrow?.32:.50), R:Math.max(narrow?90:120,R)};
 }
-function slotRadius(g,i){ return g.R*(0.30+i*0.11667); }
+
+/* ---- 궤도 요소 (케플러) ---- */
+const _el={};
+function orbitEl(i){
+  if(_el[i])return _el[i];
+  const r=mulberry(fnv('orbit#'+i));
+  return _el[i]={
+    a:0.30+i*0.11667,       // 장반경(단위)
+    e:0.015+r()*0.085,      // 이심률
+    inc:(r()-0.5)*0.16,     // 궤도 경사
+    node:r()*TAU,           // 승교점 경도
+    peri:r()*TAU,           // 근점 인수
+    M0:i*2.39996+0.6        // 초기 평균근점이각
+  };
+}
+const _mel={};
+function moonEl(i,k){
+  const key=i+':'+k;
+  if(_mel[key])return _mel[key];
+  const r=mulberry(fnv('moon#'+key));
+  return _mel[key]={a:1,e:0.03+r()*0.09,inc:(r()-0.5)*0.5,node:r()*TAU,peri:r()*TAU,M0:r()*TAU};
+}
+
+/** 케플러 방정식 E - e·sinE = M 을 뉴턴법으로 푼다 */
+function kepler(M,e){
+  M=((M%TAU)+TAU)%TAU;
+  let E=e<.8?M:Math.PI;
+  for(let k=0;k<6;k++){
+    const d=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+    E-=d; if(Math.abs(d)<1e-7)break;
+  }
+  return E;
+}
+/** 궤도 요소 + 누적 회전수 → 3D 위치 (케플러 1·2법칙) */
+function orbitPos(el,revs,scale){
+  const s=scale===undefined?1:scale;
+  const E=kepler(el.M0+revs*TAU,el.e);
+  const x0=el.a*(Math.cos(E)-el.e);
+  const y0=el.a*Math.sqrt(1-el.e*el.e)*Math.sin(E);
+  const cw=Math.cos(el.peri),sw=Math.sin(el.peri);
+  let x=x0*cw-y0*sw, y=x0*sw+y0*cw;
+  const ci=Math.cos(el.inc),si=Math.sin(el.inc);
+  const z=y*si; y*=ci;
+  const cn=Math.cos(el.node),sn=Math.sin(el.node);
+  return {x:(x*cn-y*sn)*s, y:(x*sn+y*cn)*s, z:z*s};
+}
+
+/** 3D 월드 → 투영 좌표(단위계). depth가 클수록 카메라에 가깝다 */
+function project(p){
+  const c=Math.cos(VIEW.tilt), s=Math.sin(VIEW.tilt);
+  return {sx:p.x, sy:p.y*c-p.z*s, depth:p.y*s+p.z*c};
+}
+function toScreen(p,g){
+  const pr=project(p), k=g.R*VIEW.zoom;
+  return {x:g.cx+(pr.sx-VIEW.ox)*k, y:g.cy+(pr.sy-VIEW.oy)*k, depth:pr.depth};
+}
 
 /** 배치된 행성 중 가장 바깥 슬롯 index (없으면 -1) */
 function outerSlot(){
   let o=-1;for(let i=0;i<MAX_PLANET;i++) if(S.sys.slots[i].p) o=i;
   return o;
 }
+/** 항성계 전체가 화면을 꽉 채우는 줌 배율.
+    기울기에 따라 세로 폭이 달라지므로 현재 tilt를 반영한다 (요구사항 10) */
+function fitZoom(){
+  const os=outerSlot();
+  const aMax=(os>=0?orbitEl(os).a*(1+orbitEl(os).e):0.34)+0.06;
+  const g=geom(), narrow=W<760;
+  const c=Math.max(0.30,Math.cos(VIEW.tiltTo));
+  const zx=(W*0.46)/(g.R*aMax);
+  const zy=(H*(narrow?0.30:0.44))/(g.R*aMax*c);
+  return clamp(Math.min(zx,zy),0.5,3.4);
+}
 
 function isFocusDark(){
   const T=S.timer;
   return T.phase==='focus' && (T.running||T.remain>0) && !reveal.on;
 }
-/** 궤도 반경 orbitR 위치의 천체가 밝은지 */
-function litAt(orbitR,g){
-  if(reveal.on){
-    const rad=reveal.t*g.R*1.55;
-    return clamp((rad-orbitR)/(g.R*.18),0,1);
-  }
+/** 장반경 a(단위)에 있는 천체의 밝기. 중심별은 항상 밝다(요구사항 12) */
+function litAt(a){
+  if(reveal.on) return clamp((reveal.t*1.6-a)/0.18,0,1);
   return isFocusDark()?0:1;
+}
+
+/* ---- 항성 질량중심 (요구사항 17) ----
+   실제 쌍성처럼 공통 질량중심을 공유한다. 동반성이 둘이면 계층적 삼중성으로
+   푼다 — 안쪽 쌍성이 먼저 짝을 이루고, 바깥 동반성이 그 쌍의 질량중심을 돈다.
+   실제 삼중성계가 안정적으로 존재하는 방식이 이것이다. */
+function starMasses(){
+  const pal=PALETTE.find(p=>p.c===S.star.color);
+  const m0=pal?pal.m:1;
+  const c0=S.sys.comp[0]?BY_ID[S.sys.comp[0]]:null;
+  const c1=S.sys.comp[1]?BY_ID[S.sys.comp[1]]:null;
+  return {m0, c0, c1, m1:c0?(c0.m||1):0, m2:c1?(c1.m||1):0};
+}
+function starPositions(){
+  const {m0,c0,c1,m1,m2}=starMasses();
+  const out={primary:{x:0,y:0,z:0}, comp:[null,null], sepIn:0.165, sepOut:0.30};
+  if(c0){
+    const a=out.sepIn, ang=(phase/0.22)*TAU+0.7, tot=m0+m1;
+    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*0.06};
+    out.primary={x:-p.x*m1/tot, y:-p.y*m1/tot, z:-p.z*m1/tot};
+    out.comp[0]={x:p.x*m0/tot, y:p.y*m0/tot, z:p.z*m0/tot};
+  }
+  if(c1){
+    const a=out.sepOut, ang=(phase/0.62)*TAU+2.4, tot=m0+m1+m2, inner=m0+m1;
+    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*0.09};
+    const sh={x:-p.x*m2/tot, y:-p.y*m2/tot, z:-p.z*m2/tot};
+    out.primary.x+=sh.x; out.primary.y+=sh.y; out.primary.z+=sh.z;
+    if(out.comp[0]){out.comp[0].x+=sh.x; out.comp[0].y+=sh.y; out.comp[0].z+=sh.z;}
+    out.comp[1]={x:p.x*inner/tot, y:p.y*inner/tot, z:p.z*inner/tot};
+  }
+  return out;
+}
+
+/* ---- 화면상의 모든 천체 (렌더 + 히트테스트 공용) ---- */
+function sceneBodies(g){
+  const out=[];
+  if(!S.created)return out;
+  const sp=starPositions();
+  const rs=clamp(g.R*VIEW.zoom*.070,10,64);
+
+  out.push({key:'star', kind:'star', name:S.star.name, world:sp.primary,
+            scr:toScreen(sp.primary,g), r:rs, lit:1});
+  sp.comp.forEach((wp,i)=>{
+    if(!wp)return;
+    const b=BY_ID[S.sys.comp[i]];
+    out.push({key:'comp'+i, kind:'comp', body:b, name:b.n, world:wp,
+              scr:toScreen(wp,g), r:rs*0.42*b.sz, lit:1});
+  });
+
+  const os=outerSlot();
+  const aRef=os>=0?orbitEl(os).a:1;
+  for(let i=0;i<MAX_PLANET;i++){
+    const sl=S.sys.slots[i];if(!sl.p)continue;
+    const b=BY_ID[sl.p], el=orbitEl(i);
+    const revs=phase*Math.pow(aRef/el.a,1.5);      // 케플러 3법칙
+    const wp=orbitPos(el,revs);
+    const pr=Math.max(3.5,g.R*VIEW.zoom*.026*b.sz);
+    const lit=litAt(el.a);
+    out.push({key:'p'+i, kind:'planet', slot:i, body:b, name:b.n, world:wp,
+              scr:toScreen(wp,g), r:pr, lit, el, revs});
+
+    sl.m.forEach((mid,k)=>{
+      if(!mid)return;
+      const mb=BY_ID[mid];
+      const mEl=moonEl(i,k);
+      const mScale=(pr*(2.6+k*1.5))/(g.R*VIEW.zoom);   // 화면상 위성 궤도 크기
+      const mp=orbitPos(mEl,revs*(5.4-k*1.9),mScale);
+      const wm={x:wp.x+mp.x, y:wp.y+mp.y, z:wp.z+mp.z};
+      out.push({key:'m'+i+'_'+k, kind:'moon', slot:i, mi:k, body:mb, name:mb.n,
+                world:wm, scr:toScreen(wm,g), r:Math.max(1.8,pr*.34*mb.sz), lit,
+                el:mEl, revs:revs*(5.4-k*1.9), mScale, parent:wp});
+    });
+  }
+  return out;
+}
+
+/* ---- 궤도 경로 ---- */
+function strokeOrbit(el,g,from,to,segs,offset,scale){
+  const N=segs||110;
+  ctx.beginPath();
+  for(let k=0;k<=N;k++){
+    const p=orbitPos(el,from+(to-from)*k/N,scale);
+    if(offset){p.x+=offset.x;p.y+=offset.y;p.z+=offset.z;}
+    const s=toScreen(p,g);
+    k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
+  }
+  ctx.stroke();
 }
 
 function render(t){
   ctx.clearRect(0,0,W,H);
   ctx.drawImage(bg,0,0,W,H);
 
-  // 반짝임
   ctx.save();
   for(const s of twinkleStars){
     const a=.25+Math.sin(t*s.sp+s.ph)*.25;
@@ -1125,114 +1383,193 @@ function render(t){
   if(!S.created) return;
   const g=geom();
   const os=outerSlot();
-  const items=[];
+  const T=S.timer;
+  const bodies=sceneBodies(g);
+  const primary=bodies[0];
 
-  // ---- 궤도 링 ----
+  // ---- 궤도 경로 ----
   ctx.save();
+  ctx.lineWidth=1;
   for(let i=0;i<MAX_PLANET;i++){
     const has=!!S.sys.slots[i].p;
-    const r=slotRadius(g,i);
-    ctx.strokeStyle=has?'rgba(150,180,255,.16)':'rgba(120,150,220,.055)';
-    ctx.lineWidth=1;
-    ctx.setLineDash(has?[]:[3,7]);
-    ctx.beginPath();ctx.ellipse(g.cx,g.cy,r,r*SQ,0,0,TAU);ctx.stroke();
+    ctx.strokeStyle=has?'rgba(150,180,255,.17)':'rgba(120,150,220,.05)';
+    ctx.setLineDash(has?[]:[3,8]);
+    strokeOrbit(orbitEl(i),g,0,1,has?110:64);
   }
   ctx.setLineDash([]);
-  // 동반성 궤도
-  if(S.sys.comp.some(Boolean)){
-    ctx.strokeStyle='rgba(200,170,255,.14)';
-    ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.R*.155,g.R*.155*SQ,0,0,TAU);ctx.stroke();
+  // 동반성 궤도(질량중심 기준 각자의 타원)
+  const sp=starPositions();
+  if(sp.comp[0]||sp.comp[1]){
+    ctx.strokeStyle='rgba(205,175,255,.16)';
+    const {m0,m1,m2}=starMasses();
+    if(sp.comp[0]){
+      const tot=m0+m1;
+      ctx.beginPath();
+      for(let k=0;k<=72;k++){
+        const a2=k/72*TAU, R1=sp.sepIn*m0/tot;
+        const s=toScreen({x:Math.cos(a2)*R1,y:Math.sin(a2)*R1,z:Math.sin(a2)*R1*0.06},g);
+        k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle='rgba(205,175,255,.09)';
+      ctx.beginPath();
+      for(let k=0;k<=72;k++){
+        const a2=k/72*TAU, R0=sp.sepIn*m1/tot;
+        const s=toScreen({x:-Math.cos(a2)*R0,y:-Math.sin(a2)*R0,z:-Math.sin(a2)*R0*0.06},g);
+        k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
+      }
+      ctx.stroke();
+    }
   }
   ctx.restore();
 
-  // ---- 진행 아크 (기준 궤도) ----
-  const T=S.timer;
+  // ---- 진행 궤적 (기준 궤도) ----
   if(os>=0 && T.phase==='focus' && T.total>0){
-    const r=slotRadius(g,os);
-    const prog=clamp(1-(remainMs())/T.total,0,1);
-    const a0=baseAngle(os);
+    const el=orbitEl(os);
+    const prog=clamp(1-remainMs()/T.total,0,1);
     ctx.save();
-    ctx.strokeStyle='rgba(138,180,255,.55)';
+    ctx.strokeStyle='rgba(138,180,255,.6)';
     ctx.lineWidth=2.2;ctx.lineCap='round';
-    ctx.shadowColor='rgba(138,180,255,.8)';ctx.shadowBlur=10;
-    ctx.beginPath();ctx.ellipse(g.cx,g.cy,r,r*SQ,0,a0,a0+TAU*prog);ctx.stroke();
+    ctx.shadowColor='rgba(138,180,255,.85)';ctx.shadowBlur=10;
+    strokeOrbit(el,g,0,prog,Math.max(6,Math.round(110*prog)));
     ctx.restore();
   }
 
-  // ---- 중심별 ----
-  if(reveal.on) blaze=clamp(reveal.t*2.2,0,1);
-  else blaze=isFocusDark()?0.12:1;
-  items.push({y:g.cy,z:0,draw:()=>{
-    const rs=clamp(g.R*.078,16,58);
-    drawStar(ctx,g.cx,g.cy,rs,S.star.color,blaze,t,{});
-    ctx.save();
-    ctx.font='600 12px Pretendard,system-ui,sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='top';
-    ctx.fillStyle=blaze>.5?'rgba(232,238,252,.85)':'rgba(150,166,200,.5)';
-    ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
-    ctx.fillText(S.star.name,g.cx,g.cy+rs+12);
-    ctx.restore();
-  }});
-
-  // ---- 동반성 ----
-  S.sys.comp.forEach((id,i)=>{
-    if(!id)return;
-    const b=BY_ID[id];
-    const r=g.R*.155;
-    const ang=(phase/0.22)*TAU + i*Math.PI + 0.7;
-    const x=g.cx+Math.cos(ang)*r, y=g.cy+Math.sin(ang)*r*SQ;
-    const lit=litAt(r,g);
-    const rs=clamp(g.R*.078,16,58)*0.40*b.sz;
-    items.push({y,z:Math.sin(ang),draw:()=>{
-      if(lit<.02){
-        drawBody(ctx,x,y,rs,b,Math.atan2(g.cy-y,g.cx-x),0);
-      }else{
-        drawStar(ctx,x,y,rs,b.c1,lit,t,b.f||{});
-      }
-    }});
+  // ---- 천체별 짧은 꼬리 ----
+  ctx.save();
+  ctx.lineCap='round';
+  bodies.forEach(o=>{
+    if(o.kind!=='planet'&&o.kind!=='moon')return;
+    const span=o.kind==='planet'?0.055:0.10;
+    const grd=o.lit>.5?'rgba(170,200,255,':'rgba(90,110,160,';
+    for(let s2=0;s2<4;s2++){
+      const f0=o.revs-span*(4-s2)/4, f1=o.revs-span*(3-s2)/4;
+      ctx.strokeStyle=grd+(0.05+s2*0.055)+')';
+      ctx.lineWidth=Math.max(.7,o.r*.20);
+      strokeOrbit(o.el,g,f0,f1,4,o.kind==='moon'?o.parent:null,o.mScale);
+    }
   });
-
-  // ---- 행성 & 위성 ----
-  const rRef=os>=0?slotRadius(g,os):1;
-  for(let i=0;i<MAX_PLANET;i++){
-    const sl=S.sys.slots[i];if(!sl.p)continue;
-    const b=BY_ID[sl.p];
-    const r=slotRadius(g,i);
-    const revs=phase*Math.pow(rRef/r,1.5);
-    const ang=baseAngle(i)+revs*TAU;
-    const x=g.cx+Math.cos(ang)*r, y=g.cy+Math.sin(ang)*r*SQ;
-    const pr=Math.max(4.5,g.R*.027*b.sz);
-    const lit=litAt(r,g);
-    const la=Math.atan2(g.cy-y,g.cx-x);
-    items.push({y,z:Math.sin(ang),draw:()=>drawBody(ctx,x,y,pr,b,la,lit)});
-
-    sl.m.forEach((mid,k)=>{
-      if(!mid)return;
-      const mb=BY_ID[mid];
-      const mr=pr*(2.55+k*1.35);
-      const mang=baseAngle(i)+k*2.1+revs*TAU*(5.2-k*1.7);
-      const mx=x+Math.cos(mang)*mr, my=y+Math.sin(mang)*mr*SQ;
-      const ms=Math.max(2.2,pr*.34*mb.sz);
-      items.push({y:my,z:Math.sin(ang)+Math.sin(mang)*.01,draw:()=>
-        drawBody(ctx,mx,my,ms,mb,Math.atan2(g.cy-my,g.cx-mx),lit)});
-    });
-  }
-
-  items.sort((a,b)=>a.y-b.y);
-  items.forEach(it=>it.draw());
+  ctx.restore();
 
   // ---- 리빌 웨이브 ----
   if(reveal.on){
-    const rad=reveal.t*g.R*1.55;
+    const rad=reveal.t*1.6;
     ctx.save();
-    ctx.globalAlpha=clamp(1-reveal.t,0,1)*.55;
+    ctx.globalAlpha=clamp(1.25-reveal.t,0,1)*.5;
     ctx.strokeStyle=rgba(S.star.color,1);
     ctx.lineWidth=2.4;ctx.shadowColor=rgba(S.star.color,.9);ctx.shadowBlur=22;
-    ctx.beginPath();ctx.ellipse(g.cx,g.cy,rad,rad*SQ,0,0,TAU);ctx.stroke();
+    ctx.beginPath();
+    for(let k=0;k<=90;k++){
+      const a2=k/90*TAU;
+      const s=toScreen({x:Math.cos(a2)*rad,y:Math.sin(a2)*rad,z:0},g);
+      k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
+    }
+    ctx.stroke();
     ctx.restore();
   }
+
+  // ---- 천체 (깊이 정렬) ----
+  blaze=reveal.on?clamp(1+reveal.t*.8,1,1.8):1;   // 중심별은 늘 밝다
+  bodies.slice().sort((a,b)=>a.scr.depth-b.scr.depth).forEach(o=>{
+    if(o.kind==='star'){
+      drawStar(ctx,o.scr.x,o.scr.y,o.r,S.star.color,Math.min(1,blaze),t,{});
+      ctx.save();
+      ctx.font='600 12px Pretendard,system-ui,sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='top';
+      ctx.fillStyle='rgba(232,238,252,.85)';
+      ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
+      ctx.fillText(S.star.name,o.scr.x,o.scr.y+o.r+10);
+      ctx.restore();
+      return;
+    }
+    const la=Math.atan2(primary.scr.y-o.scr.y, primary.scr.x-o.scr.x);
+    if(o.kind==='comp'){
+      if(o.lit<.02) drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0);
+      else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,o.body.f||{});
+    }else{
+      drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit);
+    }
+    if(VIEW.follow===o.key) drawSelectionRing(o,t);
+  });
 }
-function baseAngle(i){ return i*2.39996 + 0.6; }
+
+function drawSelectionRing(o,t){
+  ctx.save();
+  const rr=o.r+7+Math.sin(t*2.6)*1.6;
+  ctx.strokeStyle='rgba(138,180,255,.85)';ctx.lineWidth=1.4;
+  ctx.setLineDash([5,5]);ctx.lineDashOffset=-t*14;
+  ctx.beginPath();ctx.arc(o.scr.x,o.scr.y,rr,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='600 11px Pretendard,system-ui,sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.fillStyle='rgba(232,238,252,.95)';
+  ctx.shadowColor='rgba(0,0,0,.95)';ctx.shadowBlur=8;
+  ctx.fillText(o.name,o.scr.x,o.scr.y-rr-5);
+  ctx.restore();
+}
+
+/* ---- 입력: 선택 / 확대축소 ---- */
+function pickAt(px,py){
+  const g=geom(), bodies=sceneBodies(g);
+  let best=null,bd=1e9;
+  bodies.forEach(o=>{
+    const d=Math.hypot(o.scr.x-px,o.scr.y-py);
+    const hit=Math.max(o.r+14,20);
+    if(d<hit && d<bd){bd=d;best=o;}
+  });
+  return best;
+}
+function followBody(key){
+  VIEW.follow=key;
+  if(key) VIEW.zoomTo=Math.max(VIEW.zoomTo,fitZoom()*1.5);
+  updateViewUI();
+}
+function setTilt(v){
+  VIEW.tiltTo=v;
+  if(!VIEW.follow) VIEW.zoomTo=fitZoom();   // 기울기가 바뀌면 다시 화면에 맞춘다
+  updateViewUI();
+}
+function zoomBy(f){VIEW.zoomTo=clamp(VIEW.zoomTo*f,ZOOM_MIN,ZOOM_MAX);}
+function resetView(){
+  VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom();updateViewUI();
+}
+
+let _drag=null;
+cv.addEventListener('pointerdown',e=>{
+  _drag={x:e.clientX,y:e.clientY,t:performance.now(),moved:false};
+});
+cv.addEventListener('pointermove',e=>{
+  if(!_drag)return;
+  if(Math.hypot(e.clientX-_drag.x,e.clientY-_drag.y)>6)_drag.moved=true;
+});
+cv.addEventListener('pointerup',e=>{
+  if(!_drag)return;
+  const quick=performance.now()-_drag.t<500 && !_drag.moved;
+  _drag=null;
+  if(!quick||!S.created)return;
+  const hit=pickAt(e.clientX,e.clientY);
+  if(hit) followBody(hit.key==='star'?null:hit.key);
+  else followBody(null);
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  zoomBy(e.deltaY>0?0.90:1.11);
+},{passive:false});
+
+// 핀치 줌
+let _pinch=0;
+cv.addEventListener('touchstart',e=>{
+  if(e.touches.length===2)_pinch=Math.hypot(
+    e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+},{passive:true});
+cv.addEventListener('touchmove',e=>{
+  if(e.touches.length!==2||!_pinch)return;
+  const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                     e.touches[0].clientY-e.touches[1].clientY);
+  VIEW.zoomTo=clamp(VIEW.zoomTo*(d/_pinch),ZOOM_MIN,ZOOM_MAX);
+  _pinch=d;
+},{passive:true});
+cv.addEventListener('touchend',()=>{_pinch=0;},{passive:true});
 
 /* ---- 루프 ---- */
 let last=performance.now(), clock=0;
@@ -1247,8 +1584,22 @@ function frame(now){
   }
   if(reveal.on){
     reveal.t+=dt/1.5;
-    if(reveal.t>=1.25){reveal.on=false;reveal.t=0;}
+    if(reveal.t>=1.6){reveal.on=false;reveal.t=0;}
   }
+  // 카메라 추적 대상 좌표
+  if(VIEW.follow&&S.created){
+    const g=geom();
+    const o=sceneBodies(g).find(b=>b.key===VIEW.follow);
+    if(o){const pr=project(o.world);VIEW.oxTo=pr.sx;VIEW.oyTo=pr.sy;}
+    else {VIEW.follow=null;VIEW.oxTo=0;VIEW.oyTo=0;updateViewUI();}
+  }else{VIEW.oxTo=0;VIEW.oyTo=0;}
+  // 부드러운 보간
+  const k=1-Math.pow(0.0016,dt);
+  VIEW.tilt+=(VIEW.tiltTo-VIEW.tilt)*k;
+  VIEW.zoom+=(VIEW.zoomTo-VIEW.zoom)*k;
+  VIEW.ox  +=(VIEW.oxTo -VIEW.ox )*k;
+  VIEW.oy  +=(VIEW.oyTo -VIEW.oy )*k;
+
   render(clock);
   requestAnimationFrame(frame);
 }
@@ -1267,15 +1618,53 @@ function phaseLabel(){
   if(T.phase==='longbreak') return '긴 휴식 중';
   return '대기 중';
 }
+/* 입력 제약 (요구사항 15). 집중 시간만 최소 10분이고, 휴식은 그보다 짧아도 된다. */
+const MIN_FOCUS=10;
+const LIMITS={
+  count:{el:'#inCount',min:MIN_FOCUS,max:300,label:'집중 시간',unit:'분'},
+  focus:{el:'#inFocus',min:MIN_FOCUS,max:180,label:'집중 시간',unit:'분'},
+  brk  :{el:'#inBreak',min:1, max:60, label:'휴식 시간',unit:'분'},
+  long :{el:'#inLong', min:5, max:90, label:'긴 휴식',  unit:'분'},
+  every:{el:'#inEvery',min:2, max:10, label:'긴 휴식 주기',unit:'회'}
+};
+/** 자연수만 허용. 어기면 경고하고 직전 값으로 되돌린다 */
+function validateField(key){
+  const L=LIMITS[key], el=$(L.el), raw=(el.value||'').trim();
+  if(!/^\d+$/.test(raw)){
+    warn(`${L.label}은(는) 자연수만 입력할 수 있습니다`);
+    el.value=S.timer[key];return false;
+  }
+  let v=parseInt(raw,10);
+  if(v<L.min){warn(`${L.label}의 최소값은 ${L.min}${L.unit}입니다`);v=L.min;}
+  else if(v>L.max){warn(`${L.label}의 최대값은 ${L.max}${L.unit}입니다`);v=L.max;}
+  el.value=v;S.timer[key]=v;return true;
+}
 function readCfg(){
   const T=S.timer;
-  T.count=clamp(parseInt($('#inCount').value)||25,1,300);
-  T.focus=clamp(parseInt($('#inFocus').value)||25,1,180);
-  T.brk  =clamp(parseInt($('#inBreak').value)||5,1,60);
-  T.long =clamp(parseInt($('#inLong').value)||20,1,90);
-  T.every=clamp(parseInt($('#inEvery').value)||4,2,10);
+  Object.keys(LIMITS).forEach(k=>{
+    const L=LIMITS[k], raw=($(L.el).value||'').trim();
+    T[k]=/^\d+$/.test(raw)?clamp(parseInt(raw,10),L.min,L.max):clamp(T[k]||L.min,L.min,L.max);
+    $(L.el).value=T[k];
+  });
 }
 function currentFocusMin(){ return S.timer.mode==='pomo'?S.timer.focus:S.timer.count; }
+
+/* 잠금 (요구사항 16): 집중 중에는 메뉴를 만질 수 없고 종료만 가능 */
+function isLocked(){
+  const T=S.timer;
+  return T.phase==='focus' && (T.running||T.remain>0);
+}
+function guard(){
+  if(!isLocked())return false;
+  warn('집중 중에는 설정을 변경할 수 없습니다 · 종료하려면 아래 [종료] 버튼을 누르세요');
+  return true;
+}
+function warn(msg){
+  const t=$('#toast');
+  t.textContent=msg;t.classList.add('on','warn');
+  clearTimeout(warn._t);
+  warn._t=setTimeout(()=>t.classList.remove('on','warn'),2600);
+}
 
 function startPhase(kind){
   const T=S.timer;
@@ -1285,8 +1674,12 @@ function startPhase(kind){
   else if(kind==='break') min=T.brk;
   else min=T.long;
   T.phase=kind;T.total=min*60000;T.endAt=Date.now()+T.total;T.remain=T.total;T.running=true;
-  if(kind==='focus') T._startPhase=phase;
-  save();updateTimerUI();
+  if(kind==='focus'){
+    T._startPhase=phase;
+    // 요구사항 10 — 시작하면 항성계로 다가간다
+    VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom()*1.12;
+  }
+  save();updateTimerUI();updateLockUI();
   $('#hint').classList.add('hide');
 }
 function pause(){
@@ -1300,7 +1693,8 @@ function resume(){
 function resetTimer(){
   const T=S.timer;
   T.phase='idle';T.running=false;T.remain=0;T.total=0;T.round=0;
-  save();updateTimerUI();
+  hideTokenPopup();
+  save();updateTimerUI();updateLockUI();
 }
 let uiT=0;
 function tickTimer(){
@@ -1315,7 +1709,8 @@ function onPhaseDone(){
   const T=S.timer;
   if(T.phase==='focus'){
     // 목표 달성 → 토큰
-    let gain=1, bonus=false;
+    let gain=1, bonus=false, next=null;
+    const doneMs=T.total;
     S.stats.sessions++;
     S.stats.focusMs+=T.total;
     const dk=dayKey();
@@ -1324,22 +1719,57 @@ function onPhaseDone(){
 
     if(T.mode==='pomo'){
       T.round++;
-      if(T.round%T.every===0){gain=2;bonus=true;}
+      if(T.useLong && T.round%T.every===0){gain=2;bonus=true;next='longbreak';}
+      else next='break';
     }
     S.tokens+=gain;
     reveal={on:true,t:0};
     chime(bonus);
     bumpToken();
-    saveNow();
-    setTimeout(()=>showDone(gain,bonus),1250);
+    notifyDone(gain,bonus);
+    showTokenPopup(gain,bonus,doneMs);
+    // 요구사항 9 — 팝업이 떠 있는 동안에도 타이머는 멈추지 않는다
+    if(next) startPhase(next);
+    else {T.phase='idle';saveNow();}
   }else{
     // 휴식 끝
     chime(false);
+    notifyBreakDone();
     T.phase='idle';
     saveNow();
     showBreakDone();
   }
-  updateTimerUI();
+  updateTimerUI();updateLockUI();
+}
+
+/* 시스템 알림 (요구사항 8). 권한이 있을 때만 뜬다 — PWA 설치 시 잠금화면까지 간다 */
+function notifyDone(gain,bonus){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='granted')return;
+    new Notification('집중 완료 ✦',{
+      body:`가챠 토큰 +${gain}${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
+      tag:'sf-done',renotify:true
+    });
+  }catch(e){}
+}
+function notifyBreakDone(){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='granted')return;
+    new Notification('휴식 종료 ☾',{body:'다음 집중 세션을 시작할 시간입니다',tag:'sf-break',renotify:true});
+  }catch(e){}
+}
+function askNotifyPermission(){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='default')return;
+    Notification.requestPermission();
+  }catch(e){}
+}
+
+/* 잠금 상태를 UI에 반영 (요구사항 16) */
+function updateLockUI(){
+  // disabled로 막으면 클릭 이벤트가 아예 안 와서 안내 문구를 띄울 수 없다.
+  // 그래서 시각적으로만 잠그고, 실제 차단은 각 핸들러의 guard()가 한다.
+  document.body.classList.toggle('locked',isLocked());
 }
 
 function updateTimerUI(){
@@ -1354,13 +1784,20 @@ function updateTimerUI(){
     ? st.replace(/(\d+)회차/,'<b>$1</b>회차')
     : st;
 
-  const b=$('#btnStart');
-  if(T.phase==='idle') b.textContent='시작';
-  else if(T.running)   b.textContent='일시정지';
-  else                 b.textContent='이어서';
+  // 요구사항 16 — 집중 중에는 종료 버튼 하나만 남긴다
+  const b=$('#btnStart'), lock=isLocked();
+  b.classList.toggle('danger',lock);
+  b.classList.toggle('primary',!lock);
+  $('#btnReset').style.display=lock?'none':'';
+  if(lock)                  b.textContent='종료';
+  else if(T.phase==='idle') b.textContent='시작';
+  else if(T.running)        b.textContent='일시정지';
+  else                      b.textContent='이어서';
 
   const cnt=S.sys.slots.filter(s=>s.p).length;
-  const note=cnt>0
+  const note=lock
+    ? `집중 중 · 메뉴가 잠겨 있습니다<br>천체는 완료 시 다시 빛납니다`
+    : cnt>0
     ? `가장 바깥 행성이 <b>1바퀴</b> 돌면 완료<br>궤도 주기 = <b>${currentFocusMin()}분</b> · 행성 ${cnt}기`
     : `가챠에서 행성을 얻어<br>궤도에 배치해 보세요`;
   $('#tNote').innerHTML=note;
@@ -1601,15 +2038,7 @@ function renderGacha(){
           <div class="n">${own?b.n:'???'}</div>
           <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
         </div>`;}).join('')}</div>`;
-    $$('.dex',body).forEach(d=>{
-      const b=BY_ID[d.dataset.id];
-      const c=$('canvas',d);
-      if(c.dataset.lock){
-        const x=c.getContext('2d');
-        x.fillStyle='rgba(120,140,190,.28)';
-        x.beginPath();x.arc(60,60,34,0,TAU);x.fill();
-      }else paintThumb(c,b,bn);
-    });
+    paintDexCards(body,bn);
     return;
   }
 
@@ -1626,11 +2055,19 @@ function renderGacha(){
     </div>
     <div class="pityBar"><i style="width:${Math.min(100,P.p4/PITY4*100)}%"></i></div>
     <div class="pityTxt">${PITY4-P.p4}회 안에 ★4 이상 확정 · ★5 확정까지 ${Math.max(0,PITY5-P.p5)}회</div>
-    <div class="secLbl" style="margin-top:20px">이 배너에서 아직 얻지 못한 천체 · ${rem.length}종</div>
-    ${rem.length?`<div class="dexGrid">${rem.slice().sort((a,b)=>b.t-a.t).map(b=>
-        `<div class="dex locked"><canvas width="120" height="120" data-lock="1"></canvas>
-         <div class="n">???</div><div class="s s${b.t}">${'★'.repeat(b.t)}</div></div>`).join('')}</div>`
-      : `<div class="emptyMsg">이 배너의 모든 천체를 수집했습니다 ✦</div>`}
+    <div class="secLbl" style="margin-top:20px">이 배너의 천체 · 보유 ${S.owned[bn].length} / ${POOLS[bn].length}종</div>
+    <div class="dexGrid">${POOLS[bn].slice().sort((a,b)=>
+        (S.owned[bn].includes(b.id)?1:0)-(S.owned[bn].includes(a.id)?1:0) || b.t-a.t
+      ).map(b=>{
+        const own=S.owned[bn].includes(b.id);
+        const placed=own&&isPlaced(b.id);
+        return `<div class="dex ${own?'t'+b.t:'locked'}" ${own?`data-id="${b.id}" style="cursor:pointer"`:''}>
+          ${placed?'<div class="placed">배치됨</div>':''}
+          <canvas width="120" height="120" ${own?'':'data-lock="1"'}></canvas>
+          <div class="n">${own?b.n:'???'}</div>
+          <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
+        </div>`;}).join('')}</div>
+    ${rem.length?'':`<div class="emptyMsg" style="padding:18px 8px 0">이 배너의 모든 천체를 수집했습니다 ✦</div>`}
   `;
   // 배너 아트
   const ac=$('#bArt canvas'), r=$('#bArt').getBoundingClientRect();
@@ -1658,17 +2095,54 @@ function renderGacha(){
   scrim.addColorStop(.45,rgba(M.g1,.62));
   scrim.addColorStop(1,rgba(M.g1,0));
   x.fillStyle=scrim;x.fillRect(0,0,w*.72,h);
-  $$('canvas[data-lock]',body).forEach(c=>{
-    const g=c.getContext('2d');
-    g.fillStyle='rgba(120,140,190,.28)';g.beginPath();g.arc(60,60,34,0,TAU);g.fill();
+  paintDexCards(body,bn);
+}
+
+/** 도감/배너 카드의 캔버스를 채우고, 보유분은 상세 보기로 연결한다 */
+function paintDexCards(root,bn){
+  $$('.dex',root).forEach(d=>{
+    const c=$('canvas',d);
+    if(!c)return;
+    if(c.dataset.lock){
+      const g=c.getContext('2d');
+      g.clearRect(0,0,120,120);
+      g.fillStyle='rgba(120,140,190,.26)';g.beginPath();g.arc(60,60,34,0,TAU);g.fill();
+      g.fillStyle='rgba(140,160,210,.5)';
+      g.font='600 30px Pretendard,system-ui,sans-serif';
+      g.textAlign='center';g.textBaseline='middle';g.fillText('?',60,62);
+      return;
+    }
+    const b=BY_ID[d.dataset.id];
+    if(!b)return;
+    paintThumb(c,b,bn);
+    d.onclick=()=>showBodyDetail(b,bn);
   });
 }
+/** 천체 상세 (요구사항 13·14 — 상세 설명은 실제 천문 데이터 적용 시 확장) */
+function showBodyDetail(b,bn){
+  const kind=bn==='star'?'항성 · 동반성':bn==='planet'?'행성':'위성';
+  $('#dtName').textContent=b.n;
+  $('#dtKind').innerHTML=`<span class="s${b.t}">${'★'.repeat(b.t)}</span> · ${kind}`;
+  $('#dtBody').innerHTML=`
+    <div style="display:flex;justify-content:center;margin-bottom:18px">
+      <canvas id="dtCv" width="280" height="280" style="width:140px;height:140px"></canvas>
+    </div>
+    <p style="font-size:13px;line-height:1.8;color:var(--txt-2);margin:0 0 14px">${b.d}</p>
+    <div class="dtStats">
+      ${b.m!==undefined?`<div><b>${b.m}</b><span>질량 (태양질량)</span></div>`:''}
+      <div><b>${b.sz.toFixed(2)}</b><span>상대 크기</span></div>
+      <div><b>${isPlaced(b.id)?'배치됨':'보관함'}</b><span>상태</span></div>
+    </div>`;
+  paintThumb($('#dtCv'),b,bn);
+  open('mDetail');
+}
+
 $$('.tab').forEach(t=>t.onclick=()=>{
   $$('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
   curBanner=t.dataset.bn;renderGacha();
 });
 $('#btnDex').onclick=()=>{dexMode=!dexMode;$('#btnDex').textContent=dexMode?'배너 보기':'도감 보기';renderGacha();};
-$('#btnGacha').onclick=()=>{if(!S.created)return;dexMode=false;$('#btnDex').textContent='도감 보기';renderGacha();open('mGacha');};
+$('#btnGacha').onclick=()=>{if(!S.created||guard())return;dexMode=false;$('#btnDex').textContent='도감 보기';renderGacha();open('mGacha');};
 
 /* ==========================================================================
    9. 항성계 설정
@@ -1784,7 +2258,7 @@ function openPick(bn,cb){
   }
   open('mPick');
 }
-$('#btnSystem').onclick=()=>{if(!S.created)return;renderSystem();open('mSystem');};
+$('#btnSystem').onclick=()=>{if(!S.created||guard())return;renderSystem();open('mSystem');};
 $('#btnWipe').onclick=()=>{
   if(!confirm('모든 데이터(중심별·보관함·토큰·기록)를 삭제하고 처음부터 다시 시작할까요?'))return;
   if(!confirm('되돌릴 수 없습니다. 정말 초기화할까요?'))return;
@@ -1795,36 +2269,49 @@ $('#btnWipe').onclick=()=>{
    10. 세션 완료 화면
    ========================================================================== */
 function fmtH(ms){const m=Math.round(ms/60000);return m>=60?`${Math.floor(m/60)}시간 ${m%60}분`:`${m}분`;}
-function showDone(gain,bonus){
-  const T=S.timer;
-  $('#doneBody').innerHTML=`
-    <div class="em">✦</div>
-    <h3>${bonus?'긴 집중을 완주했습니다':'목표를 달성했습니다'}</h3>
-    <p>${esc(S.star.name)} 항성계가 한 바퀴 공전을 마쳤습니다.<br>천체들이 다시 빛을 되찾았어요.</p>
-    <div class="tokenGain">◈ 가챠 토큰 +${gain}${bonus?' <span style="font-size:11px;font-weight:600;opacity:.8">(보너스 포함)</span>':''}</div>
-    <div class="statLine">
-      <div class="statBox"><div class="v">${fmtH(T.total)}</div><div class="k">이번 세션</div></div>
-      <div class="statBox"><div class="v">${fmtH(S.stats.dayMs)}</div><div class="k">오늘 누적</div></div>
-      <div class="statBox"><div class="v">${S.stats.sessions}</div><div class="k">총 세션</div></div>
+
+/* 토큰 획득 팝업 (요구사항 9)
+   7초간 떠 있고, 확인을 누르지 않아도 자동으로 닫히며 토큰은 이미 지급되어 있다.
+   모달이 아니라 타이머 진행을 막지 않는다. */
+let _popRaf=0;
+const POP_MS=7000;
+function showTokenPopup(gain,bonus,doneMs){
+  const el=$('#tokenPop');
+  el.innerHTML=`
+    <div class="tpCard">
+      <div class="tpBar"><i></i></div>
+      <div class="tpTop">
+        <span class="tpIcon">✦</span>
+        <div>
+          <div class="tpTitle">${bonus?'긴 집중 완주':'목표 달성'}</div>
+          <div class="tpSub">${esc(S.star.name)} 항성계가 한 바퀴 공전을 마쳤습니다</div>
+        </div>
+      </div>
+      <div class="tpGain">◈ 가챠 토큰 <b>+${gain}</b>${bonus?'<span class="tpB">보너스</span>':''}</div>
+      <div class="tpStats">
+        <div><b>${fmtH(doneMs)}</b><span>이번 세션</span></div>
+        <div><b>${fmtH(S.stats.dayMs)}</b><span>오늘 누적</span></div>
+        <div><b>${S.stats.sessions}</b><span>총 세션</span></div>
+      </div>
+      <button class="tpOk" id="tpOk">확인</button>
+      <div class="tpAuto" id="tpAuto">7초 뒤 자동으로 보관됩니다</div>
     </div>`;
-  const foot=$('#doneFoot');
-  if(T.mode==='pomo'){
-    const isLong=T.round%T.every===0;
-    foot.innerHTML=`<div class="spacer"></div>
-      <button class="cbtn ghost" id="dSkip">건너뛰기</button>
-      <button class="cbtn primary" id="dNext">${isLong?'긴 휴식':'휴식'} 시작 (${isLong?T.long:T.brk}분)</button>`;
-    $('#dNext').onclick=()=>{close('mDone');startPhase(isLong?'longbreak':'break');};
-    $('#dSkip').onclick=()=>{close('mDone');S.timer.phase='idle';save();updateTimerUI();};
-  }else{
-    foot.innerHTML=`<div class="spacer"></div>
-      <button class="cbtn" id="dGacha">◈ 가챠 열기</button>
-      <button class="cbtn primary" id="dAgain">한 번 더 집중</button>`;
-    $('#dGacha').onclick=()=>{close('mDone');dexMode=false;renderGacha();open('mGacha');};
-    $('#dAgain').onclick=()=>{close('mDone');startPhase('focus');};
-    S.timer.phase='idle';
-  }
-  updateTimerUI();
-  open('mDone');
+  el.classList.add('on');
+  const bar=$('.tpBar i',el), auto=$('#tpAuto');
+  const t0=performance.now();
+  cancelAnimationFrame(_popRaf);
+  (function tick(){
+    const p=clamp((performance.now()-t0)/POP_MS,0,1);
+    bar.style.width=(100-p*100).toFixed(1)+'%';
+    auto.textContent=`${Math.ceil((1-p)*POP_MS/1000)}초 뒤 자동으로 보관됩니다`;
+    if(p<1)_popRaf=requestAnimationFrame(tick);
+    else hideTokenPopup();
+  })();
+  $('#tpOk').onclick=hideTokenPopup;
+}
+function hideTokenPopup(){
+  cancelAnimationFrame(_popRaf);
+  $('#tokenPop').classList.remove('on');
 }
 function showBreakDone(){
   const T=S.timer;
@@ -1833,9 +2320,9 @@ function showBreakDone(){
     <h3>휴식이 끝났습니다</h3>
     <p>다음 집중 세션을 시작할 준비가 되었어요.<br>${T.round}회차까지 완료했습니다.</p>`;
   $('#doneFoot').innerHTML=`<div class="spacer"></div>
-    <button class="cbtn ghost" data-close="mDone">나중에</button>
+    <button class="cbtn ghost" id="dLater">나중에</button>
     <button class="cbtn primary" id="dGo">집중 ${T.round+1}회차 시작</button>`;
-  $('[data-close]',$('#doneFoot')).onclick=()=>close('mDone');
+  $('#dLater').onclick=()=>close('mDone');
   $('#dGo').onclick=()=>{close('mDone');startPhase('focus');};
   open('mDone');
 }
@@ -1849,11 +2336,12 @@ function syncPresets(){
   $$('#presets .pre').forEach(p=>p.classList.toggle('on',+p.dataset.m===S.timer.count));
 }
 $$('#presets .pre').forEach(p=>p.onclick=()=>{
-  if(S.timer.phase!=='idle'){toast('진행 중에는 시간을 바꿀 수 없습니다');return;}
+  if(guard()||S.timer.phase!=='idle'){if(!isLocked())warn('진행 중에는 시간을 바꿀 수 없습니다');return;}
   S.timer.count=+p.dataset.m;$('#inCount').value=S.timer.count;syncPresets();save();updateTimerUI();
 });
 function setMode(m){
-  if(S.timer.phase!=='idle'){toast('진행 중에는 모드를 바꿀 수 없습니다');return;}
+  if(guard())return;
+  if(S.timer.phase!=='idle'){warn('진행 중에는 모드를 바꿀 수 없습니다');return;}
   S.timer.mode=m;
   $('#mdCount').classList.toggle('on',m==='count');
   $('#mdPomo').classList.toggle('on',m==='pomo');
@@ -1864,24 +2352,47 @@ function setMode(m){
 }
 $('#mdCount').onclick=()=>setMode('count');
 $('#mdPomo').onclick=()=>setMode('pomo');
+$('#mdLong').onclick=()=>{
+  if(guard())return;
+  if(S.timer.phase!=='idle'){warn('진행 중에는 변경할 수 없습니다');return;}
+  S.timer.useLong=!S.timer.useLong;syncLongUI();save();updateTimerUI();
+};
+function syncLongUI(){
+  $('#mdLong').classList.toggle('on',S.timer.useLong);
+  $('#longRow').style.display=S.timer.useLong?'':'none';
+}
 
-['inCount','inFocus','inBreak','inLong','inEvery'].forEach(id=>{
-  $('#'+id).addEventListener('change',()=>{readCfg();syncPresets();save();updateTimerUI();});
-  $('#'+id).addEventListener('focus',e=>{
-    if(S.timer.phase!=='idle'){e.target.blur();toast('진행 중에는 시간을 바꿀 수 없습니다');}
+Object.keys(LIMITS).forEach(k=>{
+  const el=$(LIMITS[k].el);
+  el.addEventListener('change',()=>{
+    if(guard()){el.value=S.timer[k];return;}
+    if(S.timer.phase!=='idle'){el.value=S.timer[k];warn('진행 중에는 시간을 바꿀 수 없습니다');return;}
+    validateField(k);syncPresets();save();updateTimerUI();
+  });
+  el.addEventListener('focus',e=>{
+    if(guard()||S.timer.phase!=='idle'){e.target.blur();if(!isLocked())warn('진행 중에는 시간을 바꿀 수 없습니다');}
   });
 });
 
 $('#btnStart').onclick=()=>{
   const T=S.timer;
+  if(isLocked()){                       // 요구사항 16 — 집중 중에는 종료만 가능
+    if(confirm('집중 세션을 종료할까요? 토큰은 지급되지 않습니다.')) resetTimer();
+    return;
+  }
   if(T.phase==='idle'){
     if(!S.created)return;
+    askNotifyPermission();
     startPhase('focus');
   }
   else if(T.running) pause();
   else resume();
 };
 $('#btnReset').onclick=()=>{
+  if(isLocked()){
+    if(confirm('집중 세션을 종료할까요? 토큰은 지급되지 않습니다.')) resetTimer();
+    return;
+  }
   if(S.timer.phase!=='idle'&&!confirm('진행 중인 세션을 초기화할까요? 토큰은 지급되지 않습니다.'))return;
   resetTimer();
 };
@@ -1893,6 +2404,24 @@ $('#btnSound').onclick=()=>{
   S.sound=!S.sound;$('#btnSound').classList.toggle('off',!S.sound);
   save();toast(S.sound?'완료 사운드 켜짐':'완료 사운드 꺼짐');
 };
+
+/* 시점 조작 */
+function updateViewUI(){
+  $('#vbFace').classList.toggle('on',VIEW.tiltTo<0.30);
+  $('#vbEdge').classList.toggle('on',VIEW.tiltTo>1.25);
+  const chip=$('#followChip');
+  if(VIEW.follow){
+    const g=geom(), o=sceneBodies(g).find(b=>b.key===VIEW.follow);
+    chip.classList.toggle('on',!!o);
+    if(o) $('#followName').textContent='추적: '+o.name;
+  }else chip.classList.remove('on');
+}
+$('#vbFace').onclick=()=>setTilt(VIEW.tiltTo<0.30?TILT_DEFAULT:TILT_FACE);
+$('#vbEdge').onclick=()=>setTilt(VIEW.tiltTo>1.25?TILT_DEFAULT:TILT_EDGE);
+$('#vbIn').onclick=()=>zoomBy(1.28);
+$('#vbOut').onclick=()=>zoomBy(1/1.28);
+$('#vbFit').onclick=resetView;
+$('#followOff').onclick=()=>followBody(null);
 
 /* 시계 */
 const DOW=['일','월','화','수','목','금','토'];
@@ -1926,12 +2455,14 @@ function boot(){
   $('#mdPomo').classList.toggle('on',T.mode==='pomo');
   $('#cfgCount').style.display=T.mode==='count'?'':'none';
   $('#cfgPomo').style.display=T.mode==='pomo'?'':'none';
-  syncPresets();
+  syncPresets();syncLongUI();updateLockUI();
   $('#timerPanel').classList.toggle('mini',S.mini);
   $('#btnMini').textContent=S.mini?'▢':'—';
   $('#btnSound').classList.toggle('off',!S.sound);
 
   paintTokens();
+  VIEW.zoom=VIEW.zoomTo=fitZoom();
+  updateViewUI();
 
   // 재접속 시 만료된 세션 처리
   if(T.running){
