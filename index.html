@@ -206,7 +206,10 @@ body.admin #tokenCount{color:var(--gold)}
 
 /* 다이얼 */
 .dial{position:relative;width:100%;height:132px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
-.dial svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+/* rotate(-90deg) 때문에 히트 영역이 .dial 밖으로 삐져나와 위쪽 입력창을 덮는다.
+   장식용이므로 클릭을 통과시킨다. */
+.dial svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
+.dial .center{pointer-events:none}
 .dial .center{position:relative;text-align:center;z-index:1}
 .dial .big{font-size:38px;font-weight:200;letter-spacing:.04em;font-variant-numeric:tabular-nums;line-height:1}
 .dial .st{font-size:11px;color:var(--txt-3);margin-top:6px;letter-spacing:.06em}
@@ -225,6 +228,10 @@ body.admin #tokenCount{color:var(--gold)}
   animation:fade .22s ease;
 }
 .mask.on{display:flex}
+/* 확인 다이얼로그는 다른 모달 위에 겹쳐 뜨므로 배경을 한 번 더 깔지 않고
+   더 위에 올린다. 그렇지 않으면 어두운 막이 두 겹이 되어 지저분해진다. */
+#mAsk{z-index:88;background:rgba(2,3,8,.55)}
+#mAsk .modal{box-shadow:0 34px 100px rgba(0,0,0,.85)}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{
   width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;
@@ -667,9 +674,10 @@ body.locked #timerPanel input{cursor:not-allowed}
       <div class="pullStage" id="pullStage"></div>
     </div>
     <div class="mFoot">
-      <div class="spacer" style="font-size:11.5px;color:var(--txt-3)">보관함에 추가되었습니다</div>
+      <div class="spacer" style="font-size:11.5px;color:var(--txt-3)" id="pullFootMsg">보관함에 추가되었습니다</div>
+      <button class="cbtn" id="btnSkip" style="display:none">연출 건너뛰기 ▸</button>
       <button class="cbtn" id="btnPullAgain">한 번 더</button>
-      <button class="cbtn primary" data-close="mPull">확인</button>
+      <button class="cbtn primary" id="btnPullClose" data-close="mPull">확인</button>
     </div>
   </div>
 </div>
@@ -1263,7 +1271,7 @@ const twinkleStars=[];
 /* ---- 카메라 ----
    tilt 0 = face-on(궤도면을 수직으로 내려다봄), PI/2 = edge-on(궤도면을 옆에서 봄).
    ox/oy 는 투영 좌표계에서의 추적 오프셋(단위: 기준 장반경). */
-const VIEW={tilt:.90,tiltTo:.90, zoom:1,zoomTo:1, ox:0,oy:0,oxTo:0,oyTo:0, follow:null};
+const VIEW={tilt:.90,tiltTo:.90, az:0,azTo:0, zoom:1,zoomTo:1, ox:0,oy:0,oxTo:0,oyTo:0, follow:null};
 const TILT_FACE=0.06, TILT_EDGE=1.48, TILT_DEFAULT=0.90;
 const ZOOM_MIN=0.45, ZOOM_MAX=5;
 
@@ -1321,10 +1329,13 @@ function orbitPos(el,revs,scale){
   return {x:(x*cn-y*sn)*s, y:(x*sn+y*cn)*s, z:z*s};
 }
 
-/** 3D 월드 → 투영 좌표(단위계). depth가 클수록 카메라에 가깝다 */
+/** 3D 월드 → 투영 좌표(단위계). depth가 클수록 카메라에 가깝다.
+    az(방위각)로 z축 둘레를 먼저 돌린 뒤 tilt로 눕힌다. */
 function project(p){
+  const ca=Math.cos(VIEW.az), sa=Math.sin(VIEW.az);
+  const x=p.x*ca-p.y*sa, y=p.x*sa+p.y*ca;
   const c=Math.cos(VIEW.tilt), s=Math.sin(VIEW.tilt);
-  return {sx:p.x, sy:p.y*c-p.z*s, depth:p.y*s+p.z*c};
+  return {sx:x, sy:y*c-p.z*s, depth:y*s+p.z*c};
 }
 function toScreen(p,g){
   const pr=project(p), k=g.R*VIEW.zoom;
@@ -1369,24 +1380,45 @@ function starMasses(){
   const c1=S.sys.comp[1]?BY_ID[S.sys.comp[1]]:null;
   return {m0, c0, c1, m1:c0?(c0.m||1):0, m2:c1?(c1.m||1):0};
 }
+const SEP_IN=0.165, SEP_OUT=0.30, ZK_IN=0.06, ZK_OUT=0.09;
 function starPositions(){
   const {m0,c0,c1,m1,m2}=starMasses();
-  const out={primary:{x:0,y:0,z:0}, comp:[null,null], sepIn:0.165, sepOut:0.30};
+  const out={primary:{x:0,y:0,z:0}, comp:[null,null],
+             sepIn:SEP_IN, sepOut:SEP_OUT,
+             innerCM:{x:0,y:0,z:0},          // 안쪽 쌍성의 질량중심 (궤도 그리기용)
+             rPrimary:0, rComp0:0, rComp1:0, rInner:0};
   if(c0){
-    const a=out.sepIn, ang=(phase/0.22)*TAU+0.7, tot=m0+m1;
-    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*0.06};
+    const a=SEP_IN, ang=(phase/0.22)*TAU+0.7, tot=m0+m1;
+    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*ZK_IN};
+    out.rPrimary=a*m1/tot; out.rComp0=a*m0/tot;
     out.primary={x:-p.x*m1/tot, y:-p.y*m1/tot, z:-p.z*m1/tot};
     out.comp[0]={x:p.x*m0/tot, y:p.y*m0/tot, z:p.z*m0/tot};
   }
   if(c1){
-    const a=out.sepOut, ang=(phase/0.62)*TAU+2.4, tot=m0+m1+m2, inner=m0+m1;
-    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*0.09};
+    const a=SEP_OUT, ang=(phase/0.62)*TAU+2.4, tot=m0+m1+m2, inner=m0+m1;
+    const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*ZK_OUT};
     const sh={x:-p.x*m2/tot, y:-p.y*m2/tot, z:-p.z*m2/tot};
+    out.rInner=a*m2/tot; out.rComp1=a*inner/tot;
+    out.innerCM=sh;
     out.primary.x+=sh.x; out.primary.y+=sh.y; out.primary.z+=sh.z;
     if(out.comp[0]){out.comp[0].x+=sh.x; out.comp[0].y+=sh.y; out.comp[0].z+=sh.z;}
     out.comp[1]={x:p.x*inner/tot, y:p.y*inner/tot, z:p.z*inner/tot};
   }
   return out;
+}
+/** 질량중심 궤도 원 하나를 그린다. center 를 중심으로 반경 r, 경사 zk */
+function strokeStarRing(g,center,r,zk,alpha){
+  if(r<=0.0005)return;
+  ctx.globalAlpha=alpha;
+  ctx.beginPath();
+  for(let k=0;k<=84;k++){
+    const a=k/84*TAU;
+    const s=toScreen({x:center.x+Math.cos(a)*r, y:center.y+Math.sin(a)*r,
+                      z:center.z+Math.sin(a)*r*zk},g);
+    k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
+  }
+  ctx.stroke();
+  ctx.globalAlpha=1;
 }
 
 /* ---- 화면상의 모든 천체 (렌더 + 히트테스트 공용) ---- */
@@ -1475,29 +1507,19 @@ function render(t){
     strokeOrbit(orbitEl(i),g,0,1,has?110:64);
   }
   ctx.setLineDash([]);
-  // 동반성 궤도(질량중심 기준 각자의 타원)
+  // 동반성 궤도 — 각 별은 자기가 속한 질량중심 둘레를 돈다.
+  // 안쪽 쌍성은 움직이는 내부 질량중심을, 바깥 동반성은 계 전체 질량중심을 돈다.
   const sp=starPositions();
-  if(sp.comp[0]||sp.comp[1]){
-    ctx.strokeStyle='rgba(205,175,255,.16)';
-    const {m0,m1,m2}=starMasses();
-    if(sp.comp[0]){
-      const tot=m0+m1;
-      ctx.beginPath();
-      for(let k=0;k<=72;k++){
-        const a2=k/72*TAU, R1=sp.sepIn*m0/tot;
-        const s=toScreen({x:Math.cos(a2)*R1,y:Math.sin(a2)*R1,z:Math.sin(a2)*R1*0.06},g);
-        k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
-      }
-      ctx.stroke();
-      ctx.strokeStyle='rgba(205,175,255,.09)';
-      ctx.beginPath();
-      for(let k=0;k<=72;k++){
-        const a2=k/72*TAU, R0=sp.sepIn*m1/tot;
-        const s=toScreen({x:-Math.cos(a2)*R0,y:-Math.sin(a2)*R0,z:-Math.sin(a2)*R0*0.06},g);
-        k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
-      }
-      ctx.stroke();
-    }
+  const ORG={x:0,y:0,z:0};
+  // strokeStyle 에 알파를 넣으면 globalAlpha 와 곱해져 두 번 흐려진다. 불투명 색을 쓴다.
+  ctx.strokeStyle='rgb(208,180,255)';
+  if(sp.comp[0]){
+    strokeStarRing(g,sp.innerCM,sp.rComp0,ZK_IN,0.46);   // 동반성 1
+    strokeStarRing(g,sp.innerCM,sp.rPrimary,ZK_IN,0.26); // 중심별이 그리는 작은 원
+  }
+  if(sp.comp[1]){
+    strokeStarRing(g,ORG,sp.rComp1,ZK_OUT,0.46);         // 동반성 2
+    strokeStarRing(g,ORG,sp.rInner,ZK_OUT,0.20);         // 안쪽 쌍성 질량중심의 궤도
   }
   ctx.restore();
 
@@ -1609,26 +1631,37 @@ function setTilt(v){
 }
 function zoomBy(f){VIEW.zoomTo=clamp(VIEW.zoomTo*f,ZOOM_MIN,ZOOM_MAX);}
 function resetView(){
-  VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom();updateViewUI();
+  VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.azTo=0;VIEW.zoomTo=fitZoom();updateViewUI();
 }
 
+/* 드래그로 시점 회전 (요구사항 5)
+   가로 = 방위각, 세로 = 경사각. 회전 중심은 질량중심(또는 추적 중인 천체)이다. */
 let _drag=null;
 cv.addEventListener('pointerdown',e=>{
-  _drag={x:e.clientX,y:e.clientY,t:performance.now(),moved:false};
+  _drag={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now(),moved:false};
+  cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);
 });
 cv.addEventListener('pointermove',e=>{
   if(!_drag)return;
   if(Math.hypot(e.clientX-_drag.x,e.clientY-_drag.y)>6)_drag.moved=true;
+  if(!_drag.moved)return;
+  const dx=e.clientX-_drag.lx, dy=e.clientY-_drag.ly;
+  _drag.lx=e.clientX;_drag.ly=e.clientY;
+  VIEW.azTo  += dx*0.008;
+  VIEW.tiltTo = clamp(VIEW.tiltTo+dy*0.006, 0, 1.53);
+  VIEW.az=VIEW.azTo;VIEW.tilt=VIEW.tiltTo;      // 드래그 중에는 즉시 반영
+  updateViewUI();
 });
-cv.addEventListener('pointerup',e=>{
+function endDrag(e){
   if(!_drag)return;
   const quick=performance.now()-_drag.t<500 && !_drag.moved;
   _drag=null;
   if(!quick||!S.created)return;
   const hit=pickAt(e.clientX,e.clientY);
-  if(hit) followBody(hit.key==='star'?null:hit.key);
-  else followBody(null);
-});
+  followBody(hit&&hit.key!=='star'?hit.key:null);
+}
+cv.addEventListener('pointerup',endDrag);
+cv.addEventListener('pointercancel',()=>{_drag=null;});
 cv.addEventListener('wheel',e=>{
   e.preventDefault();
   zoomBy(e.deltaY>0?0.90:1.11);
@@ -1673,6 +1706,7 @@ function frame(now){
   }else{VIEW.oxTo=0;VIEW.oyTo=0;}
   // 부드러운 보간
   const k=1-Math.pow(0.0016,dt);
+  VIEW.az  +=(VIEW.azTo -VIEW.az )*k;
   VIEW.tilt+=(VIEW.tiltTo-VIEW.tilt)*k;
   VIEW.zoom+=(VIEW.zoomTo-VIEW.zoom)*k;
   VIEW.ox  +=(VIEW.oxTo -VIEW.ox )*k;
@@ -2036,6 +2070,7 @@ function rollTier(bn){
   return 3;
 }
 function pull(){
+  if(pulling){warn('연출이 끝난 뒤에 뽑을 수 있습니다');return;}   // 연타 방지 (요구사항 6)
   const bn=curBanner;
   const rem=remainOf(bn);
   if(!rem.length){toast('이 배너의 도감을 모두 완성했습니다');return;}
@@ -2058,8 +2093,27 @@ function pull(){
   showPull(got,bn);
 }
 
+/* 가챠 연출 상태. pulling=true 인 동안 뽑기 버튼이 잠기고 스킵만 가능하다. */
+let pulling=false, _warpRaf=0, _skipTo=null;
+function setPulling(v){
+  pulling=v;
+  $('#btnPull').disabled=v||(!isAdmin()&&S.tokens<1);
+  $('#btnPullAgain').disabled=v||(!isAdmin()&&S.tokens<1)||!remainOf(curBanner).length;
+  $('#btnSkip').style.display=v?'':'none';
+  $('#pullFootMsg').style.display=v?'none':'';
+  $('#btnPullClose').disabled=v;
+}
+function skipPull(){
+  if(!pulling||!_skipTo)return;
+  cancelAnimationFrame(_warpRaf);
+  const f=_skipTo;_skipTo=null;
+  f();
+}
+
 function showPull(b,bn){
   open('mPull');
+  setPulling(true);
+  _skipTo=()=>{setPulling(false);revealCard(b,bn);};
   const st=$('#pullStage');
   st.innerHTML='<div class="warpFx"><canvas id="warpCv"></canvas></div>';
   const wc=$('#warpCv');
@@ -2070,9 +2124,9 @@ function showPull(b,bn){
   const lines=[];
   for(let i=0;i<80;i++)lines.push({a:Math.random()*TAU,d:Math.random()*.4,v:.8+Math.random()*2.4,l:.05+Math.random()*.2});
   const tint=TIER_COLOR[b.t];
-  let k=0;
   const dur=b.t===5?1500:b.t===4?1100:750;
   const t0=performance.now();
+  cancelAnimationFrame(_warpRaf);      // 이전 연출이 남아 있으면 끊는다
   (function warp(){
     const p=(performance.now()-t0)/dur;
     wx.clearRect(0,0,WW,330);
@@ -2095,8 +2149,8 @@ function showPull(b,bn){
     fl.addColorStop(.4,rgba(tint,clamp(p*.5,0,.6)));
     fl.addColorStop(1,rgba(tint,0));
     wx.fillStyle=fl;wx.beginPath();wx.arc(cx,cy,40+p*p*300,0,TAU);wx.fill();
-    if(p<1)k=requestAnimationFrame(warp);
-    else revealCard(b,bn);
+    if(p<1)_warpRaf=requestAnimationFrame(warp);
+    else if(_skipTo){const f=_skipTo;_skipTo=null;f();}
   })();
 }
 function revealCard(b,bn){
@@ -2114,9 +2168,14 @@ function revealCard(b,bn){
     </div>`;
   const c=$('canvas',st);
   paintThumb(c,b,bn);
-  $('#btnPullAgain').disabled=(!isAdmin()&&S.tokens<1)||!remainOf(bn).length;
+  setPulling(false);
 }
-$('#btnPullAgain').onclick=()=>{if(!isAdmin()&&S.tokens<1){warn('토큰이 부족합니다');return;}pull();};
+$('#btnPullAgain').onclick=()=>{
+  if(pulling)return;
+  if(!isAdmin()&&S.tokens<1){warn('토큰이 부족합니다');return;}
+  pull();
+};
+$('#btnSkip').onclick=skipPull;
 $('#btnPull').onclick=pull;
 
 /** 카드/도감용 썸네일 */
@@ -2373,9 +2432,19 @@ function openPick(bn,cb){
 }
 $('#btnSystem').onclick=()=>{if(!S.created||guard())return;renderSystem();open('mSystem');};
 $('#btnWipe').onclick=async()=>{
-  if(!await ask('전체 초기화할까요?','중심별·보관함·토큰·기록이 모두 삭제되고 처음부터 다시 시작합니다.','계속',true))return;
+  const cloud=AUTH?' 클라우드 저장본도 함께 비워집니다.':'';
+  if(!await ask('전체 초기화할까요?','중심별·보관함·토큰·기록이 모두 삭제되고 처음부터 다시 시작합니다.'+cloud,'계속',true))return;
   if(!await ask('정말 초기화할까요?','되돌릴 수 없습니다.','초기화',true))return;
-  lsDel(lsKey());location.reload();
+  // 로컬만 지우면 로그인 상태에서는 부팅 시 클라우드가 되살려 초기화가 안 된 것처럼 보인다.
+  // 빈 상태로 만든 뒤 저장해서 클라우드까지 덮어쓴다.
+  close('mSystem');
+  S=freshState();
+  lsDel(lsKey());
+  saveNow();
+  if(AUTH) cloudPush(true);
+  resetView();
+  afterAccountSwitch();
+  toast('초기화했습니다');
 };
 
 /* ==========================================================================
@@ -2665,7 +2734,10 @@ function afterAccountSwitch(){
   $('#cfgPomo').style.display=S.timer.mode==='pomo'?'':'none';
   VIEW.follow=null;VIEW.zoom=VIEW.zoomTo=fitZoom();updateViewUI();
   paintAccount();renderAccount();
-  if(!S.created){open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);}
+  if(!S.created){
+    close('mAccount');close('mSystem');close('mGacha');   // 인트로가 다른 창과 겹치지 않게
+    open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);
+  }
   else close('mIntro');
 }
 
