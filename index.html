@@ -117,6 +117,13 @@ button,input,select{font-family:inherit;color:inherit}
 }
 body.admin #tokenChip{border-color:rgba(255,198,92,.42)}
 body.admin #tokenCount{color:var(--gold)}
+.admReset{margin-top:10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,255,255,.02)}
+.admLbl{font-size:11px;font-weight:700;color:var(--txt-2);margin-bottom:8px;letter-spacing:.03em}
+.admLbl span{font-weight:400;color:var(--txt-3);margin-left:6px;letter-spacing:0}
+.admGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.admGrid .mini{text-align:center;padding:7px 4px;line-height:1.35}
+.admGrid .mini b{display:block;font-size:10px;font-weight:600;opacity:.7;font-variant-numeric:tabular-nums}
 
 /* 시점 조작 바 */
 .viewBar{display:flex;align-items:center;gap:3px;padding:5px 6px}
@@ -2692,6 +2699,33 @@ function doLogout(silent){
   if(!silent) toast('로그아웃했습니다 · 게스트 항성계로 돌아갑니다');
 }
 
+/* 관리자: 천체 종류별 도감 초기화 (가챠 재테스트용)
+   보유 목록만 지우면 배치된 천체가 유령으로 남으므로 궤도에서도 함께 뺀다. */
+function resetOneDex(bn){
+  S.owned[bn]=[];
+  S.pity[bn]={p4:0,p5:0};
+  if(bn==='star')        S.sys.comp=[null,null];
+  else if(bn==='planet') S.sys.slots.forEach(sl=>{sl.p=null;sl.m=[null,null];});
+  else                   S.sys.slots.forEach(sl=>{sl.m=[null,null];});
+}
+async function doAdminReset(bn){
+  const label={star:'항성',planet:'행성',moon:'위성',all:'전체'}[bn];
+  const list=bn==='all'?['star','planet','moon']:[bn];
+  const n=list.reduce((a,k)=>a+S.owned[k].length,0);
+  if(!n){toast(`초기화할 ${label} 천체가 없습니다`);return;}
+  const extra=bn==='planet'?'\n행성에 붙어 있던 위성은 보관함으로 돌아갑니다.':'';
+  if(!await ask(`${label} 도감을 초기화할까요?`,
+      `보유한 ${label} 천체 ${n}종이 모두 사라지고 궤도 배치도 해제됩니다. 되돌릴 수 없습니다.${extra}`,
+      '초기화',true)) return;
+  list.forEach(resetOneDex);
+  saveNow();
+  syncAdminUI();updateTimerUI();renderAccount();
+  VIEW.follow=null;VIEW.zoomTo=fitZoom();updateViewUI();
+  if($('#mGacha').classList.contains('on'))renderGacha();
+  if($('#mSystem').classList.contains('on'))renderSystem();
+  toast(`${label} 도감을 초기화했습니다 · ${n}종 삭제`);
+}
+
 function paintAccount(){
   const lbl=$('#accLabel'), ico=$('#accIcon');
   if(!cloudReady()){lbl.textContent='게스트';ico.textContent='○';ico.className='';return;}
@@ -2743,7 +2777,19 @@ function renderAccount(){
       <div class="info"><div class="n">${esc(AUTH.id)}${isAdmin()?'<span class="admBadge">ADMIN</span>':''}</div>
         <div class="d st-${cloudState}">${stTxt}</div></div>
     </div>
-    ${isAdmin()?`<div class="admNote">관리자 모드 · 가챠 토큰 무제한 · 집중 시간 1분부터 설정 가능</div>`:''}
+    ${isAdmin()?`
+    <div class="admNote">관리자 모드 · 가챠 토큰 무제한 · 집중 시간 1분부터 설정 가능</div>
+    <div class="admReset">
+      <div class="admLbl">도감 초기화 <span>가챠 재추첨 테스트용</span></div>
+      <div class="admGrid">
+        ${['star','planet','moon'].map(k=>`
+          <button class="mini danger" data-rst="${k}">
+            ${{star:'항성',planet:'행성',moon:'위성'}[k]}
+            <b>${S.owned[k].length}/${POOLS[k].length}</b>
+          </button>`).join('')}
+      </div>
+      <button class="mini danger" data-rst="all" style="width:100%;margin-top:7px">전체 초기화</button>
+    </div>`:''}
     <div class="btnRow" style="margin-top:14px">
       <button class="cbtn" id="acSync">지금 동기화</button>
       <button class="cbtn" id="acPull">클라우드에서 불러오기</button>
@@ -2768,6 +2814,7 @@ function renderAccount(){
     if(await ask('로그아웃할까요?','클라우드 저장본은 그대로 남아 있어 다시 로그인하면 이어서 할 수 있습니다.','로그아웃',true))
       doLogout();
   };
+  $$('[data-rst]',body).forEach(b=>b.onclick=()=>doAdminReset(b.dataset.rst));
   $('#acPin2').onclick=()=>{
     const b=$('#pinBox');b.style.display=b.style.display==='none'?'':'none';
     if(b.style.display==='')$('#pinOld').focus();
