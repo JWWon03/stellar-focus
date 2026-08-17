@@ -105,6 +105,18 @@ button,input,select{font-family:inherit;color:inherit}
 #accIcon.st-sync{color:var(--acc)}
 #accIcon.st-err{color:var(--warn)}
 .st-ok{color:var(--ok)} .st-sync{color:var(--acc)} .st-err{color:var(--warn)}
+.admBadge{
+  font-size:9px;font-weight:800;letter-spacing:.12em;margin-left:8px;padding:2px 7px;
+  border-radius:20px;background:rgba(255,198,92,.2);color:var(--gold);
+  border:1px solid rgba(255,198,92,.4);vertical-align:middle
+}
+.admNote{
+  margin-top:10px;padding:9px 12px;border-radius:11px;font-size:11.5px;line-height:1.6;
+  background:linear-gradient(140deg,rgba(255,198,92,.13),rgba(255,150,60,.05));
+  border:1px solid rgba(255,198,92,.3);color:var(--gold)
+}
+body.admin #tokenChip{border-color:rgba(255,198,92,.42)}
+body.admin #tokenCount{color:var(--gold)}
 
 /* 시점 조작 바 */
 .viewBar{display:flex;align-items:center;gap:3px;padding:5px 6px}
@@ -537,7 +549,7 @@ body.locked #timerPanel input{cursor:not-allowed}
         <div class="setGrid" id="presets"></div>
         <div class="fieldRow">
           <div class="field">
-            <label>집중 시간 (분, 최소 10)</label>
+            <label id="lblCount">집중 시간 (분, 최소 10)</label>
             <input type="number" id="inCount" min="10" max="300" step="1" value="25" inputmode="numeric">
           </div>
         </div>
@@ -545,7 +557,7 @@ body.locked #timerPanel input{cursor:not-allowed}
 
       <div id="cfgPomo" style="display:none">
         <div class="fieldRow">
-          <div class="field"><label>집중 (최소 10)</label><input type="number" id="inFocus" min="10" max="180" step="1" value="25" inputmode="numeric"></div>
+          <div class="field"><label id="lblFocus">집중 (최소 10)</label><input type="number" id="inFocus" min="10" max="180" step="1" value="25" inputmode="numeric"></div>
           <div class="field"><label>휴식</label><input type="number" id="inBreak" min="1" max="60" step="1" value="5" inputmode="numeric"></div>
         </div>
         <div class="chk sm on" id="mdLong"><span class="box">✓</span>긴 휴식 사용</div>
@@ -685,6 +697,18 @@ body.locked #timerPanel input{cursor:not-allowed}
   </div>
 </div>
 
+<!-- ============ 모달: 확인 다이얼로그 ============ -->
+<div class="mask" id="mAsk">
+  <div class="modal" style="max-width:380px">
+    <div class="mHead"><div style="flex:1"><h2 id="askTitle">확인</h2><p id="askMsg"></p></div></div>
+    <div class="mFoot">
+      <div class="spacer"></div>
+      <button class="cbtn" id="askNo">취소</button>
+      <button class="cbtn primary" id="askYes">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 모달: 계정 ============ -->
 <div class="mask" id="mAccount">
   <div class="modal" style="max-width:430px">
@@ -771,6 +795,12 @@ function mmss(ms){ms=Math.max(0,ms);const s=Math.round(ms/1000);return pad(Math.
 
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.remove('warn');t.classList.add('on');
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2100);}
+
+/* localStorage 는 시크릿 모드나 저장소 차단 환경에서 접근만 해도 예외를 던진다.
+   앱이 죽지 않도록 항상 이 래퍼로만 접근한다. */
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 
 /* ==========================================================================
    1. 천체 데이터 풀  (가챠 3종 · 중복 없음)
@@ -863,6 +893,11 @@ const CLOUD={
 };
 const cloudReady=()=>!!(CLOUD.url&&CLOUD.key);
 
+/* 관리자 계정: 토큰 무제한 + 타이머 최소 1분.
+   클라이언트 판정이라 진짜 권한 통제가 아니라 테스트용 편의 기능이다. */
+const ADMIN_IDS=['__selftest__'];
+const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
+
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
 let AUTH=null;                                   // {id, token} | null
@@ -896,7 +931,7 @@ let S=freshState();
 
 function load(raw0){
   try{
-    const raw=raw0!==undefined?raw0:localStorage.getItem(lsKey());
+    const raw=raw0!==undefined?raw0:lsGet(lsKey());
     if(!raw) {S=freshState();return;}
     const o=typeof raw==='string'?JSON.parse(raw):raw;
     S=Object.assign(freshState(),o);
@@ -929,7 +964,7 @@ function load(raw0){
 }
 let saveT=0;
 function writeLocal(){
-  try{localStorage.setItem(lsKey(),JSON.stringify(S));}catch(e){}
+  lsSet(lsKey(),JSON.stringify(S));
   if(AUTH) cloudPush();
 }
 function save(){clearTimeout(saveT);saveT=setTimeout(writeLocal,180);}
@@ -1663,25 +1698,39 @@ const LIMITS={
   long :{el:'#inLong', min:5, max:90, label:'긴 휴식',  unit:'분'},
   every:{el:'#inEvery',min:2, max:10, label:'긴 휴식 주기',unit:'회'}
 };
+/** 관리자는 집중 시간을 1분부터 넣을 수 있다 */
+function limMin(k){
+  return (isAdmin()&&(k==='count'||k==='focus'))?1:LIMITS[k].min;
+}
 /** 자연수만 허용. 어기면 경고하고 직전 값으로 되돌린다 */
 function validateField(key){
-  const L=LIMITS[key], el=$(L.el), raw=(el.value||'').trim();
+  const L=LIMITS[key], el=$(L.el), raw=(el.value||'').trim(), mn=limMin(key);
   if(!/^\d+$/.test(raw)){
     warn(`${L.label}은(는) 자연수만 입력할 수 있습니다`);
     el.value=S.timer[key];return false;
   }
   let v=parseInt(raw,10);
-  if(v<L.min){warn(`${L.label}의 최소값은 ${L.min}${L.unit}입니다`);v=L.min;}
+  if(v<mn){warn(`${L.label}의 최소값은 ${mn}${L.unit}입니다`);v=mn;}
   else if(v>L.max){warn(`${L.label}의 최대값은 ${L.max}${L.unit}입니다`);v=L.max;}
   el.value=v;S.timer[key]=v;return true;
 }
 function readCfg(){
   const T=S.timer;
   Object.keys(LIMITS).forEach(k=>{
-    const L=LIMITS[k], raw=($(L.el).value||'').trim();
-    T[k]=/^\d+$/.test(raw)?clamp(parseInt(raw,10),L.min,L.max):clamp(T[k]||L.min,L.min,L.max);
+    const L=LIMITS[k], mn=limMin(k), raw=($(L.el).value||'').trim();
+    T[k]=/^\d+$/.test(raw)?clamp(parseInt(raw,10),mn,L.max):clamp(T[k]||mn,mn,L.max);
     $(L.el).value=T[k];
   });
+}
+/** 관리자 여부에 따라 입력 제약과 안내를 갱신한다 */
+function syncAdminUI(){
+  const a=isAdmin();
+  document.body.classList.toggle('admin',a);
+  $('#inCount').min=limMin('count');
+  $('#inFocus').min=limMin('focus');
+  $('#lblCount').textContent=`집중 시간 (분, 최소 ${limMin('count')})`;
+  $('#lblFocus').textContent=`집중 (최소 ${limMin('focus')})`;
+  paintTokens();
 }
 function currentFocusMin(){ return S.timer.mode==='pomo'?S.timer.focus:S.timer.count; }
 
@@ -1863,9 +1912,10 @@ function bumpToken(){
   paintTokens();
 }
 function paintTokens(){
-  $('#tokenCount').textContent=S.tokens;
-  $('#gToken').textContent=S.tokens;
-  $('#btnPull').disabled=S.tokens<1;
+  const inf=isAdmin();
+  $('#tokenCount').textContent=inf?'∞':S.tokens;
+  $('#gToken').textContent=inf?'∞':S.tokens;
+  $('#btnPull').disabled=!inf&&S.tokens<1;
 }
 
 /* ==========================================================================
@@ -1873,6 +1923,24 @@ function paintTokens(){
    ========================================================================== */
 function open(id){$('#'+id).classList.add('on');}
 function close(id){$('#'+id).classList.remove('on');}
+
+/** 앱 내부 확인 다이얼로그.
+    브라우저 confirm()은 홈 화면 PWA나 일부 모바일 웹뷰에서 조용히 차단되어
+    false를 돌려준다 — 버튼이 먹통처럼 보이는 원인이라 직접 만들어 쓴다. */
+function ask(title,msg,okLabel,danger){
+  return new Promise(res=>{
+    $('#askTitle').textContent=title;
+    $('#askMsg').textContent=msg||'';
+    const yes=$('#askYes'), no=$('#askNo');
+    yes.textContent=okLabel||'확인';
+    yes.classList.toggle('danger',!!danger);
+    yes.classList.toggle('primary',!danger);
+    const done=v=>{close('mAsk');yes.onclick=no.onclick=null;res(v);};
+    yes.onclick=()=>done(true);
+    no.onclick=()=>done(false);
+    open('mAsk');
+  });
+}
 $$('[data-close]').forEach(b=>b.onclick=()=>close(b.dataset.close));
 $$('.mask').forEach(m=>m.addEventListener('mousedown',e=>{
   if(e.target===m && m.id!=='mIntro' && m.id!=='mDone') close(m.id);
@@ -1964,8 +2032,10 @@ function pull(){
   const bn=curBanner;
   const rem=remainOf(bn);
   if(!rem.length){toast('이 배너의 도감을 모두 완성했습니다');return;}
-  if(S.tokens<1){toast('토큰이 부족합니다 — 집중 세션을 완료해 주세요');return;}
-  S.tokens--;
+  if(!isAdmin()){
+    if(S.tokens<1){warn('토큰이 부족합니다 — 집중 세션을 완료해 주세요');return;}
+    S.tokens--;                                  // 관리자는 토큰을 쓰지 않는다
+  }
   let tier=rollTier(bn);
   let cands=rem.filter(b=>b.t===tier);
   if(!cands.length){                        // 해당 등급 소진 → 상위 우선 대체
@@ -2037,9 +2107,9 @@ function revealCard(b,bn){
     </div>`;
   const c=$('canvas',st);
   paintThumb(c,b,bn);
-  $('#btnPullAgain').disabled=S.tokens<1||!remainOf(bn).length;
+  $('#btnPullAgain').disabled=(!isAdmin()&&S.tokens<1)||!remainOf(bn).length;
 }
-$('#btnPullAgain').onclick=()=>{if(S.tokens<1){toast('토큰이 부족합니다');return;}pull();};
+$('#btnPullAgain').onclick=()=>{if(!isAdmin()&&S.tokens<1){warn('토큰이 부족합니다');return;}pull();};
 $('#btnPull').onclick=pull;
 
 /** 카드/도감용 썸네일 */
@@ -2295,10 +2365,10 @@ function openPick(bn,cb){
   open('mPick');
 }
 $('#btnSystem').onclick=()=>{if(!S.created||guard())return;renderSystem();open('mSystem');};
-$('#btnWipe').onclick=()=>{
-  if(!confirm('모든 데이터(중심별·보관함·토큰·기록)를 삭제하고 처음부터 다시 시작할까요?'))return;
-  if(!confirm('되돌릴 수 없습니다. 정말 초기화할까요?'))return;
-  localStorage.removeItem(LS);location.reload();
+$('#btnWipe').onclick=async()=>{
+  if(!await ask('전체 초기화할까요?','중심별·보관함·토큰·기록이 모두 삭제되고 처음부터 다시 시작합니다.','계속',true))return;
+  if(!await ask('정말 초기화할까요?','되돌릴 수 없습니다.','초기화',true))return;
+  lsDel(lsKey());location.reload();
 };
 
 /* ==========================================================================
@@ -2410,10 +2480,11 @@ Object.keys(LIMITS).forEach(k=>{
   });
 });
 
-$('#btnStart').onclick=()=>{
+const askEndSession=()=>ask('집중 세션을 종료할까요?','지금 종료하면 토큰이 지급되지 않습니다.','종료',true);
+$('#btnStart').onclick=async()=>{
   const T=S.timer;
   if(isLocked()){                       // 요구사항 16 — 집중 중에는 종료만 가능
-    if(confirm('집중 세션을 종료할까요? 토큰은 지급되지 않습니다.')) resetTimer();
+    if(await askEndSession()) resetTimer();
     return;
   }
   if(T.phase==='idle'){
@@ -2424,12 +2495,12 @@ $('#btnStart').onclick=()=>{
   else if(T.running) pause();
   else resume();
 };
-$('#btnReset').onclick=()=>{
+$('#btnReset').onclick=async()=>{
   if(isLocked()){
-    if(confirm('집중 세션을 종료할까요? 토큰은 지급되지 않습니다.')) resetTimer();
+    if(await askEndSession()) resetTimer();
     return;
   }
-  if(S.timer.phase!=='idle'&&!confirm('진행 중인 세션을 초기화할까요? 토큰은 지급되지 않습니다.'))return;
+  if(S.timer.phase!=='idle'&&!await ask('세션을 초기화할까요?','진행 중인 세션이 사라지고 토큰은 지급되지 않습니다.','초기화',true))return;
   resetTimer();
 };
 $('#btnMini').onclick=()=>{
@@ -2502,6 +2573,7 @@ function cloudPush(immediate){
   if(!AUTH||!cloudReady())return;
   clearTimeout(cloudT);
   const run=async()=>{
+    if(!AUTH||!cloudReady())return;   // 예약 후 로그아웃했을 수 있다
     setCloudState('sync');
     try{
       const r=await api('sf_push',{p_id:AUTH.id,p_token:AUTH.token,p_data:S});
@@ -2538,17 +2610,17 @@ function cloudSyncOnBoot(){
 
 function saveAuth(){
   try{
-    if(AUTH) localStorage.setItem(LS_AUTH,JSON.stringify(AUTH));
-    else localStorage.removeItem(LS_AUTH);
+    if(AUTH) lsSet(LS_AUTH,JSON.stringify(AUTH));
+    else lsDel(LS_AUTH);
   }catch(e){}
 }
 function loadAuth(){
-  try{const raw=localStorage.getItem(LS_AUTH);AUTH=raw?JSON.parse(raw):null;}catch(e){AUTH=null;}
+  try{const raw=lsGet(LS_AUTH);AUTH=raw?JSON.parse(raw):null;}catch(e){AUTH=null;}
 }
 
 /** 로그인/가입 성공 후: 서버 데이터와 로컬 데이터를 어떻게 합칠지 결정 */
 function adoptCloud(serverData){
-  const localRaw=localStorage.getItem(lsKey());
+  const localRaw=lsGet(lsKey());
   const localHas=(()=>{try{return localRaw&&JSON.parse(localRaw).created;}catch(e){return false;}})();
   const serverHas=serverData&&serverData.created;
 
@@ -2577,7 +2649,7 @@ function adoptCloud(serverData){
   if(serverHas) useServer(); else useLocal();
 }
 function afterAccountSwitch(){
-  paintTokens();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
+  syncAdminUI();paintTokens();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
   $('#inCount').value=S.timer.count;$('#inFocus').value=S.timer.focus;
   $('#inBreak').value=S.timer.brk;$('#inLong').value=S.timer.long;$('#inEvery').value=S.timer.every;
   $('#mdCount').classList.toggle('on',S.timer.mode==='count');
@@ -2612,8 +2684,10 @@ async function doAuth(kind){
   }finally{btns.forEach(b=>b.disabled=false);}
 }
 function doLogout(silent){
+  clearTimeout(cloudT);         // 예약된 푸시가 AUTH=null 로 터지는 것을 막는다
   AUTH=null;saveAuth();setCloudState('idle');
   load();                       // 게스트 저장본으로 되돌아간다
+  close('mAccount');            // 결과가 보이도록 계정 창을 닫는다
   afterAccountSwitch();
   if(!silent) toast('로그아웃했습니다 · 게스트 항성계로 돌아갑니다');
 }
@@ -2664,26 +2738,52 @@ function renderAccount(){
   body.innerHTML=`
     <div class="starCard">
       <div style="width:44px;height:44px;border-radius:50%;flex:0 0 auto;
-        background:linear-gradient(140deg,#3b63c9,#2a3f8f);display:flex;align-items:center;
+        background:linear-gradient(140deg,${isAdmin()?'#a8802c,#7a5a1c':'#3b63c9,#2a3f8f'});display:flex;align-items:center;
         justify-content:center;font-size:17px;font-weight:700">${esc(AUTH.id[0].toUpperCase())}</div>
-      <div class="info"><div class="n">${esc(AUTH.id)}</div>
+      <div class="info"><div class="n">${esc(AUTH.id)}${isAdmin()?'<span class="admBadge">ADMIN</span>':''}</div>
         <div class="d st-${cloudState}">${stTxt}</div></div>
     </div>
+    ${isAdmin()?`<div class="admNote">관리자 모드 · 가챠 토큰 무제한 · 집중 시간 1분부터 설정 가능</div>`:''}
     <div class="btnRow" style="margin-top:14px">
       <button class="cbtn" id="acSync">지금 동기화</button>
       <button class="cbtn" id="acPull">클라우드에서 불러오기</button>
     </div>
     <div class="btnRow" style="margin-top:8px">
+      <button class="cbtn" id="acPin2">PIN 변경</button>
       <button class="cbtn ghost" id="acLogout">로그아웃</button>
+    </div>
+    <div id="pinBox" style="display:none;margin-top:12px">
+      <div class="fieldRow">
+        <div class="field"><label>현재 PIN</label><input id="pinOld" type="password" inputmode="numeric" maxlength="6"></div>
+        <div class="field"><label>새 PIN (4~6자리)</label><input id="pinNew" type="password" inputmode="numeric" maxlength="6"></div>
+      </div>
+      <button class="cbtn primary" id="pinGo" style="width:100%;text-align:center">변경하기</button>
     </div>
     <div class="pickerHint" style="margin:14px 0 0">
       변경사항은 자동으로 저장됩니다. 다른 기기에서 항성계를 키웠다면
       <b>클라우드에서 불러오기</b>로 이 기기에 덮어쓸 수 있습니다.
     </div>`;
   $('#acSync').onclick=()=>{cloudPush(true);toast('동기화 중…');};
-  $('#acLogout').onclick=()=>{if(confirm('로그아웃할까요? 클라우드 저장본은 남아 있습니다.'))doLogout();};
+  $('#acLogout').onclick=async()=>{
+    if(await ask('로그아웃할까요?','클라우드 저장본은 그대로 남아 있어 다시 로그인하면 이어서 할 수 있습니다.','로그아웃',true))
+      doLogout();
+  };
+  $('#acPin2').onclick=()=>{
+    const b=$('#pinBox');b.style.display=b.style.display==='none'?'':'none';
+    if(b.style.display==='')$('#pinOld').focus();
+  };
+  $('#pinGo').onclick=async()=>{
+    const oldP=$('#pinOld').value.trim(), newP=$('#pinNew').value.trim();
+    if(!/^[0-9]{4,6}$/.test(newP)){warn(ERRMSG.pin_format);return;}
+    try{
+      const r=await api('sf_change_pin',{p_id:AUTH.id,p_token:AUTH.token,p_old:oldP,p_new:newP});
+      if(!r||!r.ok){warn((r&&ERRMSG[r.error])||'변경하지 못했습니다');return;}
+      $('#pinOld').value=$('#pinNew').value='';$('#pinBox').style.display='none';
+      toast('PIN을 변경했습니다');
+    }catch(e){warn('서버에 연결하지 못했습니다');}
+  };
   $('#acPull').onclick=async()=>{
-    if(!confirm('클라우드 저장본으로 이 기기의 항성계를 덮어쓸까요?'))return;
+    if(!await ask('클라우드에서 불러올까요?','이 기기에 저장된 항성계는 클라우드 저장본으로 덮어쓰기 됩니다.','불러오기',true))return;
     try{
       const r=await api('sf_pull',{p_id:AUTH.id,p_token:AUTH.token});
       if(!r||!r.ok){warn((r&&ERRMSG[r.error])||'불러오지 못했습니다');return;}
@@ -2712,7 +2812,7 @@ function boot(){
   $('#mdPomo').classList.toggle('on',T.mode==='pomo');
   $('#cfgCount').style.display=T.mode==='count'?'':'none';
   $('#cfgPomo').style.display=T.mode==='pomo'?'':'none';
-  syncPresets();syncLongUI();updateLockUI();
+  syncPresets();syncLongUI();updateLockUI();syncAdminUI();
   $('#timerPanel').classList.toggle('mini',S.mini);
   $('#btnMini').textContent=S.mini?'▢':'—';
   $('#btnSound').classList.toggle('off',!S.sound);
