@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stellar Focus — 구조 설명서</title>
+<style>
+:root{
+  --bg:#06070e; --bg2:#0b0e1a;
+  --panel:rgba(16,21,38,.72);
+  --line:rgba(140,175,255,.16); --line2:rgba(140,175,255,.32);
+  --txt:#e8eefc; --txt2:#9aa8ca; --txt3:#66739a;
+  --acc:#8ab4ff; --acc2:#c9a6ff; --gold:#ffc65c; --ok:#6fe6b0; --warn:#ff8a6b;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--txt);
+  font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',system-ui,sans-serif;
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(900px 600px at 12% -5%, rgba(70,50,150,.20), transparent 60%),
+    radial-gradient(800px 520px at 92% 8%, rgba(30,80,140,.18), transparent 60%),
+    radial-gradient(700px 700px at 60% 100%, rgba(90,40,110,.14), transparent 60%);
+}
+.wrap{max-width:900px;margin:0 auto;padding:0 22px 100px}
+
+/* 헤더 */
+header{padding:72px 0 34px;text-align:center}
+header .kicker{font-size:11.5px;letter-spacing:.28em;color:var(--acc);font-weight:700}
+header h1{font-size:clamp(30px,6vw,46px);margin:14px 0 0;font-weight:250;letter-spacing:.01em}
+header h1 b{font-weight:700}
+header p{color:var(--txt2);margin:16px auto 0;max-width:620px;font-size:15.5px}
+header .meta{margin-top:22px;font-size:12px;color:var(--txt3)}
+header .meta a{color:var(--acc);text-decoration:none;border-bottom:1px solid rgba(138,180,255,.3)}
+header .meta a:hover{border-color:var(--acc)}
+
+/* 목차 */
+nav{
+  position:sticky;top:0;z-index:10;margin:0 0 40px;padding:12px 0;
+  background:rgba(6,7,14,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+nav ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+nav a{
+  display:block;padding:6px 12px;border-radius:20px;font-size:12px;color:var(--txt2);
+  text-decoration:none;border:1px solid transparent;transition:.15s;white-space:nowrap
+}
+nav a:hover{color:var(--txt);border-color:var(--line2);background:rgba(255,255,255,.04)}
+
+section{margin:0 0 56px;scroll-margin-top:72px}
+h2{
+  font-size:23px;margin:0 0 6px;font-weight:700;letter-spacing:.01em;
+  display:flex;align-items:baseline;gap:12px
+}
+h2 .num{
+  font-size:12px;color:var(--acc);font-weight:800;letter-spacing:.1em;
+  font-variant-numeric:tabular-nums;flex:0 0 auto
+}
+h2 + .lede{color:var(--txt2);margin:0 0 22px;font-size:14.5px}
+h3{font-size:16px;margin:30px 0 8px;font-weight:700;color:var(--txt)}
+p{margin:0 0 14px}
+a{color:var(--acc)}
+strong{color:#fff;font-weight:700}
+code{
+  font-family:'Cascadia Mono',ui-monospace,Menlo,Consolas,monospace;
+  font-size:.88em;background:rgba(138,180,255,.11);border:1px solid rgba(138,180,255,.16);
+  padding:1px 6px;border-radius:6px;color:#cfe0ff;white-space:nowrap
+}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin:5px 0}
+li::marker{color:var(--txt3)}
+
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:20px 22px;margin:18px 0;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)
+}
+.card.warnbox{border-color:rgba(255,138,107,.32);background:rgba(60,25,20,.34)}
+.card.warnbox .t{color:var(--warn)}
+.card.okbox{border-color:rgba(111,230,176,.3);background:rgba(16,52,42,.3)}
+.card.okbox .t{color:var(--ok)}
+.card .t{font-size:12px;font-weight:800;letter-spacing:.09em;margin-bottom:8px;color:var(--acc)}
+.card p:last-child,.card ul:last-child{margin-bottom:0}
+
+figure{margin:22px 0}
+figure svg{display:block;width:100%;height:auto;
+  background:rgba(8,11,22,.6);border:1px solid var(--line);border-radius:16px}
+figcaption{font-size:12px;color:var(--txt3);text-align:center;margin-top:10px;line-height:1.6}
+
+.tbl{overflow-x:auto;margin:18px 0;border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:460px}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid rgba(140,175,255,.09)}
+th{background:rgba(138,180,255,.07);font-weight:700;font-size:12px;
+  letter-spacing:.05em;color:var(--txt2)}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.mono{font-variant-numeric:tabular-nums}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;
+  border:1px solid;vertical-align:middle}
+.pill.s3{color:#8ea5c9;border-color:rgba(142,165,201,.4);background:rgba(142,165,201,.1)}
+.pill.s4{color:#c396ff;border-color:rgba(195,150,255,.4);background:rgba(195,150,255,.1)}
+.pill.s5{color:#ffc65c;border-color:rgba(255,198,92,.4);background:rgba(255,198,92,.1)}
+
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;position:relative;padding-left:40px;margin:14px 0}
+.steps li::before{
+  content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;
+  background:rgba(138,180,255,.14);border:1px solid var(--line2);color:var(--acc);
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center
+}
+footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-size:12.5px;text-align:center}
+
+@media (max-width:640px){
+  body{font-size:14.5px}
+  .wrap{padding:0 16px 70px}
+  header{padding:48px 0 26px}
+  nav{padding:9px 0}
+  nav a{padding:5px 10px;font-size:11px}
+  .card{padding:16px 16px}
+  h2{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">STELLAR FOCUS</div>
+  <h1>집중하면 <b>항성계</b>가 자랍니다</h1>
+  <p>공부·업무 타이머와 천체 수집을 붙여 놓은 웹 앱입니다.
+     이 문서는 이 프로그램이 어떤 원리로 돌아가는지, 코드를 처음 보는 사람도
+     구조를 잡을 수 있게 설명합니다.</p>
+  <div class="meta">
+    앱 실행 <a href="index.html">index.html</a> ·
+    저장소 <a href="https://github.com/JWWon03/stellar-focus">github.com/JWWon03/stellar-focus</a>
+  </div>
+</header>
+
+<nav>
+  <ol>
+    <li><a href="#loop">핵심 루프</a></li>
+    <li><a href="#arch">전체 구조</a></li>
+    <li><a href="#screen">화면</a></li>
+    <li><a href="#orbit">궤도 물리</a></li>
+    <li><a href="#bary">질량중심</a></li>
+    <li><a href="#camera">카메라</a></li>
+    <li><a href="#timer">타이머</a></li>
+    <li><a href="#gacha">가챠</a></li>
+    <li><a href="#cloud">계정</a></li>
+    <li><a href="#code">코드 지도</a></li>
+    <li><a href="#gotcha">함정</a></li>
+  </ol>
+</nav>
+
+<!-- ===================== 1 ===================== -->
+<section id="loop">
+  <h2><span class="num">01</span> 핵심 루프</h2>
+  <p class="lede">한 문장으로: <strong>집중한 시간이 곧 항성계의 공전 한 바퀴</strong>입니다.</p>
+
+  <p>타이머를 25분으로 맞추면, 가장 바깥 행성이 그 25분 동안 정확히 한 바퀴를 돕니다.
+     행성이 제자리로 돌아오면 세션 완료입니다. 진행률 막대 대신
+     <strong>행성의 위치 자체가 남은 시간을 보여줍니다.</strong></p>
+
+  <figure>
+    <svg viewBox="0 0 860 190" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="집중 완료가 토큰을 낳고 토큰이 가챠를, 가챠가 천체를, 천체 배치가 다시 항성계를 키우는 순환">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+          <path d="M0,0 L7,3.2 L0,6.4 z" fill="#5f7099"/>
+        </marker>
+      </defs>
+      <g font-family="inherit" text-anchor="middle">
+        <g>
+          <rect x="18" y="52" width="146" height="76" rx="14" fill="rgba(138,180,255,.10)" stroke="rgba(138,180,255,.35)"/>
+          <text x="91" y="84" fill="#e8eefc" font-size="15" font-weight="700">집중 세션</text>
+          <text x="91" y="105" fill="#9aa8ca" font-size="11.5">10분 이상 완주</text>
+        </g>
+        <line x1="172" y1="90" x2="212" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <g>
+          <rect x="220" y="52" width="146" height="76" rx="14" fill="rgba(255,198,92,.10)" stroke="rgba(255,198,92,.38)"/>
+          <text x="293" y="84" fill="#ffc65c" font-size="15" font-weight="700">◈ 토큰 +1</text>
+          <text x="293" y="105" fill="#9aa8ca" font-size="11.5">7초 팝업 후 자동 보관</text>
+        </g>
+        <line x1="374" y1="90" x2="414" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <g>
+          <rect x="422" y="52" width="146" height="76" rx="14" fill="rgba(195,150,255,.10)" stroke="rgba(195,150,255,.38)"/>
+          <text x="495" y="84" fill="#c9a6ff" font-size="15" font-weight="700">가챠 1회</text>
+          <text x="495" y="105" fill="#9aa8ca" font-size="11.5">항성 / 행성 / 위성</text>
+        </g>
+        <line x1="576" y1="90" x2="616" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <g>
+          <rect x="624" y="52" width="146" height="76" rx="14" fill="rgba(111,230,176,.10)" stroke="rgba(111,230,176,.34)"/>
+          <text x="697" y="84" fill="#6fe6b0" font-size="15" font-weight="700">궤도에 배치</text>
+          <text x="697" y="105" fill="#9aa8ca" font-size="11.5">행성 7 · 위성 14 · 동반성 2</text>
+        </g>
+        <path d="M770 90 L806 90 Q824 90 824 108 L824 156 Q824 172 806 172 L112 172 Q91 172 91 154 L91 136"
+              fill="none" stroke="#5f7099" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#ar)"/>
+        <text x="450" y="166" fill="#66739a" font-size="11.5">항성계가 커질수록 다음 세션의 화면이 화려해진다</text>
+      </g>
+    </svg>
+    <figcaption>보상이 화면에 그대로 쌓이는 구조라, 집중할수록 볼거리가 늘어납니다.</figcaption>
+  </figure>
+
+  <div class="card">
+    <div class="t">집중 중에는 천체가 검은 구체입니다</div>
+    <p>세션이 끝나기 전까지 행성·위성·동반성은 색 없는 검은 공으로만 보입니다.
+       완료하는 순간 중심별에서 빛의 파동이 퍼져 나가며 바깥쪽으로 차례차례 색이 돌아옵니다.
+       <strong>중심별만은 예외로 항상 밝게 켜져 있습니다</strong> — 화면의 기준점이 사라지면
+       허전해지기 때문입니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 2 ===================== -->
+<section id="arch">
+  <h2><span class="num">02</span> 전체 구조</h2>
+  <p class="lede">파일 하나로 돌아갑니다. 빌드도, 설치도, 라이브러리도 없습니다.</p>
+
+  <p><code>index.html</code>을 더블클릭하면 그대로 실행됩니다. HTML·CSS·JavaScript가
+     한 파일에 들어 있고 외부에서 불러오는 스크립트·폰트·이미지가 하나도 없습니다.
+     행성 표면의 줄무늬, 크레이터, 고리, 성운 배경까지 전부
+     <strong>캔버스에 코드로 그립니다.</strong></p>
+
+  <figure>
+    <svg viewBox="0 0 860 330" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="브라우저 안에서 상태·렌더러·타이머·가챠가 동작하고 저장은 로컬과 선택적 클라우드로 나뉘는 구조">
+      <g font-family="inherit">
+        <rect x="16" y="14" width="828" height="196" rx="16" fill="rgba(138,180,255,.045)" stroke="rgba(138,180,255,.22)"/>
+        <text x="34" y="40" fill="#8ab4ff" font-size="11.5" font-weight="800" letter-spacing="1.4">브라우저 (index.html)</text>
+
+        <rect x="36" y="54" width="240" height="66" rx="12" fill="rgba(255,198,92,.10)" stroke="rgba(255,198,92,.34)"/>
+        <text x="52" y="80" fill="#ffc65c" font-size="14" font-weight="700">상태 S</text>
+        <text x="52" y="101" fill="#9aa8ca" font-size="11.5">중심별 · 보관함 · 배치 · 토큰 · 통계</text>
+
+        <rect x="292" y="54" width="264" height="66" rx="12" fill="rgba(195,150,255,.10)" stroke="rgba(195,150,255,.34)"/>
+        <text x="308" y="80" fill="#c9a6ff" font-size="14" font-weight="700">렌더러 (캔버스)</text>
+        <text x="308" y="101" fill="#9aa8ca" font-size="11.5">케플러 궤도 · 3D 카메라 · 천체 그리기</text>
+
+        <rect x="572" y="54" width="252" height="66" rx="12" fill="rgba(111,230,176,.10)" stroke="rgba(111,230,176,.30)"/>
+        <text x="588" y="80" fill="#6fe6b0" font-size="14" font-weight="700">타이머 · 가챠 · UI</text>
+        <text x="588" y="101" fill="#9aa8ca" font-size="11.5">세션 진행 · 추첨 · 모달</text>
+
+        <rect x="36" y="134" width="788" height="56" rx="12" fill="rgba(255,255,255,.03)" stroke="rgba(140,175,255,.18)"/>
+        <text x="52" y="158" fill="#e8eefc" font-size="13.5" font-weight="700">requestAnimationFrame 루프</text>
+        <text x="52" y="177" fill="#9aa8ca" font-size="11.5">매 프레임: 타이머 확인 → 궤도 위상 갱신 → 카메라 보간 → 화면 그리기</text>
+
+        <line x1="240" y1="210" x2="240" y2="246" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="620" y1="210" x2="620" y2="246" stroke="#5f7099" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#ar)"/>
+
+        <rect x="76" y="252" width="330" height="62" rx="12" fill="rgba(138,180,255,.09)" stroke="rgba(138,180,255,.3)"/>
+        <text x="94" y="277" fill="#e8eefc" font-size="13.5" font-weight="700">localStorage — 항상</text>
+        <text x="94" y="297" fill="#9aa8ca" font-size="11.5">이 기기에 저장. 오프라인에서도 완전 동작</text>
+
+        <rect x="456" y="252" width="330" height="62" rx="12" fill="rgba(255,255,255,.025)" stroke="rgba(140,175,255,.18)" stroke-dasharray="5 4"/>
+        <text x="474" y="277" fill="#9aa8ca" font-size="13.5" font-weight="700">Supabase — 선택</text>
+        <text x="474" y="297" fill="#66739a" font-size="11.5">로그인했을 때만. 꺼져도 앱은 그대로 돈다</text>
+      </g>
+    </svg>
+    <figcaption>점선은 선택 경로입니다. 서버가 죽어도 게임은 멈추지 않습니다.</figcaption>
+  </figure>
+
+  <div class="card">
+    <div class="t">왜 이렇게 만들었나</div>
+    <p>오프라인에서 돌아가고 파일 하나만 옮기면 어디서든 실행되는 성질을 지키기 위해서입니다.
+       나중에 Capacitor로 감싸 모바일 앱으로 만들 때도 이 구조가 전제가 됩니다.
+       계정 기능만 예외적으로 네트워크를 쓰는데, 그마저도 <strong>없어도 되는 부가 기능</strong>으로
+       설계했습니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 3 ===================== -->
+<section id="screen">
+  <h2><span class="num">03</span> 화면 구성</h2>
+  <p class="lede">가운데는 항성계, 네 모서리는 조작부입니다.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 420" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="화면 네 모서리에 시계·계정, 토큰·가챠, 타이머 위젯, 시점 조작·항성계 설정이 배치되고 가운데에 항성계가 있는 배치도">
+      <rect x="14" y="14" width="832" height="392" rx="18" fill="rgba(8,11,22,.7)" stroke="rgba(140,175,255,.2)"/>
+
+      <!-- 항성계 -->
+      <g opacity=".95">
+        <ellipse cx="430" cy="212" rx="250" ry="86" fill="none" stroke="rgba(150,180,255,.16)"/>
+        <ellipse cx="430" cy="212" rx="176" ry="60" fill="none" stroke="rgba(150,180,255,.14)"/>
+        <ellipse cx="430" cy="212" rx="104" ry="36" fill="none" stroke="rgba(150,180,255,.12)"/>
+        <circle cx="430" cy="212" r="42" fill="rgba(255,217,122,.10)"/>
+        <circle cx="430" cy="212" r="22" fill="#ffd97a"/>
+        <circle cx="430" cy="212" r="13" fill="#fff6dc"/>
+        <circle cx="672" cy="230" r="10" fill="#d8c79a"/>
+        <ellipse cx="672" cy="230" rx="19" ry="6" fill="none" stroke="rgba(232,220,192,.75)" stroke-width="2.4"/>
+        <circle cx="268" cy="182" r="8" fill="#3f95dd"/>
+        <circle cx="512" cy="243" r="6" fill="#ff7a3c"/>
+        <circle cx="352" cy="196" r="4.5" fill="#a9663f"/>
+      </g>
+
+      <g font-family="inherit">
+        <!-- 좌상단 -->
+        <rect x="34" y="34" width="196" height="74" rx="13" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="50" y="56" fill="#9aa8ca" font-size="10.5">2026년 8월 17일 (월)</text>
+        <text x="50" y="80" fill="#e8eefc" font-size="20" font-weight="250">15:40:58</text>
+        <text x="50" y="98" fill="#66739a" font-size="10">오늘 집중 1시간 20분</text>
+        <rect x="34" y="114" width="86" height="27" rx="9" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="77" y="132" fill="#9aa8ca" font-size="10.5" text-anchor="middle">● 계정</text>
+
+        <!-- 우상단 -->
+        <rect x="640" y="34" width="186" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(255,198,92,.34)"/>
+        <text x="733" y="54" fill="#ffc65c" font-size="12" font-weight="700" text-anchor="middle">◈ 4  가챠 토큰</text>
+        <rect x="686" y="72" width="140" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="756" y="92" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="middle">✦ 가챠 배너</text>
+
+        <!-- 좌하단 -->
+        <rect x="34" y="216" width="176" height="170" rx="13" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="50" y="238" fill="#9aa8ca" font-size="10" letter-spacing="1">집중 타이머</text>
+        <rect x="50" y="248" width="66" height="22" rx="7" fill="rgba(58,90,180,.34)" stroke="rgba(138,180,255,.5)"/>
+        <text x="83" y="263" fill="#fff" font-size="9.5" text-anchor="middle">카운트다운</text>
+        <rect x="122" y="248" width="66" height="22" rx="7" fill="rgba(255,255,255,.03)" stroke="rgba(140,175,255,.2)"/>
+        <text x="155" y="263" fill="#9aa8ca" font-size="9.5" text-anchor="middle">포모도로</text>
+        <circle cx="122" cy="316" r="34" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="4"/>
+        <circle cx="122" cy="316" r="34" fill="none" stroke="#8ab4ff" stroke-width="4" stroke-linecap="round"
+                stroke-dasharray="150 214" transform="rotate(-90 122 316)"/>
+        <text x="122" y="322" fill="#e8eefc" font-size="19" font-weight="250" text-anchor="middle">25:00</text>
+        <rect x="50" y="360" width="66" height="20" rx="7" fill="#3b63c9"/>
+        <text x="83" y="374" fill="#fff" font-size="10" text-anchor="middle">시작</text>
+        <rect x="122" y="360" width="66" height="20" rx="7" fill="rgba(255,255,255,.05)" stroke="rgba(140,175,255,.2)"/>
+        <text x="155" y="374" fill="#9aa8ca" font-size="10" text-anchor="middle">초기화</text>
+
+        <!-- 우하단 -->
+        <rect x="614" y="322" width="212" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="652" y="342" fill="#9aa8ca" font-size="10.5" text-anchor="middle">위에서</text>
+        <text x="706" y="342" fill="#9aa8ca" font-size="10.5" text-anchor="middle">옆에서</text>
+        <text x="752" y="342" fill="#9aa8ca" font-size="12" text-anchor="middle">−</text>
+        <text x="778" y="342" fill="#9aa8ca" font-size="12" text-anchor="middle">+</text>
+        <text x="806" y="342" fill="#9aa8ca" font-size="11" text-anchor="middle">⤢</text>
+        <rect x="672" y="358" width="154" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
+        <text x="749" y="378" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="middle">◎ 항성계 설정</text>
+      </g>
+    </svg>
+    <figcaption>좁은 화면에서는 항성계 중심이 위로 올라가 타이머 위젯을 피합니다.</figcaption>
+  </figure>
+
+  <h3>화면 조작</h3>
+  <div class="tbl"><table>
+    <tr><th>동작</th><th>결과</th></tr>
+    <tr><td>천체 <strong>탭</strong></td><td>카메라가 그 천체를 따라다닙니다. 빈 곳을 탭하면 해제</td></tr>
+    <tr><td><strong>드래그</strong></td><td>가로는 방위각, 세로는 경사각. 손으로 붙잡고 돌리는 방향</td></tr>
+    <tr><td>휠 / 핀치</td><td>확대·축소</td></tr>
+    <tr><td>위에서 / 옆에서</td><td>궤도면을 수직으로 내려다보기 ↔ 옆에서 보기</td></tr>
+    <tr><td>⤢</td><td>전체가 화면에 들어오도록 초기화</td></tr>
+  </table></div>
+</section>
+
+<!-- ===================== 4 ===================== -->
+<section id="orbit">
+  <h2><span class="num">04</span> 궤도는 어떻게 도나</h2>
+  <p class="lede">케플러 법칙 세 개를 그대로 씁니다.</p>
+
+  <p>천체는 원이 아니라 <strong>타원</strong>을 돕니다. 별은 타원의 중심이 아니라
+     <strong>초점</strong>에 있습니다(제1법칙). 별에 가까울 때 빨라지고 멀 때 느려집니다(제2법칙).
+     안쪽 궤도일수록 공전 주기가 짧습니다(제3법칙).</p>
+
+  <figure>
+    <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="타원 궤도에서 별이 초점에 있고 근점에서 빠르고 원점에서 느린 것을 보여주는 그림">
+      <g font-family="inherit">
+        <ellipse cx="300" cy="150" rx="220" ry="112" fill="none" stroke="rgba(150,180,255,.4)" stroke-width="1.6"/>
+        <line x1="80" y1="150" x2="520" y2="150" stroke="rgba(140,175,255,.18)" stroke-dasharray="4 5"/>
+        <circle cx="300" cy="150" r="2.6" fill="#66739a"/>
+        <text x="300" y="170" fill="#66739a" font-size="10.5" text-anchor="middle">타원 중심</text>
+
+        <circle cx="410" cy="150" r="26" fill="rgba(255,217,122,.13)"/>
+        <circle cx="410" cy="150" r="13" fill="#ffd97a"/>
+        <text x="410" y="196" fill="#ffc65c" font-size="11.5" text-anchor="middle" font-weight="700">중심별 = 초점</text>
+
+        <circle cx="520" cy="150" r="8" fill="#3f95dd"/>
+        <text x="556" y="140" fill="#e8eefc" font-size="12" font-weight="700">근점</text>
+        <text x="556" y="157" fill="#9aa8ca" font-size="10.5">가장 가깝고 가장 빠름</text>
+        <path d="M528 168 q22 14 42 6" fill="none" stroke="#6fe6b0" stroke-width="2.2" marker-end="url(#ar2)"/>
+
+        <circle cx="80" cy="150" r="8" fill="#3f95dd" opacity=".55"/>
+        <text x="72" y="136" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="end">원점</text>
+        <text x="72" y="153" fill="#9aa8ca" font-size="10.5" text-anchor="end">가장 멀고 가장 느림</text>
+        <path d="M84 170 q10 8 20 5" fill="none" stroke="rgba(111,230,176,.5)" stroke-width="1.6" marker-end="url(#ar2)"/>
+
+        <defs>
+          <marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="2.8" orient="auto">
+            <path d="M0,0 L6,2.8 L0,5.6 z" fill="#6fe6b0"/>
+          </marker>
+        </defs>
+
+        <line x1="600" y1="40" x2="600" y2="262" stroke="rgba(140,175,255,.16)"/>
+        <text x="626" y="66" fill="#8ab4ff" font-size="11.5" font-weight="800" letter-spacing="1.2">코드에서는</text>
+        <text x="626" y="94" fill="#e8eefc" font-size="12">궤도 모양은 슬롯마다 고정</text>
+        <text x="626" y="112" fill="#66739a" font-size="11">orbitEl(i) — 장반경·이심률·경사</text>
+        <text x="626" y="140" fill="#e8eefc" font-size="12">위치는 케플러 방정식을 풀어서</text>
+        <text x="626" y="158" fill="#66739a" font-size="11">orbitPos() — 뉴턴법 6회 반복</text>
+        <text x="626" y="186" fill="#e8eefc" font-size="12">주기는 3법칙 그대로</text>
+        <text x="626" y="204" fill="#66739a" font-size="11">revs = phase × (a_ref / a)^1.5</text>
+        <text x="626" y="232" fill="#e8eefc" font-size="12">궤도선·꼬리도 같은 함수를</text>
+        <text x="626" y="250" fill="#66739a" font-size="11">샘플링해서 그린다</text>
+      </g>
+    </svg>
+    <figcaption>궤도 모양을 바꾸고 싶으면 <code>orbitEl</code> 하나만 고치면 됩니다.</figcaption>
+  </figure>
+
+  <div class="card">
+    <div class="t">기준 궤도가 시계 역할을 합니다</div>
+    <p><code>phase</code>는 "기준 궤도가 몇 바퀴 돌았나"를 나타내는 숫자입니다.
+       기준 궤도는 <strong>행성이 배치된 가장 바깥 슬롯</strong>이고, 집중 세션 동안 이 값이
+       정확히 0에서 1까지 올라갑니다. 나머지 행성 위치는 전부 여기서 계산해 냅니다.
+       세션이 없을 때는 240초에 한 바퀴씩 아주 느리게 흘러 화면이 정지해 보이지 않게 합니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 5 ===================== -->
+<section id="bary">
+  <h2><span class="num">05</span> 질량중심 — 별이 둘 이상일 때</h2>
+  <p class="lede">동반성은 중심별 주위를 도는 게 아닙니다. <strong>둘이 공통의 한 점을 함께 돕니다.</strong></p>
+
+  <p>실제 쌍성이 그렇습니다. 무거운 별은 작게, 가벼운 별은 크게 돌지만 두 별은 항상
+     질량중심을 사이에 두고 정반대에 놓입니다. 중심별도 미세하게 흔들립니다.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="왼쪽은 두 별이 공통 질량중심을 도는 쌍성, 오른쪽은 안쪽 쌍성과 바깥 동반성으로 이루어진 계층적 삼중성">
+      <g font-family="inherit">
+        <text x="30" y="36" fill="#8ab4ff" font-size="11.5" font-weight="800" letter-spacing="1.2">동반성 1개 — 쌍성</text>
+        <circle cx="210" cy="160" r="2.8" fill="#ff8a6b"/>
+        <text x="210" y="248" fill="#ff8a6b" font-size="10.5" text-anchor="middle">질량중심 (화면 고정)</text>
+        <circle cx="210" cy="160" r="30" fill="none" stroke="rgba(208,180,255,.5)" stroke-dasharray="4 4"/>
+        <circle cx="210" cy="160" r="112" fill="none" stroke="rgba(208,180,255,.5)"/>
+        <circle cx="240" cy="160" r="19" fill="#ffd97a"/>
+        <text x="240" y="128" fill="#ffc65c" font-size="11" text-anchor="middle" font-weight="700">중심별 (무거움)</text>
+        <circle cx="98" cy="160" r="9" fill="#ff7a52"/>
+        <text x="98" y="192" fill="#ff8a5c" font-size="11" text-anchor="middle" font-weight="700">동반성 (가벼움)</text>
+        <line x1="98" y1="160" x2="240" y2="160" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>
+
+        <line x1="440" y1="24" x2="440" y2="276" stroke="rgba(140,175,255,.16)"/>
+
+        <text x="470" y="36" fill="#8ab4ff" font-size="11.5" font-weight="800" letter-spacing="1.2">동반성 2개 — 계층적 삼중성</text>
+        <circle cx="660" cy="160" r="2.8" fill="#ff8a6b"/>
+        <circle cx="660" cy="160" r="128" fill="none" stroke="rgba(208,180,255,.45)"/>
+        <circle cx="660" cy="160" r="44" fill="none" stroke="rgba(208,180,255,.22)" stroke-dasharray="4 4"/>
+        <circle cx="616" cy="160" r="34" fill="none" stroke="rgba(208,180,255,.5)"/>
+        <circle cx="633" cy="160" r="16" fill="#ffd97a"/>
+        <circle cx="588" cy="160" r="7" fill="#ff7a52"/>
+        <circle cx="788" cy="160" r="7" fill="#e6f6ff"/>
+        <text x="788" y="188" fill="#cfe0ff" font-size="10.5" text-anchor="middle">바깥 동반성</text>
+        <text x="612" y="112" fill="#9aa8ca" font-size="10.5" text-anchor="middle">안쪽 쌍성</text>
+        <text x="660" y="248" fill="#66739a" font-size="10.5" text-anchor="middle">안쪽 쌍성이 통째로 계 전체 질량중심을 돈다</text>
+      </g>
+    </svg>
+    <figcaption>실제 삼중성계가 안정적으로 존재하는 방식이 이 계층 구조입니다.</figcaption>
+  </figure>
+
+  <div class="card okbox">
+    <div class="t">검증하는 방법</div>
+    <p>모든 별의 위치를 질량으로 가중 평균 내면 정확히 <strong>(0, 0)</strong>이 나와야 합니다.
+       질량은 중심별의 경우 고른 색(분광형)에서, 동반성은 천체 데이터에서 가져옵니다 —
+       청색초거성은 25태양질량, 적색왜성은 0.25태양질량 같은 식입니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 6 ===================== -->
+<section id="camera">
+  <h2><span class="num">06</span> 카메라</h2>
+  <p class="lede">3D 좌표를 2D 화면으로 눕히는 과정입니다.</p>
+
+  <p>천체 위치는 <code>x, y, z</code> 3차원으로 계산합니다. 화면에 그리려면 이걸 평면으로
+     눌러야 하는데, 이때 두 각도를 씁니다. <strong>방위각</strong>은 위에서 봤을 때 얼마나 돌렸는지,
+     <strong>경사각</strong>은 얼마나 비스듬히 보는지입니다.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 260" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="경사각 0도에서는 궤도가 원, 52도에서는 타원, 90도에서는 선으로 보이는 비교">
+      <g font-family="inherit" text-anchor="middle">
+        <g>
+          <ellipse cx="150" cy="120" rx="96" ry="96" fill="none" stroke="rgba(150,180,255,.42)"/>
+          <ellipse cx="150" cy="120" rx="58" ry="58" fill="none" stroke="rgba(150,180,255,.24)"/>
+          <circle cx="150" cy="120" r="13" fill="#ffd97a"/>
+          <circle cx="246" cy="120" r="6" fill="#3f95dd"/>
+          <text x="150" y="240" fill="#e8eefc" font-size="13" font-weight="700">경사각 0 — 위에서</text>
+          <text x="150" y="258" fill="#66739a" font-size="10.5">face-on · 궤도가 원</text>
+        </g>
+        <g>
+          <ellipse cx="430" cy="120" rx="96" ry="60" fill="none" stroke="rgba(150,180,255,.42)"/>
+          <ellipse cx="430" cy="120" rx="58" ry="36" fill="none" stroke="rgba(150,180,255,.24)"/>
+          <circle cx="430" cy="120" r="13" fill="#ffd97a"/>
+          <circle cx="526" cy="120" r="6" fill="#3f95dd"/>
+          <text x="430" y="240" fill="#e8eefc" font-size="13" font-weight="700">경사각 0.9 — 기본</text>
+          <text x="430" y="258" fill="#66739a" font-size="10.5">입체감이 가장 좋은 각도</text>
+        </g>
+        <g>
+          <ellipse cx="710" cy="120" rx="96" ry="7" fill="none" stroke="rgba(150,180,255,.42)"/>
+          <ellipse cx="710" cy="120" rx="58" ry="4" fill="none" stroke="rgba(150,180,255,.24)"/>
+          <circle cx="710" cy="120" r="13" fill="#ffd97a"/>
+          <circle cx="806" cy="120" r="6" fill="#3f95dd"/>
+          <text x="710" y="240" fill="#e8eefc" font-size="13" font-weight="700">경사각 π/2 — 옆에서</text>
+          <text x="710" y="258" fill="#66739a" font-size="10.5">edge-on · 궤도가 선</text>
+        </g>
+      </g>
+    </svg>
+    <figcaption>궤도 경사가 조금씩 다르게 들어가 있어 edge-on에서도 완전히 겹치지 않습니다.</figcaption>
+  </figure>
+
+  <h3>앞뒤 구분</h3>
+  <p>투영할 때 화면 좌표와 함께 <strong>깊이</strong> 값도 같이 계산합니다. 그리는 순서를 이 깊이로
+     정렬하면 별 뒤로 돌아간 행성이 가려지고, 앞으로 나온 행성이 덮어 그려집니다.
+     화면상 위아래로 정렬하는 방식으로는 별을 도는 천체의 앞뒤가 제대로 나오지 않습니다.</p>
+</section>
+
+<!-- ===================== 7 ===================== -->
+<section id="timer">
+  <h2><span class="num">07</span> 타이머</h2>
+  <p class="lede">시간을 깎아 내리지 않고, <strong>끝나는 시각</strong>을 기억합니다.</p>
+
+  <p>1초마다 남은 시간에서 1초를 빼는 방식은 탭이 백그라운드로 내려가면 어긋납니다.
+     대신 "언제 끝나는지"를 저장해 두고 매번 현재 시각과의 차이를 계산합니다. 폰을 잠갔다
+     풀어도, 브라우저를 껐다 켜도 시간이 정확합니다. 앱을 다시 열었을 때 이미 끝난 세션이면
+     그 자리에서 완료 처리하고 토큰을 줍니다.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 250" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="대기에서 집중으로, 집중 완료 후 카운트다운은 대기로 포모도로는 휴식으로 가는 상태 흐름도">
+      <g font-family="inherit" text-anchor="middle">
+        <rect x="30" y="96" width="120" height="56" rx="13" fill="rgba(255,255,255,.04)" stroke="rgba(140,175,255,.28)"/>
+        <text x="90" y="130" fill="#9aa8ca" font-size="14" font-weight="700">대기</text>
+
+        <line x1="156" y1="124" x2="198" y2="124" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <text x="177" y="112" fill="#66739a" font-size="10">시작</text>
+
+        <rect x="206" y="96" width="150" height="56" rx="13" fill="rgba(138,180,255,.13)" stroke="rgba(138,180,255,.42)"/>
+        <text x="281" y="122" fill="#e8eefc" font-size="14" font-weight="700">집중</text>
+        <text x="281" y="140" fill="#8ab4ff" font-size="10">천체가 검은 구체 · 메뉴 잠김</text>
+
+        <line x1="362" y1="124" x2="404" y2="124" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <text x="383" y="112" fill="#66739a" font-size="10">완료</text>
+
+        <rect x="412" y="88" width="160" height="72" rx="13" fill="rgba(255,198,92,.12)" stroke="rgba(255,198,92,.4)"/>
+        <text x="492" y="114" fill="#ffc65c" font-size="14" font-weight="700">◈ 토큰 지급</text>
+        <text x="492" y="132" fill="#9aa8ca" font-size="10">빛의 파동으로 리빌</text>
+        <text x="492" y="148" fill="#66739a" font-size="10">7초 팝업 (타이머는 계속 흐름)</text>
+
+        <path d="M578 108 L622 108" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <text x="600" y="98" fill="#66739a" font-size="9.5">포모도로</text>
+        <rect x="630" y="80" width="118" height="52" rx="13" fill="rgba(111,230,176,.12)" stroke="rgba(111,230,176,.34)"/>
+        <text x="689" y="111" fill="#6fe6b0" font-size="13" font-weight="700">휴식</text>
+
+        <path d="M578 146 L622 168" stroke="#5f7099" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#ar)"/>
+        <text x="614" y="188" fill="#66739a" font-size="9.5">카운트다운</text>
+
+        <path d="M689 132 Q689 214 400 214 Q120 214 90 214 L90 160"
+              fill="none" stroke="#5f7099" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#ar)"/>
+      </g>
+    </svg>
+    <figcaption>포모도로에서는 완료 즉시 휴식이 시작됩니다. 팝업이 진행을 막지 않습니다.</figcaption>
+  </figure>
+
+  <div class="tbl"><table>
+    <tr><th>규칙</th><th>값</th></tr>
+    <tr><td>최소 집중 시간</td><td>10분 (관리자 계정은 1분)</td></tr>
+    <tr><td>입력 형식</td><td>자연수만. 소수점·문자는 경고 후 되돌림</td></tr>
+    <tr><td>완료 보상</td><td>토큰 1개. 포모도로 <em>N</em>회차마다 보너스 포함 2개</td></tr>
+    <tr><td>중도 종료</td><td>토큰 없음</td></tr>
+    <tr><td>집중 중 잠금</td><td>가챠·항성계 설정·시간 변경 불가. 종료만 가능</td></tr>
+  </table></div>
+
+  <div class="card">
+    <div class="t">집중 중에도 화면은 볼 수 있습니다</div>
+    <p>메뉴는 잠기지만 확대·회전·천체 추적은 그대로 됩니다. 항성계를 들여다보는 것 자체가
+       이 앱의 재미이고, 설정을 바꾸는 행위와는 다르다고 보았기 때문입니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 8 ===================== -->
+<section id="gacha">
+  <h2><span class="num">08</span> 가챠</h2>
+  <p class="lede">배너 세 개, 등급 세 단계, <strong>중복 없음</strong>.</p>
+
+  <div class="tbl"><table>
+    <tr><th>등급</th><th>확률</th><th>천장</th><th>수록</th></tr>
+    <tr><td><span class="pill s5">★★★★★</span></td><td class="mono">4%</td><td class="mono">30회</td><td>전설급 천체</td></tr>
+    <tr><td><span class="pill s4">★★★★</span></td><td class="mono">22%</td><td class="mono">10회</td><td>희귀 천체</td></tr>
+    <tr><td><span class="pill s3">★★★</span></td><td class="mono">74%</td><td>—</td><td>기본 천체</td></tr>
+  </table></div>
+
+  <p>천장은 <strong>배너마다 따로</strong> 셉니다. 행성 배너에서 10번 헛돌았다고 위성 배너가
+     보장되지는 않습니다. 총 46종(항성 12 · 행성 18 · 위성 16)을 모으면 도감이 완성됩니다.</p>
+
+  <h3>중복이 나오지 않는 원리</h3>
+  <ol class="steps">
+    <li>확률표로 등급을 먼저 뽑습니다. 단, 천장 조건에 걸렸으면 등급을 올려 확정합니다.</li>
+    <li>그 등급에서 <strong>아직 갖지 않은 천체만</strong> 골라 그중 하나를 균등하게 뽑습니다.</li>
+    <li>해당 등급을 이미 다 모았다면 더 높은 등급부터 순서대로 대체합니다.</li>
+    <li>뽑은 천체는 보관함에 들어갑니다. 배치는 나중에 직접 합니다.</li>
+  </ol>
+
+  <div class="card">
+    <div class="t">연출 중에는 버튼이 잠깁니다</div>
+    <p>연타하면 애니메이션이 여러 개 겹쳐 돌면서 결과가 즉시 튀어나오는 문제가 있었습니다.
+       지금은 연출이 끝날 때까지 뽑기 버튼이 잠기고, 기다리기 싫으면
+       <strong>건너뛰기</strong>로 바로 결과를 볼 수 있습니다.</p>
+  </div>
+</section>
+
+<!-- ===================== 9 ===================== -->
+<section id="cloud">
+  <h2><span class="num">09</span> 계정과 클라우드</h2>
+  <p class="lede">아이디와 PIN만으로 기기 사이를 오갑니다. <strong>없어도 되는 기능입니다.</strong></p>
+
+  <p>로그인하지 않아도 게임은 완전히 동작합니다. 데이터가 이 기기에만 남을 뿐입니다.
+     로그인하면 PC에서 키우던 항성계를 폰에서 이어받을 수 있습니다.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 290" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="브라우저가 RPC 함수만 호출할 수 있고 테이블은 잠겨 있는 보안 구조">
+      <g font-family="inherit">
+        <rect x="22" y="70" width="200" height="130" rx="14" fill="rgba(138,180,255,.08)" stroke="rgba(138,180,255,.3)"/>
+        <text x="122" y="100" fill="#e8eefc" font-size="14" font-weight="700" text-anchor="middle">브라우저</text>
+        <text x="122" y="124" fill="#9aa8ca" font-size="11" text-anchor="middle">공개 키를 들고 있음</text>
+        <text x="122" y="146" fill="#66739a" font-size="10.5" text-anchor="middle">아이디 + PIN 4~6자리</text>
+        <text x="122" y="172" fill="#66739a" font-size="10.5" text-anchor="middle">로그인하면 토큰을 받아</text>
+        <text x="122" y="188" fill="#66739a" font-size="10.5" text-anchor="middle">이후 요청에 씀</text>
+
+        <line x1="230" y1="135" x2="286" y2="135" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+
+        <rect x="294" y="46" width="238" height="178" rx="14" fill="rgba(111,230,176,.07)" stroke="rgba(111,230,176,.3)"/>
+        <text x="413" y="74" fill="#6fe6b0" font-size="12.5" font-weight="800" text-anchor="middle" letter-spacing="1">허용된 함수 5개</text>
+        <g fill="#cfe0ff" font-size="11.5" text-anchor="middle">
+          <text x="413" y="102">가입 · 로그인</text>
+          <text x="413" y="126">불러오기 · 저장</text>
+          <text x="413" y="150">PIN 변경</text>
+        </g>
+        <text x="413" y="182" fill="#66739a" font-size="10.5" text-anchor="middle">PIN은 bcrypt 해시로만 보관</text>
+        <text x="413" y="200" fill="#66739a" font-size="10.5" text-anchor="middle">10회 틀리면 15분 잠금</text>
+
+        <line x1="540" y1="135" x2="596" y2="135" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+
+        <rect x="604" y="70" width="234" height="130" rx="14" fill="rgba(255,138,107,.06)" stroke="rgba(255,138,107,.3)"/>
+        <text x="721" y="102" fill="#ff8a6b" font-size="14" font-weight="700" text-anchor="middle">저장 테이블</text>
+        <text x="721" y="128" fill="#9aa8ca" font-size="11.5" text-anchor="middle">직접 접근 완전 차단</text>
+        <text x="721" y="154" fill="#66739a" font-size="10.5" text-anchor="middle">공개 키로는 열 수 없다</text>
+        <text x="721" y="172" fill="#66739a" font-size="10.5" text-anchor="middle">위 함수들만 드나든다</text>
+
+        <text x="430" y="262" fill="#66739a" font-size="11" text-anchor="middle">
+          공개 키가 노출돼도 안전한 이유 — 키가 여는 것은 테이블이 아니라 정해진 함수 5개뿐이다
+        </text>
+      </g>
+    </svg>
+    <figcaption>테이블에 접근 정책을 하나도 만들지 않는 것 자체가 차단 장치입니다.</figcaption>
+  </figure>
+
+  <div class="card warnbox">
+    <div class="t">솔직하게 — 이 보안은 강하지 않습니다</div>
+    <p>PIN이 4~6자리라 근본적으로 약합니다. <strong>10회 실패 시 15분 잠금</strong>이 유일한 방패인데,
+       이게 없으면 4자리는 1만 번 시도로 뚫립니다. 있으면 평균 수십 일이 걸립니다.
+       집중 타이머 데이터라 이 정도로 맞췄습니다.
+       <strong>다른 곳에서 쓰는 비밀번호는 절대 쓰지 마세요.</strong> 6자리를 권합니다.</p>
+  </div>
+
+  <h3>양쪽에 데이터가 다르면</h3>
+  <p>PC와 폰에서 각각 항성계를 키운 채로 로그인하면 어느 쪽을 살릴지 <strong>직접 고르게 합니다.</strong>
+     조용히 덮어쓰지 않습니다. 비교할 때 타이머의 진행 상태는 제외합니다 — 기기마다 다른 게 당연하니까요.</p>
+
+  <h3>관리자 계정</h3>
+  <p>토큰 무제한, 집중 시간 1분부터 설정 가능, 천체 종류별 도감 초기화가 열립니다.
+     가챠 확률과 천장을 반복 검증하려고 만든 <strong>테스트 편의 기능</strong>이며,
+     브라우저 쪽에서만 판정하므로 진짜 권한 통제는 아닙니다.</p>
+</section>
+
+<!-- ===================== 10 ===================== -->
+<section id="code">
+  <h2><span class="num">10</span> 코드 지도</h2>
+  <p class="lede"><code>index.html</code> 안의 <code>&lt;script&gt;</code>는 번호 붙은 구역으로 나뉩니다.</p>
+
+  <p>파일이 크기 때문에 고칠 곳을 찾을 때는 <code>/* === N. 이름 === */</code> 주석으로 위치를 잡는 게 빠릅니다.</p>
+
+  <div class="tbl"><table>
+    <tr><th>구역</th><th>하는 일</th><th>대표 함수</th></tr>
+    <tr><td class="mono">0</td><td>색·난수·시간 유틸</td><td><code>toHex</code> <code>mulberry</code> <code>lsGet</code></td></tr>
+    <tr><td class="mono">1</td><td>천체 데이터 (46종)</td><td><code>STAR_POOL</code> <code>PLANET_POOL</code> <code>MOON_POOL</code></td></tr>
+    <tr><td class="mono">2</td><td>상태와 저장</td><td><code>freshState</code> <code>load</code> <code>save</code></td></tr>
+    <tr><td class="mono">3</td><td>천체 그리기</td><td><code>drawBody</code> <code>drawStar</code> <code>drawRing</code></td></tr>
+    <tr><td class="mono">4</td><td>궤도·카메라·화면</td><td><code>orbitPos</code> <code>project</code> <code>render</code></td></tr>
+    <tr><td class="mono">5</td><td>타이머</td><td><code>startPhase</code> <code>onPhaseDone</code> <code>isLocked</code></td></tr>
+    <tr><td class="mono">6</td><td>모달·확인창</td><td><code>open</code> <code>close</code> <code>ask</code></td></tr>
+    <tr><td class="mono">7</td><td>중심별 생성</td><td><code>buildPalette</code> <code>paintPreview</code></td></tr>
+    <tr><td class="mono">8</td><td>가챠</td><td><code>pull</code> <code>showPull</code> <code>renderGacha</code></td></tr>
+    <tr><td class="mono">9</td><td>항성계 편집</td><td><code>renderSystem</code> <code>openPick</code></td></tr>
+    <tr><td class="mono">10</td><td>완료 팝업</td><td><code>showTokenPopup</code></td></tr>
+    <tr><td class="mono">11</td><td>위젯 이벤트 연결</td><td><code>setMode</code> <code>updateViewUI</code></td></tr>
+    <tr><td class="mono">13</td><td>계정·클라우드</td><td><code>api</code> <code>doAuth</code> <code>cloudPush</code></td></tr>
+    <tr><td class="mono">12</td><td>부팅</td><td><code>boot</code></td></tr>
+  </table></div>
+
+  <p style="color:var(--txt3);font-size:13px">13이 12보다 앞에 있는 건 부팅이 항상 마지막에 오도록
+     계정 기능을 나중에 끼워 넣은 결과입니다.</p>
+
+  <h3>저장되는 것</h3>
+  <div class="tbl"><table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>중심별</td><td>이름과 색</td></tr>
+    <tr><td>보관함</td><td>보유한 천체 id 목록 (배너별)</td></tr>
+    <tr><td>배치</td><td>궤도 슬롯 7개 + 슬롯별 위성 2칸 + 동반성 2칸</td></tr>
+    <tr><td>토큰 · 천장</td><td>보유 토큰, 배너별 천장 카운터</td></tr>
+    <tr><td>통계</td><td>총 세션 수, 누적 집중 시간, 오늘 집중 시간</td></tr>
+    <tr><td>타이머 설정</td><td>모드, 시간, 포모도로 회차</td></tr>
+  </table></div>
+  <p>로그인하면 저장 칸이 계정별로 갈라져서, 한 기기를 여러 사람이 써도 항성계가 섞이지 않습니다.</p>
+</section>
+
+<!-- ===================== 11 ===================== -->
+<section id="gotcha">
+  <h2><span class="num">11</span> 고칠 때 걸려 넘어졌던 것들</h2>
+  <p class="lede">실제로 버그를 냈던 지점들입니다. 같은 함정을 다시 밟지 않기 위한 기록입니다.</p>
+
+  <div class="card warnbox">
+    <div class="t">회전한 요소는 클릭 영역도 회전한다</div>
+    <p>타이머 다이얼의 진행률 원이 90도 돌아가 있었는데, <strong>회전하면 클릭 판정 영역도 같이
+       돌아가면서 원래 자리 밖으로 삐져나옵니다.</strong> 그 영역이 위쪽 입력창의 오른쪽 절반을
+       덮어서, 눈에는 아무것도 없는데 클릭이 안 되는 상태가 됐습니다.
+       장식용 요소에는 클릭을 통과시켜야 합니다.</p>
+  </div>
+
+  <div class="card warnbox">
+    <div class="t">모바일에서는 브라우저 확인창이 안 뜬다</div>
+    <p>홈 화면에 추가한 앱이나 일부 모바일 브라우저는 <code>confirm()</code>을 조용히 차단하고
+       "취소"로 처리합니다. 그래서 로그아웃 버튼이 눌러도 아무 반응이 없었습니다.
+       확인창은 <strong>앱 안에서 직접 만들어</strong> 써야 합니다.</p>
+  </div>
+
+  <div class="card warnbox">
+    <div class="t">투명도를 두 번 곱하지 말 것</div>
+    <p>선 색에 이미 투명도가 들어 있는데 전체 투명도를 또 걸면 둘이 곱해집니다.
+       0.22 × 0.22 = 0.05가 되어 <strong>동반성 궤도선이 사실상 보이지 않았습니다.</strong></p>
+  </div>
+
+  <div class="card warnbox">
+    <div class="t">로컬만 지우면 초기화가 안 된다</div>
+    <p>로그인 상태에서 전체 초기화를 하면 기기 데이터는 지워지지만,
+       다음에 앱을 열 때 <strong>클라우드가 그대로 되살립니다.</strong>
+       초기화는 클라우드까지 비워야 합니다.</p>
+  </div>
+
+  <div class="card warnbox">
+    <div class="t">작은 그림에서는 별빛이 잘린다</div>
+    <p>별의 코로나는 별 크기의 6배 넘게 퍼집니다. 작은 썸네일에 그대로 그리면
+       가장자리에서 빛이 뚝 끊겨 <strong>네모난 테두리</strong>가 보입니다.
+       작은 화면에서는 빛 번짐 범위를 줄여야 합니다.</p>
+  </div>
+
+  <div class="card">
+    <div class="t">데이터 구조를 바꿀 때</div>
+    <p>천체 id를 바꾸거나 지우면 기존 사용자의 저장 데이터가 깨집니다.
+       불러오기 단계에 <strong>없는 id를 걸러내고 빈 칸을 메우는 복구 로직</strong>이 들어 있으니,
+       구조를 바꿀 때는 이쪽도 함께 손봐야 합니다.</p>
+  </div>
+</section>
+
+<footer>
+  Stellar Focus · 이 문서는 <code>docs.html</code> 입니다 ·
+  코드와 함께 갱신됩니다
+</footer>
+
+</div>
+</body>
+</html>
