@@ -1657,23 +1657,30 @@ function drawBody(ctx,x,y,r,b,lightAng,lit,opt){
   const F=b.f||{};
   // 어두운 상태(집중 중)와 아주 작을 때는 기존 방식이 더 싸고 충분하다
   if(lit<.02 || r<3.5){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
-  const sp=(typeof bodySprite==='function')?bodySprite(b,r*2,opt&&opt.spin||0):null;
-  if(!sp){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
+  const tex=(typeof readyTexture==='function')?readyTexture(b):null;
+  if(!tex){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
 
-  if(F.glow||F.atmos){                       // 헤일로는 회전시키지 않는다
+  if(F.glow||F.atmos){                       // 헤일로
     const g=ctx.createRadialGradient(x,y,r*0.9,x,y,r*(F.glow?2.4:1.7));
     g.addColorStop(0,rgba(b.c1,(F.glow?.30:.18)*lit));
     g.addColorStop(1,rgba(b.c1,0));
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*(F.glow?2.4:1.7),0,TAU);ctx.fill();
   }
-  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'back');
+  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'back',lightAng);
+  // 매 프레임 그린다. 미리 구운 프레임을 고르면 자전이 뚝뚝 끊긴다.
+  const need=Math.min(256,Math.max(16,Math.ceil(r*2)));
+  const sc=scratchFor(need);
+  const spin=(opt&&opt.spinLon)||0;
+  drawGlobe(sc,tex,spin,0.20,hx(b.c1),{
+    shape:shapeOf(b.id), shapeId:b.id,
+    atmos:!!(F.atmos||F.ocean||F.glow), emis:b.m!==undefined,
+    light:[Math.cos(lightAng),Math.sin(lightAng),0.62]
+  });
   ctx.save();
-  ctx.translate(x,y);
-  ctx.rotate(lightAng-SPRITE_LIGHT);         // 밝은 면이 별을 향하도록
   ctx.globalAlpha=lit;
-  ctx.drawImage(sp,-r,-r,r*2,r*2);
+  ctx.drawImage(sc,x-r,y-r,r*2,r*2);
   ctx.restore();
-  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'front');
+  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'front',lightAng);
 }
 function drawBodyCore(ctx,x,y,r,b,lightAng,lit){
   const F=b.f||{}, G=feats(b);
@@ -1803,7 +1810,7 @@ function drawBodyCore(ctx,x,y,r,b,lightAng,lit){
 /** 궤도 화면의 고리.
     토성처럼 실제 텍스처가 있으면 도감과 같은 원반을 쓰고, 없으면 얇은 띠로 그린다.
     고리는 궤도면에 놓이므로 납작한 정도는 카메라 기울기를 따른다. */
-function drawRing(ctx,x,y,r,id,dark,lit,part){
+function drawRing(ctx,x,y,r,id,dark,lit,part,lightAng){
   const st=ringStyle(id);
   const squash=Math.max(0.05,Math.abs(Math.cos(VIEW.tilt)));
   const rOut=r*st.rout;
@@ -1828,6 +1835,24 @@ function drawRing(ctx,x,y,r,id,dark,lit,part){
       ctx.stroke();
     });
   }
+  // 행성이 고리에 드리우는 그림자 — 이게 없으면 고리가 종이처럼 평평해 보인다
+  if(!dark&&lightAng!==undefined&&lit>0.05){
+    const ax=-Math.cos(lightAng), ay=-Math.sin(lightAng)*squash;   // 별 반대 방향
+    ctx.beginPath();                       // 고리 영역으로만 자른다
+    ctx.ellipse(x,y,rOut,rOut*squash,0,0,TAU);
+    ctx.ellipse(x,y,r*st.rin,r*st.rin*squash,0,0,TAU);
+    ctx.clip('evenodd');
+    const sg=ctx.createLinearGradient(x,y,x+ax*rOut,y+ay*rOut);
+    sg.addColorStop(0,'rgba(0,0,0,0.80)');
+    sg.addColorStop(0.55,'rgba(0,0,0,0.42)');
+    sg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.globalAlpha=1;
+    ctx.fillStyle=sg;
+    ctx.beginPath();
+    // 행성 폭만큼의 그림자 띠
+    ctx.ellipse(x+ax*rOut*0.5, y+ay*rOut*0.5, rOut*0.62, r*0.92, Math.atan2(ay,ax), 0, TAU);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1840,20 +1865,72 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
   const R=r*pulse;
 
   if(extra.acc){ // 블랙홀
+    /* 중력렌즈가 원반의 뒤쪽을 그림자 위로 들어 올려, 전체가 그림자를
+       감싸는 고리처럼 보인다. 앞쪽 원반은 그림자 아래를 가로지르고,
+       다가오는 쪽이 도플러 효과로 훨씬 밝다. */
+    const Rs=R;                          // 그림자 반경
+    const rIn=Rs*1.06, rOut=Rs*2.25;
     ctx.save();
-    const ag=ctx.createRadialGradient(x,y,R*1.05,x,y,R*3.2);
-    ag.addColorStop(0,rgba('#ffb45c',.0));
-    ag.addColorStop(.18,rgba('#ffd08a',.55*blaze+.08));
-    ag.addColorStop(.45,rgba('#ff8a3c',.28*blaze+.05));
-    ag.addColorStop(1,rgba('#ff6a2c',0));
-    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(x,y,R*3.2,0,TAU);ctx.fill();
-    ctx.globalAlpha=.75*blaze+.15;
-    ctx.strokeStyle=rgba('#ffcf8a',.9);ctx.lineWidth=Math.max(1.2,R*.22);
-    ctx.beginPath();ctx.ellipse(x,y,R*2.3,R*.72,.3,0,TAU);ctx.stroke();
+    ctx.translate(x,y);
+
+    // 바깥으로 옅게 번지는 빛
+    const ag=ctx.createRadialGradient(0,0,Rs,0,0,rOut*1.5);
+    ag.addColorStop(0,rgba('#ffb45c',0.20*blaze));
+    ag.addColorStop(1,rgba('#ffb45c',0));
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(0,0,rOut*1.5,0,TAU);ctx.fill();
+
+    // --- 렌즈된 고리: 그림자를 감싼다 ---
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0,0,rOut,rOut*0.50,0,0,TAU);
+    ctx.ellipse(0,0,rIn,rIn*0.50,0,0,TAU);
+    ctx.clip('evenodd');
+    const rg=ctx.createRadialGradient(0,0,rIn,0,0,rOut);
+    rg.addColorStop(0,rgba('#fff4d8',0.95*blaze+0.15));
+    rg.addColorStop(0.22,rgba('#ffc06a',0.60*blaze+0.08));
+    rg.addColorStop(0.60,rgba('#ff8f3a',0.22*blaze+0.03));
+    rg.addColorStop(1,rgba('#a83f14',0));
+    ctx.fillStyle=rg;ctx.fillRect(-rOut,-rOut,rOut*2,rOut*2);
     ctx.restore();
-    ctx.fillStyle='#000';ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();
-    ctx.strokeStyle=rgba('#ffdca8',.5*blaze+.1);ctx.lineWidth=Math.max(.8,R*.10);
-    ctx.beginPath();ctx.arc(x,y,R*1.03,0,TAU);ctx.stroke();
+
+    // --- 앞쪽 원반: 그림자 아래를 가로지르는 납작한 띠 ---
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0,Rs*0.10,rOut*1.12,rOut*0.13,0,0,TAU);
+    ctx.clip();
+    const fg=ctx.createLinearGradient(-rOut,0,rOut,0);
+    fg.addColorStop(0,rgba('#fff8e8',0.95*blaze+0.15));
+    fg.addColorStop(0.5,rgba('#ffb45c',0.55*blaze+0.08));
+    fg.addColorStop(1,rgba('#ff8f3a',0.30*blaze+0.05));
+    ctx.fillStyle=fg;ctx.fillRect(-rOut*1.1,-rOut,rOut*2.2,rOut*2);
+    ctx.restore();
+
+    // --- 그림자 ---
+    ctx.fillStyle='#000';
+    ctx.beginPath();ctx.arc(0,0,Rs,0,TAU);ctx.fill();
+
+    // --- 광자 고리: 지평선 바로 바깥의 얇고 강한 빛 ---
+    const pr=ctx.createRadialGradient(0,0,Rs*0.985,0,0,Rs*1.13);
+    pr.addColorStop(0,rgba('#ffffff',0));
+    pr.addColorStop(0.34,rgba('#ffffff',1.0*blaze+0.25));
+    pr.addColorStop(1,rgba('#ffb45c',0));
+    ctx.fillStyle=pr;
+    ctx.beginPath();ctx.arc(0,0,Rs*1.13,0,TAU);ctx.fill();
+
+    // --- 도플러: 다가오는 쪽만 밝게 남긴다 ---
+    const dop=ctx.createLinearGradient(-rOut,0,rOut,0);
+    dop.addColorStop(0,rgba('#000000',0));
+    dop.addColorStop(0.45,rgba('#000000',0.10));
+    dop.addColorStop(1,rgba('#000000',0.55));
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0,0,rOut*1.15,rOut*0.55,0,0,TAU);
+    ctx.arc(0,0,Rs*0.99,0,TAU);
+    ctx.clip('evenodd');
+    ctx.fillStyle=dop;ctx.fillRect(-rOut,-rOut,rOut*2,rOut*2);
+    ctx.restore();
+
+    ctx.restore();
     return;
   }
 
@@ -2134,7 +2211,7 @@ function sceneBodies(g){
     const lit=litAt(el.a);
     out.push({key:'p'+i, kind:'planet', slot:i, body:b, name:b.n, world:wp,
               scr:toScreen(wp,g), r:pr, lit, el, revs,
-              spin:Math.round(revs*spinRate(b)*SPIN_FRAMES)});
+              spinLon:revs*spinRate(b)*TAU});
 
     sl.m.forEach((mid,k)=>{
       if(!mid)return;
@@ -2147,7 +2224,7 @@ function sceneBodies(g){
       out.push({key:'m'+i+'_'+k, kind:'moon', slot:i, mi:k, body:mb, name:mb.n,
                 world:wm, scr:toScreen(wm,g), r:Math.max(1.8,pr*.34*mb.sz), lit,
                 el:mEl, revs:mrevs, mScale, parent:wp,
-                spin:Math.round(mrevs*spinRate(mb)*SPIN_FRAMES)});
+                spinLon:mrevs*spinRate(mb)*TAU});
     });
   }
   return out;
@@ -2284,7 +2361,7 @@ function render(t){
       if(o.lit<.02) drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0);
       else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,o.body.f||{});
     }else{
-      drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spin:o.spin});
+      drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spinLon:o.spinLon});
     }
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
@@ -3463,13 +3540,19 @@ function loadTexture(id){
     opt.shape  삼축 타원체 + 표면 요철
     opt.atmos  대기 산란(가장자리 빛번짐). 대기 없는 암석에는 주면 안 된다.
     opt.emis   자체 발광(항성). 램버트 대신 주연감광을 쓴다. */
+const _idCache={};
+function globeImageData(ctx,W,H){
+  const k=W+'x'+H;
+  return _idCache[k]||(_idCache[k]=ctx.createImageData(W,H));
+}
 function drawGlobe(cv,tex,lon,lat,tint,opt){
   opt=opt||{};
   const x=cv.getContext('2d'), W=cv.width, H=cv.height;
   const R=Math.min(W,H)/2-2, cx=W/2, cy=H/2;
-  const img=x.createImageData(W,H), d=img.data;
+  const img=globeImageData(x,W,H), d=img.data;
   const cosLat=Math.cos(lat), sinLat=Math.sin(lat);
-  const lx=-0.55, ly=-0.45, lz=0.70;
+  const L=opt.light||[-0.55,-0.45,0.70];
+  const lx=L[0], ly=L[1], lz=L[2];
   const shape=opt.shape, emis=!!opt.emis;
   const ex=shape?shape.ax[0]:1, ey=shape?shape.ax[1]:1, ez=shape?shape.ax[2]:1;
   const lump=shape?shape.lump:0;
@@ -3556,7 +3639,10 @@ function buildRingDisc(tex,st){
     const ti=Math.min(tex.width-1,(((r-rIn)/(R-rIn))*tex.width)|0)*4;
     // 원본은 셰이더로 밝히라고 만든 어두운 값이다. 햇빛 받는 고리처럼 올린다.
     const K=1.95;
-    d[i]=Math.min(255,td[ti]*K);d[i+1]=Math.min(255,td[ti+1]*K);d[i+2]=Math.min(255,td[ti+2]*K);
+    const rr=td[ti]*K, gg=td[ti+1]*K, bb=td[ti+2]*K, lum=(rr+gg+bb)/3;
+    d[i]  =Math.min(255,rr*0.82+lum*0.26);
+    d[i+1]=Math.min(255,gg*0.84+lum*0.22);
+    d[i+2]=Math.min(255,bb*0.78+lum*0.16);
     // 가장자리 부드럽게
     let a=td[ti+3];
     if(r>R-1.5) a*= (R-r)/1.5;
@@ -3654,7 +3740,33 @@ const _sprite={}, _spriteQ=[], _spriteWait=[]; let _spriteBusy=false;
 const spriteBucket=px=>px<=26?32:px<=58?64:128;
 function spriteKey(id,px,fr){ return id+'@'+spriteBucket(px)+'#'+fr; }
 
-/** 준비된 스프라이트를 돌려주고, 없으면 굽기를 예약한다 */
+/** 텍스처가 준비돼 있으면 돌려주고, 없으면 굽기를 예약한 뒤 null */
+const _texQ=[]; let _texBusy=false;
+function readyTexture(b){
+  if(TEX_IDS.has(b.id)&&_texCache[b.id]) return _texCache[b.id];
+  if(_procCache[b.id]) return _procCache[b.id];
+  if(_texQ.indexOf(b.id)<0){_texQ.push(b.id);pumpTex();}
+  return null;
+}
+function pumpTex(){
+  if(_texBusy||!_texQ.length)return;
+  _texBusy=true;
+  setTimeout(()=>{
+    const id=_texQ.shift();
+    if(id&&BY_ID[id]) makeProcTexture(BY_ID[id]);
+    _texBusy=false; pumpTex();
+  },0);
+}
+/* 궤도 화면용 스크래치 캔버스 — 크기별로 하나씩 재사용한다 */
+const _scratch={};
+function scratchFor(px){
+  const n=px<=32?32:px<=64?64:px<=128?128:256;
+  let c=_scratch[n];
+  if(!c){c=document.createElement('canvas');c.width=c.height=n;_scratch[n]=c;}
+  return c;
+}
+
+/** 준비된 스프라이트를 돌려주고, 없으면 굽기를 예약한다 (썸네일 전용) */
 function bodySprite(b,px,fr){
   fr=((fr|0)%SPIN_FRAMES+SPIN_FRAMES)%SPIN_FRAMES;
   const k=spriteKey(b.id,px,fr);
