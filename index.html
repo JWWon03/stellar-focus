@@ -190,11 +190,39 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 
 /* 촬영 모드 */
 .camOnly,.camBar{display:none}
+.capPanel{display:none;width:196px;padding:12px 13px;margin-bottom:7px;
+  /* 구도를 가리므로 틀이 비쳐 보이게 한다 */
+  background:rgba(9,12,22,.66);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+body.capture .capPanel.on{display:block}
+.capSec{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--txt-3);margin:0 0 7px}
+.capSec:not(:first-child){margin-top:13px}
+.capRatios{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.capRatios button,.capBtn{
+  padding:7px 4px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.03);
+  color:var(--txt-2);font-size:11px;font-weight:600;cursor:pointer;transition:.15s;text-align:center
+}
+.capRatios button:hover,.capBtn:hover{border-color:var(--line-2);color:var(--txt)}
+.capRatios button.on,.capBtn.on{background:rgba(58,90,180,.42);
+  border-color:rgba(138,180,255,.6);color:#fff}
+.capRow{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.capRow .capBtn:last-child{grid-column:1/-1}
+.capChk{padding:9px 11px;margin-bottom:6px}
+.capChk .txt b{font-size:12px;white-space:nowrap}
+.capChk .tgl{width:36px;height:20px}
+.capChk .tgl::after{width:14px;height:14px}
+.capChk.on .tgl::after{left:18px}
+@media(max-width:760px){
+  .capPanel{width:168px;padding:10px 11px}
+  .capRatios{gap:4px}
+  .capRatios button,.capBtn{padding:6px 2px;font-size:10px}
+  .capChk{padding:7px 9px;margin-bottom:5px}
+  .capChk .txt b{font-size:11px}
+}
 .camBar{gap:7px;flex-direction:column;align-items:stretch}
 .camBar .cbtn{min-width:118px;text-align:center}
 body.capture .hud.tl,body.capture .hud.bl,body.capture .menuStack,
-body.capture #tokenChip,body.capture .zoomBar{display:none}
-body.capture .camOnly{display:block}
+body.capture #tokenChip,body.capture .zoomBar,body.capture .vBtn,
+body.capture .menuToggle{display:none}
 body.capture .camBar{display:flex}
 body.capture .followChip{display:none!important}
 body.capture #hint{display:none}
@@ -811,14 +839,31 @@ body.locked #timerPanel input{cursor:not-allowed}
   <div class="followChip panel" id="followChip"><span id="followName"></span><button id="followOff">✕</button></div>
   <button class="vBtn" id="vbFace">Face-on</button>
   <button class="vBtn" id="vbEdge">Edge-on</button>
-  <button class="vBtn camOnly" id="vbLabels">별 이름 표시</button>
   <div class="zoomBar panel">
     <button id="vbOut" title="축소">−</button>
     <button id="vbIn" title="확대">+</button>
     <button id="vbFit" title="전체 보기">⤢</button>
   </div>
+  <div class="capPanel panel" id="capPanel">
+    <div class="capSec">비율</div>
+    <div class="capRatios" id="capRatios"></div>
+    <div class="capSec">시점</div>
+    <div class="capRow">
+      <button class="capBtn" id="capFace">Face-on</button>
+      <button class="capBtn" id="capEdge">Edge-on</button>
+      <button class="capBtn" id="capFit">전체 보기</button>
+    </div>
+    <div class="capSec">표시</div>
+    <div class="setRow capChk on" id="capLabels">
+      <div class="txt"><b>별 이름</b></div><div class="tgl"></div>
+    </div>
+    <div class="setRow capChk on" id="capOrbits">
+      <div class="txt"><b>궤도선</b></div><div class="tgl"></div>
+    </div>
+  </div>
   <div class="camBar">
-    <button class="cbtn primary" id="btnShoot">◉ 촬영</button>
+    <button class="cbtn" id="btnCapSet">⚙&nbsp; 설정</button>
+    <button class="cbtn primary" id="btnShoot">◉&nbsp; 촬영</button>
     <button class="cbtn" id="btnCamExit">나가기</button>
   </div>
 </div>
@@ -1022,8 +1067,11 @@ body.locked #timerPanel input{cursor:not-allowed}
       <div style="flex:1"><h2>촬영 완료</h2><p>길게 눌러 저장하거나 아래 버튼을 쓰세요</p></div>
       <button class="mClose" data-close="mShot">✕</button>
     </div>
-    <div class="mBody"><img id="shotImg" alt="항성계 스크린샷"
-      style="width:100%;border-radius:12px;border:1px solid var(--line);display:block"></div>
+    <div class="mBody">
+      <img id="shotImg" alt="항성계 스크린샷"
+        style="width:100%;border-radius:12px;border:1px solid var(--line);display:block">
+      <div id="shotMeta" style="text-align:center;font-size:11px;color:var(--txt-3);margin-top:10px"></div>
+    </div>
     <div class="mFoot">
       <div class="spacer"></div>
       <button class="cbtn" data-close="mShot">닫기</button>
@@ -2149,8 +2197,11 @@ function fitZoom(){
   const aMax=(os>=0?orbitEl(os).a*(1+orbitEl(os).e):0.34)+0.06;
   const g=geom(), narrow=W<760;
   const c=Math.max(0.30,Math.cos(VIEW.tiltTo));
-  const zx=(W*0.46)/(g.R*aMax);
-  const zy=(H*(narrow?0.36:0.44))/(g.R*aMax*c);
+  // 촬영 틀이 켜져 있으면 그 안에 들어가야 한다
+  const fr=(typeof captureRect==='function' && document.body.classList.contains('capture'))
+           ? captureRect() : {w:W,h:H};
+  const zx=(fr.w*0.46)/(g.R*aMax);
+  const zy=(fr.h*(narrow?0.36:0.44))/(g.R*aMax*c);
   return clamp(Math.min(zx,zy),0.5,3.4);
 }
 
@@ -2303,6 +2354,7 @@ function render(t){
   const primary=bodies[0];
 
   // ---- 궤도 경로 ----
+  if(showOrbits){
   ctx.save();
   ctx.lineWidth=1;
   for(let i=0;i<MAX_PLANET;i++){
@@ -2327,9 +2379,10 @@ function render(t){
     strokeStarRing(g,ORG,sp.rInner,ZK_OUT,0.20);         // 안쪽 쌍성 질량중심의 궤도
   }
   ctx.restore();
+  }
 
   // ---- 진행 궤적 (기준 궤도) ----
-  if(os>=0 && T.phase==='focus' && T.total>0){
+  if(showOrbits && os>=0 && T.phase==='focus' && T.total>0){
     const el=orbitEl(os);
     const prog=clamp(1-remainMs()/T.total,0,1);
     ctx.save();
@@ -2344,6 +2397,7 @@ function render(t){
   ctx.save();
   ctx.lineCap='round';
   bodies.forEach(o=>{
+    if(!showOrbits)return;
     if(o.kind!=='planet'&&o.kind!=='moon')return;
     const span=o.kind==='planet'?0.055:0.10;
     const grd=o.lit>.5?'rgba(170,200,255,':'rgba(90,110,160,';
@@ -2426,6 +2480,9 @@ function render(t){
     }
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
+
+  // 구도 가이드는 천체 위에 얹혀야 잘릴 부분이 보인다
+  if(document.body.classList.contains('capture')) drawCaptureGuide(ctx);
 }
 
 function drawSelectionRing(o,t){
@@ -4001,25 +4058,92 @@ $$('.dexTab').forEach(t=>t.onclick=()=>{dexBanner=t.dataset.bn;renderDex();});
 $('#btnDex').onclick=()=>{if(!S.created||guard())return;renderDex();open('mDex');};
 
 /* ---- 촬영 모드 ---- */
-let showLabels=true;
+const CAP_RATIOS=[['full','전체'],['1:1','1:1'],['4:5','4:5'],
+                  ['3:4','3:4'],['9:16','9:16'],['16:9','16:9']];
+let showLabels=true, showOrbits=true, capRatio='full', _hideGuide=false;
+
+/** 지금 비율로 잘려 나갈 화면 영역 */
+function captureRect(){
+  if(capRatio==='full') return {x:0,y:0,w:W,h:H};
+  const p=capRatio.split(':'), target=(+p[0])/(+p[1]);
+  let w=W*0.94, h=w/target;
+  if(h>H*0.94){h=H*0.94; w=h*target;}
+  return {x:(W-w)/2, y:(H-h)/2, w, h};
+}
+/** 구도 가이드 — 잘려 나갈 바깥을 어둡게 덮고 삼분할선을 그린다 */
+function drawCaptureGuide(ctx){
+  if(_hideGuide||capRatio==='full')return;
+  const r=captureRect();
+  ctx.save();
+  ctx.fillStyle='rgba(3,5,12,.62)';
+  ctx.fillRect(0,0,W,r.y);
+  ctx.fillRect(0,r.y+r.h,W,H-(r.y+r.h));
+  ctx.fillRect(0,r.y,r.x,r.h);
+  ctx.fillRect(r.x+r.w,r.y,W-(r.x+r.w),r.h);
+  ctx.strokeStyle='rgba(255,255,255,.34)';ctx.lineWidth=1;
+  ctx.strokeRect(r.x+.5,r.y+.5,r.w-1,r.h-1);
+  ctx.strokeStyle='rgba(255,255,255,.11)';
+  for(let i=1;i<3;i++){
+    ctx.beginPath();
+    ctx.moveTo(r.x+r.w*i/3,r.y);ctx.lineTo(r.x+r.w*i/3,r.y+r.h);
+    ctx.moveTo(r.x,r.y+r.h*i/3);ctx.lineTo(r.x+r.w,r.y+r.h*i/3);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function setCapture(on){
   document.body.classList.toggle('capture',on);
   if(on){VIEW.follow=null;updateViewUI();}
-  $('#vbLabels').classList.toggle('on',showLabels);
+  else {
+    // 촬영용 토글이 평소 화면까지 따라가면 궤도선이 사라진 채로 남는다
+    $('#capPanel').classList.remove('on');
+    showLabels=true; showOrbits=true; capRatio='full';
+  }
+  syncCapUI();
 }
-$('#btnCamera').onclick=()=>{if(!S.created||guard())return;setCapture(true);toast('UI를 숨겼습니다 · 촬영 버튼을 누르세요');};
+function syncCapUI(){
+  // 부팅 도중 updateViewUI 가 먼저 불릴 수 있다. 패널이 채워지기 전이면 건너뛴다
+  const wrap=$('#capRatios');
+  if(!wrap||!wrap.children.length) return;
+  $$('#capRatios button').forEach(el=>el.classList.toggle('on',el.dataset.r===capRatio));
+  $('#capLabels').classList.toggle('on',showLabels);
+  $('#capOrbits').classList.toggle('on',showOrbits);
+  $('#capFace').classList.toggle('on',VIEW.tiltTo<0.30);
+  $('#capEdge').classList.toggle('on',VIEW.tiltTo>1.25);
+}
+$('#capRatios').innerHTML=CAP_RATIOS.map(r=>
+  `<button data-r="${r[0]}">${r[1]}</button>`).join('');
+$$('#capRatios button').forEach(el=>el.onclick=()=>{capRatio=el.dataset.r;syncCapUI();});
+$('#btnCapSet').onclick=()=>{$('#capPanel').classList.toggle('on');syncCapUI();};
+$('#capFace').onclick=()=>{setTilt(VIEW.tiltTo<0.30?TILT_DEFAULT:TILT_FACE);syncCapUI();};
+$('#capEdge').onclick=()=>{setTilt(VIEW.tiltTo>1.25?TILT_DEFAULT:TILT_EDGE);syncCapUI();};
+$('#capFit').onclick=()=>{resetView();syncCapUI();};
+$('#capLabels').onclick=()=>{showLabels=!showLabels;syncCapUI();};
+$('#capOrbits').onclick=()=>{showOrbits=!showOrbits;syncCapUI();};
+
+$('#btnCamera').onclick=()=>{if(!S.created||guard())return;setCapture(true);
+  toast('UI를 숨겼습니다 · 설정에서 비율 선택');};
 $('#btnCamExit').onclick=()=>setCapture(false);
-$('#vbLabels').onclick=()=>{showLabels=!showLabels;$('#vbLabels').classList.toggle('on',showLabels);};
+
 $('#btnShoot').onclick=()=>{
   try{
-    const url=cv.toDataURL('image/png');
+    _hideGuide=true; render(clock);            // 가이드가 사진에 찍히면 안 된다
+    const r=captureRect();
+    const out=document.createElement('canvas');
+    out.width=Math.round(r.w*DPR); out.height=Math.round(r.h*DPR);
+    out.getContext('2d').drawImage(cv, r.x*DPR, r.y*DPR, r.w*DPR, r.h*DPR,
+                                   0, 0, out.width, out.height);
+    _hideGuide=false;
+    const url=out.toDataURL('image/png');
     $('#shotImg').src=url;
     const d=new Date();
     const stamp=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
     const el=$('#shotSave');
     el.href=url; el.download=`${(S.star.name||'stellar')}-${stamp}.png`;
+    $('#shotMeta').textContent=`${out.width} × ${out.height}px · ${capRatio==='full'?'전체 화면':capRatio}`;
     open('mShot');
-  }catch(e){warn('촬영에 실패했습니다');}
+  }catch(e){_hideGuide=false;warn('촬영에 실패했습니다');}
 };
 
 $$('.tab').forEach(t=>t.onclick=()=>{
@@ -4332,6 +4456,7 @@ $('#btnMenuToggle').onclick=()=>{
 
 /* 시점 조작 */
 function updateViewUI(){
+  if(typeof syncCapUI==='function') syncCapUI();
   $('#vbFace').classList.toggle('on',VIEW.tiltTo<0.30);
   $('#vbEdge').classList.toggle('on',VIEW.tiltTo>1.25);
   const chip=$('#followChip');
