@@ -98,9 +98,14 @@ button,input,select{font-family:inherit;color:inherit}
 .cbtn.danger:hover{background:linear-gradient(160deg,#c04c34,#8f3222)}
 .cbtn:disabled{opacity:.38;cursor:not-allowed;transform:none}
 
-/* 계정 버튼 / 동기화 상태 */
-#btnAccount{display:flex;align-items:center;padding:9px 14px;font-size:12px;align-self:flex-start}
-#accIcon{font-size:10px;color:var(--txt-3);line-height:1}
+/* 계정 (시계 패널 안) */
+#btnAccount{
+  display:flex;align-items:center;gap:7px;width:100%;margin-top:9px;padding:6px 8px;
+  background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:9px;
+  font-size:11px;color:var(--txt-2);cursor:pointer;transition:.15s
+}
+#btnAccount:hover{border-color:var(--line-2);color:var(--txt)}
+#accIcon{font-size:9px;color:var(--txt-3);line-height:1}
 #accIcon.st-ok{color:var(--ok);text-shadow:0 0 8px rgba(111,230,176,.7)}
 #accIcon.st-sync{color:var(--acc)}
 #accIcon.st-err{color:var(--warn)}
@@ -125,28 +130,74 @@ body.admin #tokenCount{color:var(--gold)}
 .admGrid .mini{text-align:center;padding:7px 4px;line-height:1.35}
 .admGrid .mini b{display:block;font-size:10px;font-weight:600;opacity:.7;font-variant-numeric:tabular-nums}
 
-/* 시점 조작 바 */
-.viewBar{display:flex;align-items:center;gap:3px;padding:5px 6px}
-.vb{
-  background:transparent;border:1px solid transparent;border-radius:9px;
-  padding:7px 10px;font-size:11.5px;font-weight:600;color:var(--txt-2);
-  cursor:pointer;transition:.15s;white-space:nowrap;line-height:1
+/* 우상단 주 메뉴 스택 */
+.menuStack{display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+.mBtn{
+  display:flex;align-items:center;gap:10px;padding:8px 14px 8px 11px;min-width:118px;
+  background:var(--panel);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:13px;cursor:pointer;transition:.16s;
+  box-shadow:0 8px 26px rgba(0,0,0,.45);color:var(--txt-2)
 }
-.vb:hover{background:rgba(255,255,255,.07);color:var(--txt)}
-.vb.on{background:rgba(58,90,180,.34);border-color:rgba(138,180,255,.5);color:#fff}
-.vb.ic{font-size:15px;padding:6px 10px;font-weight:400}
-.vsep{width:1px;height:16px;background:var(--line);margin:0 3px;flex:0 0 auto}
+.mBtn svg{width:19px;height:19px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6}
+.mBtn span{font-size:12.5px;font-weight:600;letter-spacing:.01em}
+.mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt);transform:translateX(-2px)}
+.mBtn:active{transform:translateX(0) scale(.98)}
+#btnGacha:hover{color:var(--acc-2)}
+#btnDex:hover{color:var(--ok)}
+#btnCamera:hover{color:var(--gold)}
 
-.followChip{
-  display:none;align-items:center;gap:8px;padding:7px 8px 7px 13px;font-size:12px;font-weight:600
+/* 우하단 시점 버튼 */
+.vBtn{
+  min-width:118px;padding:9px 14px;text-align:center;
+  background:var(--panel);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.16s;
+  font-size:12px;font-weight:600;color:var(--txt-2);box-shadow:0 8px 26px rgba(0,0,0,.45)
 }
+.vBtn:hover{border-color:var(--line-2);color:var(--txt)}
+.vBtn.on{background:rgba(58,90,180,.42);border-color:rgba(138,180,255,.6);color:#fff}
+.zoomBar{display:flex;gap:3px;padding:4px 5px}
+.zoomBar button{
+  width:34px;height:30px;background:transparent;border:1px solid transparent;border-radius:8px;
+  color:var(--txt-2);font-size:15px;cursor:pointer;transition:.15s;line-height:1
+}
+.zoomBar button:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+
+.followChip{display:none;align-items:center;gap:8px;padding:7px 8px 7px 13px;font-size:12px;font-weight:600}
 .followChip.on{display:flex}
-.followChip button{
-  background:transparent;border:none;color:var(--txt-3);cursor:pointer;font-size:12px;
-  padding:3px 6px;border-radius:6px;line-height:1
-}
+.followChip button{background:transparent;border:none;color:var(--txt-3);cursor:pointer;
+  font-size:12px;padding:3px 6px;border-radius:6px;line-height:1}
 .followChip button:hover{background:rgba(255,255,255,.08);color:var(--warn)}
 
+/* 촬영 모드 */
+.camOnly,.camBar{display:none}
+.camBar{gap:7px;flex-direction:column;align-items:stretch}
+.camBar .cbtn{min-width:118px;text-align:center}
+body.capture .hud.tl,body.capture .hud.bl,body.capture .menuStack,
+body.capture #tokenChip,body.capture .zoomBar{display:none}
+body.capture .camOnly{display:block}
+body.capture .camBar{display:flex}
+body.capture .followChip{display:none!important}
+body.capture #hint{display:none}
+
+/* 타이머 탭 */
+.tTabs{display:flex;align-items:center;gap:5px;margin-bottom:12px}
+.tTab{
+  padding:7px 11px;border:1px solid var(--line);border-radius:10px 10px 0 0;
+  background:rgba(255,255,255,.02);color:var(--txt-3);font-size:11.5px;font-weight:600;
+  cursor:pointer;transition:.15s;border-bottom-color:transparent
+}
+.tTab:hover{color:var(--txt-2)}
+.tTab.on{background:rgba(58,90,180,.3);border-color:rgba(138,180,255,.5);color:#fff}
+.tSpacer{flex:1}
+.tIco{
+  width:26px;height:26px;border-radius:8px;border:1px solid var(--line);
+  background:rgba(255,255,255,.03);cursor:pointer;font-size:12px;color:var(--txt-2);
+  display:flex;align-items:center;justify-content:center;transition:.15s;line-height:1
+}
+.tIco:hover{border-color:var(--line-2);color:var(--txt)}
+.tIco.off{opacity:.4}
+
+/* 토큰 칩 */
 /* 토큰 칩 */
 #tokenChip{display:flex;align-items:center;gap:7px;padding:8px 14px;font-size:13px}
 #tokenChip .tk{color:var(--gold);font-size:15px;text-shadow:0 0 12px rgba(255,198,92,.7)}
@@ -356,6 +407,14 @@ body.admin #tokenCount{color:var(--gold)}
 }
 .tab:hover{border-color:var(--line-2);color:var(--txt)}
 .tab.on{background:linear-gradient(160deg,rgba(70,105,210,.4),rgba(45,65,150,.3));border-color:rgba(150,185,255,.5);color:#fff}
+.dexTab{flex:1;padding:11px 6px;text-align:center;border:1px solid var(--line);
+  border-radius:12px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--txt-2);
+  transition:.16s;background:rgba(255,255,255,.02)}
+.dexTab:hover{border-color:var(--line-2);color:var(--txt)}
+.dexTab.on{background:linear-gradient(160deg,rgba(70,105,210,.4),rgba(45,65,150,.3));
+  border-color:rgba(150,185,255,.5);color:#fff}
+.dexTab .sm{display:block;font-size:10px;font-weight:500;color:var(--txt-3);margin-top:3px}
+.dexTab.on .sm{color:rgba(220,232,255,.75)}
 .tab .sm{display:block;font-size:10px;font-weight:500;color:var(--txt-3);margin-top:3px}
 .tab.on .sm{color:rgba(220,232,255,.75)}
 
@@ -618,31 +677,58 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="date" id="dateTxt">—</div>
     <div class="time" id="timeTxt">--:--:--</div>
     <div class="sub" id="clockSub"></div>
+    <button id="btnAccount"><span id="accIcon">○</span><span id="accLabel">게스트</span></button>
   </div>
-  <button class="cbtn" id="btnAccount"><span id="accIcon">○</span>&nbsp; <span id="accLabel">게스트</span></button>
 </div>
 
-<!-- 우상단: 가챠 -->
+<!-- 우상단: 주 메뉴 -->
 <div class="hud tr">
-  <div id="tokenChip" class="panel"><span class="tk">◈</span><b id="tokenCount">0</b><span class="lbl">가챠 토큰</span></div>
-  <button class="cbtn" id="btnGacha">✦&nbsp; 가챠 배너</button>
+  <div id="tokenChip" class="panel"><span class="tk">◈</span><b id="tokenCount">0</b><span class="lbl">토큰</span></div>
+  <div class="menuStack">
+    <button class="mBtn" id="btnGacha" title="가챠 배너">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M2 7h7M3.5 11h6M6 15h5" stroke-linecap="round"/>
+        <path d="M16 4l1.9 4.1L22 10l-4.1 1.9L16 16l-1.9-4.1L10 10l4.1-1.9z" fill="currentColor" stroke="none"/>
+      </svg><span>가챠</span>
+    </button>
+    <button class="mBtn" id="btnSystem" title="항성계 설정">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <ellipse cx="12" cy="12" rx="10" ry="4.6"/>
+        <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/>
+      </svg><span>항성계</span>
+    </button>
+    <button class="mBtn" id="btnDex" title="천체 도감">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 6.5S9.5 4.5 3 5.2v13C9.5 17.5 12 19.5 12 19.5s2.5-2 9-1.3v-13C14.5 4.5 12 6.5 12 6.5z"/>
+        <path d="M12 6.5v13"/>
+      </svg><span>도감</span>
+    </button>
+    <button class="mBtn" id="btnCamera" title="촬영 모드">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 8.5h3.2l1.6-2.2h8.4l1.6 2.2H21v10H3z"/>
+        <circle cx="12" cy="13.2" r="3.6"/>
+      </svg><span>카메라</span>
+    </button>
+    <button class="mBtn" id="btnSettings" title="설정">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.6v3M12 18.4v3M21.4 12h-3M5.6 12h-3M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1M18.6 18.6l-2.1-2.1M7.5 7.5L5.4 5.4" stroke-linecap="round"/>
+      </svg><span>설정</span>
+    </button>
+  </div>
 </div>
 
 <!-- 좌하단: 타이머 위젯 -->
 <div class="hud bl">
   <div class="panel" id="timerPanel">
-    <div class="tHead">
-      <div class="ttl">집중 타이머</div>
-      <div class="ico" id="btnSound" title="완료 사운드">♪</div>
-      <div class="ico" id="btnSettings" title="설정">⚙</div>
-      <div class="ico" id="btnMini" title="접기/펼치기">—</div>
+    <div class="tTabs">
+      <button class="tTab on" id="mdCount">카운트다운</button>
+      <button class="tTab" id="mdPomo">포모도로</button>
+      <div class="tSpacer"></div>
+      <button class="tIco" id="btnSound" title="완료 사운드">♪</button>
+      <button class="tIco" id="btnMini" title="접기/펼치기">—</button>
     </div>
     <div class="tBody">
-      <div class="modeRow">
-        <div class="chk on" id="mdCount"><span class="box">✓</span>카운트다운</div>
-        <div class="chk" id="mdPomo"><span class="box">✓</span>포모도로</div>
-      </div>
-
       <div id="cfgCount">
         <div class="setGrid" id="presets"></div>
         <div class="fieldRow">
@@ -691,18 +777,21 @@ body.locked #timerPanel input{cursor:not-allowed}
   </div>
 </div>
 
-<!-- 우하단: 시점 조작 + 항성계 설정 -->
+<!-- 우하단: 시점 조작 -->
 <div class="hud br">
   <div class="followChip panel" id="followChip"><span id="followName"></span><button id="followOff">✕</button></div>
-  <div class="viewBar panel">
-    <button class="vb" id="vbFace" title="위에서 보기 (face-on)">위에서</button>
-    <button class="vb" id="vbEdge" title="옆에서 보기 (edge-on)">옆에서</button>
-    <span class="vsep"></span>
-    <button class="vb ic" id="vbOut" title="축소">−</button>
-    <button class="vb ic" id="vbIn" title="확대">+</button>
-    <button class="vb ic" id="vbFit" title="전체 보기">⤢</button>
+  <button class="vBtn" id="vbFace">Face-on</button>
+  <button class="vBtn" id="vbEdge">Edge-on</button>
+  <button class="vBtn camOnly" id="vbLabels">별 이름 표시</button>
+  <div class="zoomBar panel">
+    <button id="vbOut" title="축소">−</button>
+    <button id="vbIn" title="확대">+</button>
+    <button id="vbFit" title="전체 보기">⤢</button>
   </div>
-  <button class="cbtn" id="btnSystem">◎&nbsp; 항성계 설정</button>
+  <div class="camBar">
+    <button class="cbtn primary" id="btnShoot">◉ 촬영</button>
+    <button class="cbtn" id="btnCamExit">나가기</button>
+  </div>
 </div>
 
 <!-- ============ 모달: 중심별 생성 ============ -->
@@ -743,7 +832,6 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="mBody" id="gachaBody"></div>
     <div class="mFoot">
       <div class="spacer" style="font-size:12px;color:var(--txt-3)">보유 토큰 <b id="gToken" style="color:var(--gold)">0</b></div>
-      <button class="cbtn" id="btnDex">도감 보기</button>
       <button class="cbtn primary" id="btnPull">◈ 1회 뽑기</button>
     </div>
   </div>
@@ -862,6 +950,39 @@ body.locked #timerPanel input{cursor:not-allowed}
       <button class="mClose" data-close="mAccount">✕</button>
     </div>
     <div class="mBody" id="acBody"></div>
+  </div>
+</div>
+
+<!-- ============ 모달: 도감 ============ -->
+<div class="mask" id="mDex">
+  <div class="modal wide">
+    <div class="mHead">
+      <div style="flex:1"><h2>천체 도감</h2><p id="dexSub">실존 천체 87종</p></div>
+      <button class="mClose" data-close="mDex">✕</button>
+    </div>
+    <div class="tabs">
+      <div class="dexTab on" data-bn="star">항성<span class="sm" id="dxStar">0/0</span></div>
+      <div class="dexTab" data-bn="planet">행성<span class="sm" id="dxPlanet">0/0</span></div>
+      <div class="dexTab" data-bn="moon">위성<span class="sm" id="dxMoon">0/0</span></div>
+    </div>
+    <div class="mBody" id="dexBody"></div>
+  </div>
+</div>
+
+<!-- ============ 모달: 촬영 결과 ============ -->
+<div class="mask" id="mShot">
+  <div class="modal" style="max-width:520px">
+    <div class="mHead">
+      <div style="flex:1"><h2>촬영 완료</h2><p>길게 눌러 저장하거나 아래 버튼을 쓰세요</p></div>
+      <button class="mClose" data-close="mShot">✕</button>
+    </div>
+    <div class="mBody"><img id="shotImg" alt="항성계 스크린샷"
+      style="width:100%;border-radius:12px;border:1px solid var(--line);display:block"></div>
+    <div class="mFoot">
+      <div class="spacer"></div>
+      <button class="cbtn" data-close="mShot">닫기</button>
+      <a class="cbtn primary" id="shotSave" download="stellar-focus.png">이미지 저장</a>
+    </div>
   </div>
 </div>
 
@@ -2064,7 +2185,7 @@ function render(t){
       ctx.textAlign='center';ctx.textBaseline='top';
       ctx.fillStyle='rgba(232,238,252,.85)';
       ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
-      ctx.fillText(S.star.name,o.scr.x,o.scr.y+o.r+10);
+      if(showLabels) ctx.fillText(S.star.name,o.scr.x,o.scr.y+o.r+10);
       ctx.restore();
       return;
     }
@@ -2125,7 +2246,7 @@ function resetView(){
 let _drag=null;
 cv.addEventListener('pointerdown',e=>{
   _drag={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now(),moved:false};
-  cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);
+  try{cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);}catch(_){}
 });
 cv.addEventListener('pointermove',e=>{
   if(!_drag)return;
@@ -2643,7 +2764,7 @@ function showHint(html){
 /* ==========================================================================
    8. 가챠
    ========================================================================== */
-let curBanner='star', dexMode=false;
+let curBanner='star';
 
 function ownedOf(bn){return S.owned[bn];}
 function remainOf(bn){return POOLS[bn].filter(b=>!S.owned[bn].includes(b.id));}
@@ -2786,23 +2907,6 @@ function renderGacha(){
   });
   const bn=curBanner, M=BANNER_META[bn], body=$('#gachaBody');
   const rem=remainOf(bn), P=S.pity[bn];
-
-  if(dexMode){
-    const list=POOLS[bn].slice().sort((a,b)=>b.t-a.t);
-    body.innerHTML=`
-      <div class="pickerHint">획득한 천체는 <b>보관함</b>에 보관됩니다. 우하단 <b>항성계 설정</b>에서 궤도에 배치하세요.</div>
-      <div class="dexGrid">${list.map(b=>{
-        const own=S.owned[bn].includes(b.id);
-        const placed=own&&isPlaced(b.id);
-        return `<div class="dex ${own?'t'+b.t:'locked'}" data-id="${b.id}">
-          ${placed?'<div class="placed">배치됨</div>':''}
-          <canvas width="120" height="120" ${own?'':'data-lock="1"'}></canvas>
-          <div class="n">${own?b.n:'???'}</div>
-          <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
-        </div>`;}).join('')}</div>`;
-    paintDexCards(body,bn);
-    return;
-  }
 
   const t5=tierCount(bn,5),t4=tierCount(bn,4),t3=tierCount(bn,3);
   body.innerHTML=`
@@ -2990,7 +3094,7 @@ function startGlobe(cv,tex,body){
     _globe.raf=requestAnimationFrame(loop);
   })(last);
 
-  const down=e=>{e.preventDefault();_globe.drag={x:e.clientX,y:e.clientY};cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);};
+  const down=e=>{e.preventDefault();_globe.drag={x:e.clientX,y:e.clientY};try{cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);}catch(_){}};
   const move=e=>{
     if(!_globe||!_globe.drag)return;
     const dx=e.clientX-_globe.drag.x, dy=e.clientY-_globe.drag.y;
@@ -3033,12 +3137,61 @@ function showBodyDetail(b,bn){
   open('mDetail');
 }
 
+/* ---- 천체 도감 (최상위 메뉴) ---- */
+let dexBanner='star';
+function renderDex(){
+  const bn=dexBanner, pool=POOLS[bn].slice().sort((a,b)=>b.t-a.t||a.n.localeCompare(b.n,'ko'));
+  const own=S.owned[bn];
+  ['star','planet','moon'].forEach(k=>{
+    $('#dx'+k[0].toUpperCase()+k.slice(1)).textContent=`${S.owned[k].length}/${POOLS[k].length}`;
+  });
+  const total=STAR_POOL.length+PLANET_POOL.length+MOON_POOL.length;
+  const got=S.owned.star.length+S.owned.planet.length+S.owned.moon.length;
+  $('#dexSub').textContent=`실존 천체 ${total}종 · 수집 ${got}종 (${Math.round(got/total*100)}%)`;
+  $$('.dexTab').forEach(t=>t.classList.toggle('on',t.dataset.bn===bn));
+  $('#dexBody').innerHTML=`
+    <div class="pickerHint">획득한 천체를 누르면 상세 정보를 볼 수 있습니다.
+      태양계 천체는 실제 관측 텍스처를 드래그로 돌려볼 수 있어요.</div>
+    <div class="dexGrid">${pool.map(b=>{
+      const o=own.includes(b.id), placed=o&&isPlaced(b.id);
+      return `<div class="dex ${o?'t'+b.t:'locked'}" ${o?`data-id="${b.id}" style="cursor:pointer"`:''}>
+        ${placed?'<div class="placed">배치됨</div>':''}
+        <canvas width="120" height="120" ${o?'':'data-lock="1"'}></canvas>
+        <div class="n">${o?b.n:'???'}</div>
+        <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
+      </div>`;}).join('')}</div>`;
+  paintDexCards($('#dexBody'),bn);
+}
+$$('.dexTab').forEach(t=>t.onclick=()=>{dexBanner=t.dataset.bn;renderDex();});
+$('#btnDex').onclick=()=>{if(!S.created||guard())return;renderDex();open('mDex');};
+
+/* ---- 촬영 모드 ---- */
+let showLabels=true;
+function setCapture(on){
+  document.body.classList.toggle('capture',on);
+  if(on){VIEW.follow=null;updateViewUI();}
+  $('#vbLabels').classList.toggle('on',showLabels);
+}
+$('#btnCamera').onclick=()=>{if(!S.created||guard())return;setCapture(true);toast('UI를 숨겼습니다 · 촬영 버튼을 누르세요');};
+$('#btnCamExit').onclick=()=>setCapture(false);
+$('#vbLabels').onclick=()=>{showLabels=!showLabels;$('#vbLabels').classList.toggle('on',showLabels);};
+$('#btnShoot').onclick=()=>{
+  try{
+    const url=cv.toDataURL('image/png');
+    $('#shotImg').src=url;
+    const d=new Date();
+    const stamp=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    const el=$('#shotSave');
+    el.href=url; el.download=`${(S.star.name||'stellar')}-${stamp}.png`;
+    open('mShot');
+  }catch(e){warn('촬영에 실패했습니다');}
+};
+
 $$('.tab').forEach(t=>t.onclick=()=>{
   $$('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
   curBanner=t.dataset.bn;renderGacha();
 });
-$('#btnDex').onclick=()=>{dexMode=!dexMode;$('#btnDex').textContent=dexMode?'배너 보기':'도감 보기';renderGacha();};
-$('#btnGacha').onclick=()=>{if(!S.created||guard())return;dexMode=false;$('#btnDex').textContent='도감 보기';renderGacha();open('mGacha');};
+$('#btnGacha').onclick=()=>{if(!S.created||guard())return;renderGacha();open('mGacha');};
 
 /* ==========================================================================
    9. 항성계 설정
@@ -3543,6 +3696,7 @@ async function doAdminReset(bn){
   syncAdminUI();updateTimerUI();renderAccount();
   VIEW.follow=null;VIEW.zoomTo=fitZoom();updateViewUI();
   if($('#mGacha').classList.contains('on'))renderGacha();
+  if($('#mDex').classList.contains('on'))renderDex();
   if($('#mSystem').classList.contains('on'))renderSystem();
   toast(`${label} 도감을 초기화했습니다 · ${n}종 삭제`);
 }
