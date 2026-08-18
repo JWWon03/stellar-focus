@@ -1654,16 +1654,26 @@ function feats(b){
  *  lightAng : 별 방향(라디안). lit : 0=검은 구체, 1=완전 발광 */
 function drawBody(ctx,x,y,r,b,lightAng,lit){
   if(r<0.4) return;
-  // 구형이 아닌 천체는 실측 축 비율만큼 눌러 그린다
-  const sh=(typeof shapeOf==='function')?shapeOf(b.id):null;
-  if(sh){
-    ctx.save();
-    ctx.translate(x,y); ctx.rotate(0.28); ctx.scale(1,(sh.ax[1]+sh.ax[2])/2); ctx.translate(-x,-y);
-    drawBodyCore(ctx,x,y,r,b,lightAng,lit);
-    ctx.restore();
-    return;
+  const F=b.f||{};
+  // 어두운 상태(집중 중)와 아주 작을 때는 기존 방식이 더 싸고 충분하다
+  if(lit<.02 || r<3.5){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
+  const sp=(typeof bodySprite==='function')?bodySprite(b,r*2):null;
+  if(!sp){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
+
+  if(F.glow||F.atmos){                       // 헤일로는 회전시키지 않는다
+    const g=ctx.createRadialGradient(x,y,r*0.9,x,y,r*(F.glow?2.4:1.7));
+    g.addColorStop(0,rgba(b.c1,(F.glow?.30:.18)*lit));
+    g.addColorStop(1,rgba(b.c1,0));
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*(F.glow?2.4:1.7),0,TAU);ctx.fill();
   }
-  drawBodyCore(ctx,x,y,r,b,lightAng,lit);
+  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'back');
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(lightAng-SPRITE_LIGHT);         // 밝은 면이 별을 향하도록
+  ctx.globalAlpha=lit;
+  ctx.drawImage(sp,-r,-r,r*2,r*2);
+  ctx.restore();
+  if(F.ring) drawRing(ctx,x,y,r,b.id,false,lit,'front');
 }
 function drawBodyCore(ctx,x,y,r,b,lightAng,lit){
   const F=b.f||{}, G=feats(b);
@@ -3275,6 +3285,29 @@ function procGeneric(b,x,y,z,nlat){
 }
 function shadeC(c,k){ return [c[0]*k,c[1]*k,c[2]*k]; }
 
+/* 항성 표면 — 대류로 생기는 쌀알무늬와 흑점.
+   색은 분광형 색(c1)을 기준으로 밝기만 흔든다. */
+function starSurface(b,x,y,z,nlat){
+  const c1=col(b.c1), sd=fnv(b.id)&0xffff;
+  const gran=fbm3(x*1,y*1,z*1,3,26.0,sd);          // 쌀알무늬
+  const sup =fbm3(x*1,y*1,z*1,3,7.0,sd+7);         // 초대형 대류세포
+  let k=0.86+gran*0.30+ (sup-0.5)*0.16;
+  setC([c1[0]*k,c1[1]*k,c1[2]*k]);
+  mixC(lerpC(c1,col('#ffffff'),0.55),sstep(0.72,0.95,gran)*0.5);   // 밝은 경계
+  // 흑점은 대류층이 있는 차가운 별에 생긴다. 뜨거운 청색별은 복사층이라 거의 없다.
+  // 질량이 아니라 색온도로 판단해야 적색초거성 같은 무겁고 차가운 별을 놓치지 않는다.
+  const spotAmt=clamp((c1[0]-c1[2])/255*1.7,0,1);
+  if(spotAmt>0){
+    const w=warp3(x,y,z,0.5,2.0,sd+21);
+    const sp=fbm3(w[0],w[1],w[2],4,3.4,sd+23);
+    const umbra=sstep(0.80,0.88,sp), pen=sstep(0.71,0.80,sp);
+    mixC([c1[0]*0.55,c1[1]*0.45,c1[2]*0.38],(pen-umbra*0.9)*0.8*spotAmt);
+    mixC([c1[0]*0.26,c1[1]*0.18,c1[2]*0.14],umbra*0.92*spotAmt);
+  }
+  // 적도 부근이 살짝 밝다
+  mixC(lerpC(c1,col('#ffffff'),0.3),(1-Math.abs(nlat))*0.10);
+}
+
 /* 텍스처 한 장을 굽는다. 결과는 실제 텍스처와 같은 {w,h,data} 형식. */
 const _procCache={};
 function makeProcTexture(b){
@@ -3288,7 +3321,9 @@ function makeProcTexture(b){
     for(let px=0;px<W;px++){
       const lon=(px+0.5)/W*TAU;
       const x=cl*Math.cos(lon), y=sl, z=cl*Math.sin(lon);
-      if(recipe) recipe(x,y,z,nlat); else procGeneric(b,x,y,z,nlat);
+      if(recipe) recipe(x,y,z,nlat);
+      else if(b.m!==undefined) starSurface(b,x,y,z,nlat);
+      else procGeneric(b,x,y,z,nlat);
       const i=(py*W+px)*4;
       data[i]=_cr; data[i+1]=_cg; data[i+2]=_cb; data[i+3]=255;
     }
@@ -3331,6 +3366,7 @@ function loadTexture(id){
       c.width=im.naturalWidth;c.height=im.naturalHeight;
       const x=c.getContext('2d');x.drawImage(im,0,0);
       _texCache[id]={w:c.width,h:c.height,data:x.getImageData(0,0,c.width,c.height).data};
+      if(typeof invalidateSprites==='function') invalidateSprites(id);
       res(_texCache[id]);
     };
     im.onerror=()=>{_texCache[id]=null;res(null);};
@@ -3339,47 +3375,62 @@ function loadTexture(id){
 }
 
 /** 정거원통도법 텍스처를 천체 형상에 입혀 그린다. lon/lat 은 라디안.
-    shape 가 있으면 삼축 타원체로 눌리고 표면에 요철이 생긴다. */
-function drawGlobe(cv,tex,lon,lat,tint,shape,shapeId){
+    opt.shape  삼축 타원체 + 표면 요철
+    opt.atmos  대기 산란(가장자리 빛번짐). 대기 없는 암석에는 주면 안 된다.
+    opt.emis   자체 발광(항성). 램버트 대신 주연감광을 쓴다. */
+function drawGlobe(cv,tex,lon,lat,tint,opt){
+  opt=opt||{};
   const x=cv.getContext('2d'), W=cv.width, H=cv.height;
   const R=Math.min(W,H)/2-2, cx=W/2, cy=H/2;
   const img=x.createImageData(W,H), d=img.data;
   const cosLat=Math.cos(lat), sinLat=Math.sin(lat);
   const lx=-0.55, ly=-0.45, lz=0.70;
+  const shape=opt.shape, emis=!!opt.emis;
   const ex=shape?shape.ax[0]:1, ey=shape?shape.ax[1]:1, ez=shape?shape.ax[2]:1;
   const lump=shape?shape.lump:0;
-  const smap=lump?shapeMap(shapeId,shape):null;
-  // 긴 축이 화면 가로로 눕도록 살짝 기울여 형상이 잘 드러나게 한다
+  const smap=lump?shapeMap(opt.shapeId,shape):null;
+  const atm=opt.atmos?0.34:0;
   const tilt=shape?0.28:0, ct=Math.cos(tilt), st=Math.sin(tilt);
+  const DU=1/SMAP_W, DV=1/SMAP_H;
   for(let py=0;py<H;py++){
     const py0=(py-cy)/R;
     for(let px=0;px<W;px++){
       const i=(py*W+px)*4;
       const px0=(px-cx)/R;
-      const rx= px0*ct+py0*st, ry=-px0*st+py0*ct;   // 기울임 해제
+      const rx= px0*ct+py0*st, ry=-px0*st+py0*ct;
       const nx=rx/ex, ny=ry/ey;
       const r2=nx*nx+ny*ny;
       if(r2>1){d[i+3]=0;continue;}
       let nz=Math.sqrt(1-r2);
-      // 방향 → 위경도 (텍스처와 요철 모두 이 방향을 쓴다)
       const ay=ny*cosLat - nz*sinLat;
       const az=ny*sinLat + nz*cosLat;
       const la=Math.asin(ay<-1?-1:ay>1?1:ay);
       const lo=Math.atan2(nx,az)+lon;
-      let u=((lo/TAU)%1+1)%1, v=(la+Math.PI/2)/Math.PI;
-      let Rd=1;
+      const u=((lo/TAU)%1+1)%1, v=(la+Math.PI/2)/Math.PI;
+      let Rd=1, gx=0, gy=0;
       if(lump){
-        Rd=1+lump*smapAt(smap,u,1-v);
+        const h=smapAt(smap,u,1-v);
+        Rd=1+lump*h;
         if(r2>Rd*Rd){d[i+3]=0;continue;}
         nz=Math.sqrt(Rd*Rd-r2);
+        // 요철의 기울기로 법선을 틀어 준다 — 밝기만 조절하면 물렁해 보인다
+        gx=(smapAt(smap,u+DU,1-v)-smapAt(smap,u-DU,1-v))*lump*2.6;
+        gy=(smapAt(smap,u,1-v+DV)-smapAt(smap,u,1-v-DV))*lump*2.6;
       }
       const tx=Math.min(tex.w-1,(u*tex.w)|0), ty=Math.min(tex.h-1,((1-v)*tex.h)|0);
       const ti=(ty*tex.w+tx)*4;
-      // 램버트 음영 + 요철에 의한 밝기 차 + 가장자리 산란
-      let sh=Math.max(0, nx*ex*lx + ny*ey*ly + nz*ez*lz)*0.92+0.16;
-      if(lump) sh*=0.82+0.36*((Rd-1)/lump*0.5+0.5);
+      let sh;
+      if(emis){
+        // 주연감광 — 별은 가장자리로 갈수록 어둡고 붉어진다
+        const mu=nz/Rd;
+        sh=1-0.62*(1-mu);
+      }else{
+        let vx=nx*ex-gx, vy=ny*ey-gy, vz=nz*ez;
+        const inv=1/Math.sqrt(vx*vx+vy*vy+vz*vz);
+        sh=Math.max(0,(vx*lx+vy*ly+vz*lz)*inv)*0.94+(lump?0.10:0.16);
+      }
       const edge=Math.sqrt(r2)/Rd;
-      const rim=Math.pow(1-nz/Rd,3)*0.35;
+      const rim=atm?Math.pow(1-nz/Rd,3)*atm:0;
       d[i]  =Math.min(255,tex.data[ti]  *sh + tint[0]*rim);
       d[i+1]=Math.min(255,tex.data[ti+1]*sh + tint[1]*rim);
       d[i+2]=Math.min(255,tex.data[ti+2]*sh + tint[2]*rim);
@@ -3502,22 +3553,69 @@ function smapAt(m,u,v){                          // 이중선형 보간
   return (a+(b-a)*fx)*(1-fy)+(c+(d-c)*fx)*fy;
 }
 
+/* ---------- 궤도 화면용 스프라이트 ----------
+   매 프레임 구면 매핑을 돌리면 무거우므로 천체마다 한 번 구워 재사용한다.
+   스프라이트의 조명 방향은 고정이고, 그릴 때 별 쪽을 향하도록 회전시킨다.
+   구체는 회전 대칭이라 이렇게 해도 조명이 맞는다. */
+const SPRITE_LIGHT=Math.atan2(-0.45,-0.55);      // 스프라이트에 박힌 광원 각도
+const _sprite={}, _spriteQ=[]; let _spriteBusy=false;
+function spriteKey(id,px){ return id+'@'+(px<=26?32:px<=58?64:128); }
+function bodySprite(b,px){
+  const k=spriteKey(b.id,px);
+  if(_sprite[k]!==undefined) return _sprite[k];
+  if(_spriteQ.indexOf(k)<0){_spriteQ.push(k);_sprite[k]=null;pumpSprites();}
+  return null;
+}
+/** 한 번에 하나씩 구워 프레임이 끊기지 않게 한다 */
+function pumpSprites(){
+  if(_spriteBusy||!_spriteQ.length)return;
+  _spriteBusy=true;
+  setTimeout(()=>{
+    const k=_spriteQ.shift();
+    if(k){
+      const id=k.slice(0,k.indexOf('@')), size=+k.slice(k.indexOf('@')+1);
+      const b=BY_ID[id];
+      if(b){
+        const F=b.f||{};
+        const c=document.createElement('canvas'); c.width=c.height=size;
+        const tex=(TEX_IDS.has(id)&&_texCache[id])?_texCache[id]:makeProcTexture(b);
+        drawGlobe(c,tex,0.6,0.20,hx(b.c1),
+          {shape:shapeOf(id),shapeId:id,atmos:!!(F.atmos||F.ocean||F.glow),emis:b.m!==undefined});
+        _sprite[k]=c;
+      }
+    }
+    _spriteBusy=false;
+    pumpSprites();
+  },0);
+}
+/** 실제 텍스처가 뒤늦게 도착하면 그 천체의 스프라이트를 다시 굽는다 */
+function invalidateSprites(id){
+  Object.keys(_sprite).forEach(k=>{ if(k.indexOf(id+'@')===0) delete _sprite[k]; });
+}
+
 let _globe=null;
 function stopGlobe(){ if(_globe){cancelAnimationFrame(_globe.raf);_globe=null;} }
 function startGlobe(cv,tex,body){
   stopGlobe();
   const tint=hx(body.c1);
   const ring=!!(body.f&&body.f.ring), rst=ringStyle(body.id), shp=shapeOf(body.id);
+  const F=body.f||{};
+  // 대기 산란은 대기가 있는 천체에만. 대기 없는 암석에 넣으면 가스에 싸인 것처럼 보인다.
+  const gopt={shape:shp, shapeId:body.id, atmos:!!(F.atmos||F.ocean||F.glow), emis:!!body.m};
   _globe={raf:0,lon:0,lat:ring?0.46:0,spin:0.22,drag:null,cv,tex,tint};
   _ringDisc=null;                       // 천체마다 고리 모양이 다르므로 다시 굽는다
   if(ring&&rst.tex) loadRingTex();
   const gx=cv.getContext('2d');
+  const isStar=body.m!==undefined;
+  const halo=isStar?document.createElement('canvas'):null;
+  if(halo){halo.width=cv.width;halo.height=cv.height;}
   // 고리 여백을 위해 구체를 조금 줄여 그린다
   // 고리가 본체 반지름의 2.32배까지 뻗으므로 구체를 그만큼 줄여 여백을 만든다
   const inner=ring?document.createElement('canvas'):null;
   if(inner){inner.width=Math.round(cv.width*0.94/rst.rout);inner.height=inner.width;}
   let last=performance.now();
   (function loop(now){
+    now=now||performance.now();
     const dt=Math.min(.05,(now-last)/1000);last=now;
     if(!_globe)return;
     if(!_globe.drag) _globe.lon+=_globe.spin*dt;
@@ -3525,11 +3623,19 @@ function startGlobe(cv,tex,body){
       const W=cv.width,R=inner.width/2,cx=W/2,cy=W/2;
       gx.clearRect(0,0,W,W);
       drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'back');
-      drawGlobe(inner,tex,_globe.lon,_globe.lat,tint,shp,body.id);
+      drawGlobe(inner,tex,_globe.lon,_globe.lat,tint,gopt);
       gx.drawImage(inner,cx-R,cy-R);
       drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front');
+    }else if(isStar){
+      // 코로나를 먼저 깔고 그 위에 표면을 얹는다
+      const W=cv.width, R=Math.round(W*0.30);
+      gx.clearRect(0,0,W,W);
+      drawStar(gx,W/2,W/2,R,body.c1,1,now/1000,Object.assign({haloK:1.62},body.f||{}));
+      halo.width=W;
+      drawGlobe(halo,tex,_globe.lon,_globe.lat,tint,gopt);
+      gx.drawImage(halo,W/2-R,W/2-R,R*2,R*2);
     }else{
-      drawGlobe(cv,tex,_globe.lon,_globe.lat,tint,shp,body.id);
+      drawGlobe(cv,tex,_globe.lon,_globe.lat,tint,gopt);
     }
     _globe.raf=requestAnimationFrame(loop);
   })(last);
@@ -3569,7 +3675,8 @@ function showBodyDetail(b,bn){
   paintThumb(cv,b,bn);                       // 텍스처가 준비되기 전의 기본 그림
   stopGlobe();
   open('mDetail');
-  if(bn==='star'&&!TEX_IDS.has(b.id)) return;   // 항성은 표면이 아니라 발광체다
+  // 블랙홀과 중성자별은 표면이랄 것이 없으므로 기존 연출을 유지한다
+  if(bn==='star'&&(b.f&&(b.f.acc||b.f.beam))) return;
   const real=TEX_IDS.has(b.id);
   $('#globeHint').textContent=real?'준비 중…':'표면 생성 중…';
   // 절차적 생성은 무거우므로 한 프레임 양보해 모달이 먼저 뜨게 한다
