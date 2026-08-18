@@ -1631,7 +1631,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.18-d';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.18-e';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1669,6 +1669,7 @@ function load(raw0){
     S=Object.assign(freshState(),o);
     S.star=Object.assign({name:'',color:'#ffd97a',skin:null,namePos:null},o.star||{});
     if(S.star.skin&&!BY_ID[S.star.skin])S.star.skin=null;   // 없는 스킨 id 방어
+    delete S['undefined'];                                  // 옛 버그가 남긴 키
     const np=S.star.namePos;                                // 망가진 좌표 방어
     S.star.namePos=(np&&isFinite(np.x)&&isFinite(np.y))
       ?{x:clamp(np.x,.03,.97),y:clamp(np.y,.01,.97)}:null;
@@ -3031,6 +3032,7 @@ function close(id){$('#'+id).classList.remove('on');}
 /** 앱 내부 확인 다이얼로그.
     브라우저 confirm()은 홈 화면 PWA나 일부 모바일 웹뷰에서 조용히 차단되어
     false를 돌려준다 — 버튼이 먹통처럼 보이는 원인이라 직접 만들어 쓴다. */
+let _askRes=null;
 function ask(title,msg,okLabel,danger){
   return new Promise(res=>{
     $('#askTitle').textContent=title;
@@ -3039,7 +3041,8 @@ function ask(title,msg,okLabel,danger){
     yes.textContent=okLabel||'확인';
     yes.classList.toggle('danger',!!danger);
     yes.classList.toggle('primary',!danger);
-    const done=v=>{close('mAsk');yes.onclick=no.onclick=null;res(v);};
+    const done=v=>{close('mAsk');yes.onclick=no.onclick=null;_askRes=null;res(v);};
+    _askRes=()=>done(false);      // 뒤로가기 등 밖에서 닫을 수 있게 남겨둔다
     yes.onclick=()=>done(true);
     no.onclick=()=>done(false);
     open('mAsk');
@@ -4690,16 +4693,19 @@ function renderSettings(){
       <div class="setSep">알림과 설치</div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
-        버전 ${APP_VER} · 뒤로가기 ${trapArmed()?'준비됨':'미설정'}
-        (${history.length}) · ${isNative()?'앱':isStandalone()?'홈화면':'브라우저'}</div>`;
-  renderPwaRows();
-  $$('#setBody .setRow').forEach(el=>el.onclick=()=>{
+        버전 ${APP_VER} · 뒤로가기 ${trapArmed()?'준비됨':'미설정'} (${history.length})
+        · ${isNative()?'앱':isStandalone()?'홈화면':'브라우저'} · ${osName()}</div>`;
+  // data-k 가 있는 행만 잡는다. 알림 행(#rowNotif)도 .setRow 라서
+  // 그냥 훑으면 renderPwaRows 가 건 핸들러를 덮어쓴다 — 권한 요청은
+  // 일어나지 않고 S[undefined] 만 토글되어, 켠 것처럼 보였다가 되돌아갔다.
+  $$('#setBody .setRow[data-k]').forEach(el=>el.onclick=()=>{
     const k=el.dataset.k;
     S[k]=!S[k];
     el.classList.toggle('on',S[k]);
     if(k==='sound')$('#btnSound').classList.toggle('off',!S.sound);
     save();
   });
+  renderPwaRows();          // 알림 행 핸들러는 이 뒤에 걸어야 살아남는다
 }
 /* ---- 알림 권한 · 홈 화면 설치 ---- */
 let _installPrompt=null;
@@ -4707,6 +4713,12 @@ addEventListener('beforeinstallprompt',e=>{e.preventDefault();_installPrompt=e;
   if($('#mSettings').classList.contains('on'))renderPwaRows();});
 addEventListener('appinstalled',()=>{_installPrompt=null;
   if($('#mSettings').classList.contains('on'))renderPwaRows();});
+function osName(){
+  const u=navigator.userAgent;
+  if(/iP(hone|ad|od)/.test(u))return 'iOS';
+  if(/Android/.test(u))return 'Android';
+  return '기타';
+}
 function isStandalone(){
   return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
 }
@@ -4867,16 +4879,23 @@ function topMask(){
   return on.length?on[on.length-1]:null;
 }
 async function onBack(){
-  if(_exiting)return;
   const m=topMask();
   if(m){                                   // 열린 창부터 닫는다
     if(m.id==='mIntro'){pushTrap();return;} // 중심별 이름을 정하기 전엔 나갈 데가 없다
+    // 확인창을 버튼 말고 다른 방법으로 닫으면 약속이 영원히 안 풀려
+    // _exiting 이 참으로 굳고, 그때부터 뒤로가기가 통째로 죽는다.
+    if(m.id==='mAsk'){ if(_askRes)_askRes(); else close('mAsk'); pushTrap(); return; }
     close(m.id); pushTrap(); return;
   }
   if(document.body.classList.contains('capture')){ setCapture(false); pushTrap(); return; }
+  if(_exiting){ pushTrap(); return; }
   _exiting=true;
-  const go=await ask('종료할까요?','저장은 이미 끝났습니다. 진행 중인 타이머는 다시 열면 이어집니다.','종료');
-  _exiting=false;
+  // 확인창이 떠 있는 동안에도 덫이 있어야 한다. 비워 두면 그 사이에 누른
+  // 뒤로가기가 앱 밖으로 나가버린다.
+  pushTrap();
+  let go=false;
+  try{ go=await ask('종료할까요?','저장은 이미 끝났습니다. 진행 중인 타이머는 다시 열면 이어집니다.','종료'); }
+  finally{ _exiting=false; }
   if(!go){ pushTrap(); return; }
   await exitApp();
 }
