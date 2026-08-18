@@ -1671,7 +1671,10 @@ function drawBody(ctx,x,y,r,b,lightAng,lit,opt){
   const need=Math.min(256,Math.max(16,Math.ceil(r*2)));
   const sc=scratchFor(need);
   const spin=(opt&&opt.spinLon)||0;
-  drawGlobe(sc,tex,spin,0.20,hx(b.c1),{
+  // 자전축은 궤도면에 수직이다. 위에서 보면(tilt 0) 극이, 옆에서 보면(tilt π/2)
+  // 적도가 보이도록 관측자 위도를 카메라에서 끌어온다.
+  const subLat=Math.PI/2-VIEW.tilt;
+  drawGlobe(sc,tex,spin,subLat,hx(b.c1),{
     shape:shapeOf(b.id), shapeId:b.id,
     atmos:!!(F.atmos||F.ocean||F.glow), emis:b.m!==undefined,
     light:[Math.cos(lightAng),Math.sin(lightAng),0.62]
@@ -1869,7 +1872,8 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
        감싸는 고리처럼 보인다. 앞쪽 원반은 그림자 아래를 가로지르고,
        다가오는 쪽이 도플러 효과로 훨씬 밝다. */
     const Rs=R;                          // 그림자 반경
-    const rIn=Rs*1.06, rOut=Rs*2.25;
+    const rIn=Rs*1.06, rOut=Rs*2.4;
+    const dsq=extra.diskSquash!==undefined?Math.max(0.06,extra.diskSquash):0.50;
     ctx.save();
     ctx.translate(x,y);
 
@@ -1882,13 +1886,14 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
     // --- 렌즈된 고리: 그림자를 감싼다 ---
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(0,0,rOut,rOut*0.50,0,0,TAU);
-    ctx.ellipse(0,0,rIn,rIn*0.50,0,0,TAU);
+    ctx.ellipse(0,0,rOut,rOut*dsq,0,0,TAU);
+    ctx.ellipse(0,0,rIn,rIn*dsq,0,0,TAU);
     ctx.clip('evenodd');
     const rg=ctx.createRadialGradient(0,0,rIn,0,0,rOut);
-    rg.addColorStop(0,rgba('#fff4d8',0.95*blaze+0.15));
-    rg.addColorStop(0.22,rgba('#ffc06a',0.60*blaze+0.08));
-    rg.addColorStop(0.60,rgba('#ff8f3a',0.22*blaze+0.03));
+    rg.addColorStop(0,rgba('#fff8e8',1.0*blaze+0.2));
+    rg.addColorStop(0.30,rgba('#ffd08a',0.92*blaze+0.15));
+    rg.addColorStop(0.62,rgba('#ff9d44',0.62*blaze+0.08));
+    rg.addColorStop(0.88,rgba('#c8551c',0.22*blaze+0.03));
     rg.addColorStop(1,rgba('#a83f14',0));
     ctx.fillStyle=rg;ctx.fillRect(-rOut,-rOut,rOut*2,rOut*2);
     ctx.restore();
@@ -1896,7 +1901,7 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
     // --- 앞쪽 원반: 그림자 아래를 가로지르는 납작한 띠 ---
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(0,Rs*0.10,rOut*1.12,rOut*0.13,0,0,TAU);
+    ctx.ellipse(0,Rs*0.10,rOut*1.12,Math.max(Rs*0.06,rOut*dsq*0.30),0,0,TAU);
     ctx.clip();
     const fg=ctx.createLinearGradient(-rOut,0,rOut,0);
     fg.addColorStop(0,rgba('#fff8e8',0.95*blaze+0.15));
@@ -1920,11 +1925,11 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
     // --- 도플러: 다가오는 쪽만 밝게 남긴다 ---
     const dop=ctx.createLinearGradient(-rOut,0,rOut,0);
     dop.addColorStop(0,rgba('#000000',0));
-    dop.addColorStop(0.45,rgba('#000000',0.10));
-    dop.addColorStop(1,rgba('#000000',0.55));
+    dop.addColorStop(0.5,rgba('#000000',0.06));
+    dop.addColorStop(1,rgba('#000000',0.34));
     ctx.save();
     ctx.beginPath();
-    ctx.ellipse(0,0,rOut*1.15,rOut*0.55,0,0,TAU);
+    ctx.ellipse(0,0,rOut*1.15,rOut*dsq*1.15,0,0,TAU);
     ctx.arc(0,0,Rs*0.99,0,TAU);
     ctx.clip('evenodd');
     ctx.fillStyle=dop;ctx.fillRect(-rOut,-rOut,rOut*2,rOut*2);
@@ -2359,7 +2364,8 @@ function render(t){
     const la=Math.atan2(primary.scr.y-o.scr.y, primary.scr.x-o.scr.x);
     if(o.kind==='comp'){
       if(o.lit<.02) drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0);
-      else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,o.body.f||{});
+      else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,
+                              Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},o.body.f||{}));
     }else{
       drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spinLon:o.spinLon});
     }
