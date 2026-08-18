@@ -1654,6 +1654,18 @@ function feats(b){
  *  lightAng : 별 방향(라디안). lit : 0=검은 구체, 1=완전 발광 */
 function drawBody(ctx,x,y,r,b,lightAng,lit){
   if(r<0.4) return;
+  // 구형이 아닌 천체는 실측 축 비율만큼 눌러 그린다
+  const sh=(typeof shapeOf==='function')?shapeOf(b.id):null;
+  if(sh){
+    ctx.save();
+    ctx.translate(x,y); ctx.rotate(0.28); ctx.scale(1,(sh.ax[1]+sh.ax[2])/2); ctx.translate(-x,-y);
+    drawBodyCore(ctx,x,y,r,b,lightAng,lit);
+    ctx.restore();
+    return;
+  }
+  drawBodyCore(ctx,x,y,r,b,lightAng,lit);
+}
+function drawBodyCore(ctx,x,y,r,b,lightAng,lit){
   const F=b.f||{}, G=feats(b);
   const dark=lit<.02;
   const c1=b.c1, c2=b.c2;
@@ -3326,37 +3338,52 @@ function loadTexture(id){
   });
 }
 
-/** 정거원통도법 텍스처를 구에 입혀 그린다. lon/lat 은 라디안 */
-function drawGlobe(cv,tex,lon,lat,tint){
+/** 정거원통도법 텍스처를 천체 형상에 입혀 그린다. lon/lat 은 라디안.
+    shape 가 있으면 삼축 타원체로 눌리고 표면에 요철이 생긴다. */
+function drawGlobe(cv,tex,lon,lat,tint,shape,shapeId){
   const x=cv.getContext('2d'), W=cv.width, H=cv.height;
   const R=Math.min(W,H)/2-2, cx=W/2, cy=H/2;
   const img=x.createImageData(W,H), d=img.data;
   const cosLat=Math.cos(lat), sinLat=Math.sin(lat);
-  // 빛은 왼쪽 위에서
   const lx=-0.55, ly=-0.45, lz=0.70;
+  const ex=shape?shape.ax[0]:1, ey=shape?shape.ax[1]:1, ez=shape?shape.ax[2]:1;
+  const lump=shape?shape.lump:0;
+  const smap=lump?shapeMap(shapeId,shape):null;
+  // 긴 축이 화면 가로로 눕도록 살짝 기울여 형상이 잘 드러나게 한다
+  const tilt=shape?0.28:0, ct=Math.cos(tilt), st=Math.sin(tilt);
   for(let py=0;py<H;py++){
-    const sy=(py-cy)/R;
+    const py0=(py-cy)/R;
     for(let px=0;px<W;px++){
       const i=(py*W+px)*4;
-      const sx=(px-cx)/R;
-      const r2=sx*sx+sy*sy;
+      const px0=(px-cx)/R;
+      const rx= px0*ct+py0*st, ry=-px0*st+py0*ct;   // 기울임 해제
+      const nx=rx/ex, ny=ry/ey;
+      const r2=nx*nx+ny*ny;
       if(r2>1){d[i+3]=0;continue;}
-      const sz=Math.sqrt(1-r2);
-      // 위도 회전(구를 기울임)
-      const ny=sy*cosLat - sz*sinLat;
-      const nz=sy*sinLat + sz*cosLat;
-      const la=Math.asin(Math.max(-1,Math.min(1,ny)));
-      const lo=Math.atan2(sx,nz)+lon;
+      let nz=Math.sqrt(1-r2);
+      // 방향 → 위경도 (텍스처와 요철 모두 이 방향을 쓴다)
+      const ay=ny*cosLat - nz*sinLat;
+      const az=ny*sinLat + nz*cosLat;
+      const la=Math.asin(ay<-1?-1:ay>1?1:ay);
+      const lo=Math.atan2(nx,az)+lon;
       let u=((lo/TAU)%1+1)%1, v=(la+Math.PI/2)/Math.PI;
+      let Rd=1;
+      if(lump){
+        Rd=1+lump*smapAt(smap,u,1-v);
+        if(r2>Rd*Rd){d[i+3]=0;continue;}
+        nz=Math.sqrt(Rd*Rd-r2);
+      }
       const tx=Math.min(tex.w-1,(u*tex.w)|0), ty=Math.min(tex.h-1,((1-v)*tex.h)|0);
       const ti=(ty*tex.w+tx)*4;
-      // 램버트 음영 + 약간의 환경광
-      const sh=Math.max(0, sx*lx + sy*ly + sz*lz)*0.92+0.16;
-      const rim=Math.pow(1-sz,3)*0.35;      // 가장자리 대기 산란 느낌
+      // 램버트 음영 + 요철에 의한 밝기 차 + 가장자리 산란
+      let sh=Math.max(0, nx*ex*lx + ny*ey*ly + nz*ez*lz)*0.92+0.16;
+      if(lump) sh*=0.82+0.36*((Rd-1)/lump*0.5+0.5);
+      const edge=Math.sqrt(r2)/Rd;
+      const rim=Math.pow(1-nz/Rd,3)*0.35;
       d[i]  =Math.min(255,tex.data[ti]  *sh + tint[0]*rim);
       d[i+1]=Math.min(255,tex.data[ti+1]*sh + tint[1]*rim);
       d[i+2]=Math.min(255,tex.data[ti+2]*sh + tint[2]*rim);
-      d[i+3]=r2>0.985?Math.round(255*(1-r2)/0.015):255;
+      d[i+3]=edge>0.985?Math.round(255*(1-edge)/0.015):255;
     }
   }
   x.putImageData(img,0,0);
@@ -3431,12 +3458,56 @@ function drawGlobeRing(x,cx,cy,R,lat,tex,st,part){
   x.restore();
 }
 
+/* ---------- 비구형 천체 ----------
+   자체 중력으로 둥글어질 만큼 크지 않은 천체는 구가 아니다.
+   ax 는 실측 삼축 치수에서 뽑은 반지름 비, lump 는 표면 요철의 세기.
+   하우메아는 자전이 너무 빨라 늘어난 것이라 표면은 매끄럽다(lump 0). */
+const SHAPE={
+  pl_haumea  :{ax:[1,0.734,0.442],lump:0.02},
+  mn_amalthea:{ax:[1,0.584,0.512],lump:0.13},
+  mn_hyperion:{ax:[1,0.739,0.569],lump:0.22},   // 해면처럼 구멍투성이
+  mn_hydra   :{ax:[1,0.692,0.385],lump:0.14},
+  mn_nix     :{ax:[1,0.700,0.660],lump:0.14},
+  mn_phobos  :{ax:[1,0.815,0.667],lump:0.11},
+  mn_deimos  :{ax:[1,0.800,0.733],lump:0.09},
+  mn_janus   :{ax:[1,0.911,0.754],lump:0.10},
+  mn_phoebe  :{ax:[1,0.991,0.932],lump:0.07},
+  mn_nereid  :{ax:[1,0.940,0.900],lump:0.10},   // 형상 미확인, 크기상 비구형으로 본다
+};
+const shapeOf=id=>SHAPE[id]||null;
+
+/* 방향별 반지름을 저해상도 맵으로 한 번만 구워 둔다.
+   픽셀마다 노이즈를 돌리면 회전 중 프레임이 무거워진다. */
+const SMAP_W=128, SMAP_H=64, _smapCache={};
+function shapeMap(id,sh){
+  if(_smapCache[id]) return _smapCache[id];
+  const m=new Float32Array(SMAP_W*SMAP_H), sd=fnv(id)&0xffff;
+  for(let j=0;j<SMAP_H;j++){
+    const la=(j+0.5)/SMAP_H*Math.PI-Math.PI/2, cl=Math.cos(la), sl=Math.sin(la);
+    for(let i=0;i<SMAP_W;i++){
+      const lo=(i+0.5)/SMAP_W*TAU;
+      const bx=cl*Math.cos(lo), by=sl, bz=cl*Math.sin(lo);
+      const d=fbm3(bx*2.1,by*2.1,bz*2.1,3,1,sd)-0.5;
+      m[j*SMAP_W+i]=d*2;                        // -1 ~ 1
+    }
+  }
+  return _smapCache[id]=m;
+}
+function smapAt(m,u,v){                          // 이중선형 보간
+  const x=u*SMAP_W-0.5, y=v*SMAP_H-0.5;
+  const x0=Math.floor(x), y0=Math.floor(y), fx=x-x0, fy=y-y0;
+  const xa=((x0%SMAP_W)+SMAP_W)%SMAP_W, xb=(xa+1)%SMAP_W;
+  const ya=y0<0?0:y0>=SMAP_H?SMAP_H-1:y0, yb=ya+1>=SMAP_H?SMAP_H-1:ya+1;
+  const a=m[ya*SMAP_W+xa],b=m[ya*SMAP_W+xb],c=m[yb*SMAP_W+xa],d=m[yb*SMAP_W+xb];
+  return (a+(b-a)*fx)*(1-fy)+(c+(d-c)*fx)*fy;
+}
+
 let _globe=null;
 function stopGlobe(){ if(_globe){cancelAnimationFrame(_globe.raf);_globe=null;} }
 function startGlobe(cv,tex,body){
   stopGlobe();
   const tint=hx(body.c1);
-  const ring=!!(body.f&&body.f.ring), rst=ringStyle(body.id);
+  const ring=!!(body.f&&body.f.ring), rst=ringStyle(body.id), shp=shapeOf(body.id);
   _globe={raf:0,lon:0,lat:ring?0.46:0,spin:0.22,drag:null,cv,tex,tint};
   _ringDisc=null;                       // 천체마다 고리 모양이 다르므로 다시 굽는다
   if(ring&&rst.tex) loadRingTex();
@@ -3454,11 +3525,11 @@ function startGlobe(cv,tex,body){
       const W=cv.width,R=inner.width/2,cx=W/2,cy=W/2;
       gx.clearRect(0,0,W,W);
       drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'back');
-      drawGlobe(inner,tex,_globe.lon,_globe.lat,tint);
+      drawGlobe(inner,tex,_globe.lon,_globe.lat,tint,shp,body.id);
       gx.drawImage(inner,cx-R,cy-R);
       drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front');
     }else{
-      drawGlobe(cv,tex,_globe.lon,_globe.lat,tint);
+      drawGlobe(cv,tex,_globe.lon,_globe.lat,tint,shp,body.id);
     }
     _globe.raf=requestAnimationFrame(loop);
   })(last);
