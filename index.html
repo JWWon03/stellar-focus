@@ -4816,10 +4816,13 @@ const ERRMSG={
 
 let cloudT=0, cloudState='idle';
 function setCloudState(s){cloudState=s;paintAccount();}
+let _pushPending=false;
 function cloudPush(immediate){
   if(!AUTH||!cloudReady())return;
   clearTimeout(cloudT);
+  _pushPending=true;
   const run=async()=>{
+    _pushPending=false;
     if(!AUTH||!cloudReady())return;   // 예약 후 로그아웃했을 수 있다
     setCloudState('sync');
     try{
@@ -4831,11 +4834,46 @@ function cloudPush(immediate){
   };
   if(immediate) run(); else cloudT=setTimeout(run,4000);
 }
+/* 모바일은 앱을 나가는 순간 프로세스가 얼어붙는다. 4초 디바운스가 걸린
+   푸시가 그대로 날아가면 클라우드가 뒤처지고, 다음 부팅에 "어느 항성계를
+   쓸까요?" 가 뜬다. 화면을 벗어날 때 밀린 것을 즉시 밀어 넣는다. */
+function flushPush(){ if(_pushPending&&AUTH&&cloudReady()) cloudPush(true); }
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') flushPush();      // 이 이벤트는 document 에서 난다
+});
+addEventListener('pagehide',()=>flushPush());               // iOS 는 이쪽이 더 확실하다
 
-/** 지속 데이터만 비교한다 — 타이머 런타임 상태는 기기마다 다르므로 제외 */
+/* 키 순서와 스키마 차이를 없앤 표준형. 서버에 있는 데이터는 예전 스키마라
+   필드가 없거나 순서가 다를 수 있는데(예: star.namePos 가 나중에 생겼다),
+   날것끼리 비교하면 늘 "다르다"가 나온다 — 부팅할 때마다 동기화 창이 뜨던
+   원인이다. 없는 필드와 null 을 같은 것으로 본다. */
+function canon(v){
+  if(v===null||v===undefined)return null;
+  if(Array.isArray(v))return v.map(canon);
+  if(typeof v!=='object')return v;
+  const o={};
+  Object.keys(v).sort().forEach(k=>{ const x=canon(v[k]); if(x!==null)o[k]=x; });
+  return o;
+}
+/** 항성계의 "정체성"만 본다. 기록(stats)과 타이머 런타임은 뺀다 —
+    기록이 조금 다르다고 어느 쪽을 버릴지 물어볼 일은 아니다. 그건 합친다. */
 function fingerprint(o){
   if(!o)return '';
-  return JSON.stringify({c:o.created,s:o.star,t:o.tokens,w:o.owned,y:o.sys,st:o.stats});
+  const ids=a=>Array.isArray(a)?a.slice().sort():[];
+  const w=o.owned||{};
+  return JSON.stringify(canon({
+    c:!!o.created, s:o.star, t:o.tokens, y:o.sys,
+    w:{star:ids(w.star),planet:ids(w.planet),moon:ids(w.moon)}
+  }));
+}
+/** 기록은 물어보지 않고 큰 쪽으로 합친다 */
+function mergeStats(a,b){
+  a=a||{};b=b||{};
+  const day=(a.day||'')>=(b.day||'')?(a.day||''):(b.day||'');
+  const dayMs=(a.day===day?(a.dayMs|0):0)>(b.day===day?(b.dayMs|0):0)
+    ?(a.day===day?(a.dayMs|0):0):(b.day===day?(b.dayMs|0):0);
+  return {sessions:Math.max(a.sessions|0,b.sessions|0),
+          focusMs:Math.max(a.focusMs|0,b.focusMs|0), day, dayMs};
 }
 /** 시작 시 클라우드와 맞춰본다 */
 function cloudSyncOnBoot(){
@@ -4849,7 +4887,13 @@ function cloudSyncOnBoot(){
     }
     const cd=r.data&&Object.keys(r.data).length?r.data:null;
     if(!cd){setCloudState('ok');cloudPush(true);return;}          // 클라우드가 비었으면 올린다
-    if(fingerprint(cd)===fingerprint(S)){setCloudState('ok');return;}
+    if(fingerprint(cd)===fingerprint(S)){
+      // 항성계는 같다. 기록만 어긋났으면 합쳐서 올리고 조용히 넘어간다.
+      const m=mergeStats(S.stats,cd.stats);
+      if(JSON.stringify(m)!==JSON.stringify(S.stats)||
+         JSON.stringify(m)!==JSON.stringify(cd.stats)){ S.stats=m; saveNow(); }
+      setCloudState('ok');return;
+    }
     if(!S.created){load(cd);saveNow();afterAccountSwitch();setCloudState('ok');return;}
     setCloudState('ok');adoptCloud(cd);                           // 둘 다 있고 다르면 물어본다
   }).catch(()=>setCloudState('err'));
