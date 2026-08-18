@@ -467,6 +467,13 @@ body.admin #tokenCount{color:var(--gold)}
 .moonChip canvas{width:20px;height:20px}
 .moonChip .x{color:var(--warn);font-size:12px;padding:0 2px;font-weight:700}
 
+.globeWrap{display:flex;flex-direction:column;align-items:center;margin-bottom:16px}
+#dtCv{width:150px;height:150px;display:block}
+#dtCv.globe{width:190px;height:190px;cursor:grab;touch-action:none;
+  filter:drop-shadow(0 10px 26px rgba(0,0,0,.55))}
+#dtCv.globe:active{cursor:grabbing}
+.globeHint{font-size:10.5px;color:var(--txt-3);margin-top:9px;height:14px;letter-spacing:.02em}
+
 .dtEn{display:block;font-size:10.5px;color:var(--txt-3);margin-top:4px;letter-spacing:.06em}
 .dtDesc{font-size:13.5px;line-height:1.85;color:var(--txt-2);margin:0 0 16px;
   word-break:keep-all}
@@ -475,7 +482,8 @@ body.admin #tokenCount{color:var(--gold)}
   background:rgba(255,255,255,.02)}
 .dtSpec span{display:block;font-size:9.5px;color:var(--txt-3);letter-spacing:.04em}
 .dtSpec b{display:block;font-size:12.5px;margin-top:3px;font-variant-numeric:tabular-nums}
-.dtFoot{margin-top:14px;font-size:11px;color:var(--txt-3);text-align:center}
+.dtFoot{margin-top:14px;font-size:11px;color:var(--txt-3);text-align:center;line-height:1.7}
+.texCredit{font-size:9.5px;opacity:.72}
 
 .pickerHint{font-size:11.5px;color:var(--txt-3);margin-bottom:10px;line-height:1.6}
 .emptyMsg{text-align:center;color:var(--txt-3);font-size:12.5px;padding:32px 16px;line-height:1.7}
@@ -2462,9 +2470,9 @@ function ask(title,msg,okLabel,danger){
     open('mAsk');
   });
 }
-$$('[data-close]').forEach(b=>b.onclick=()=>close(b.dataset.close));
+$$('[data-close]').forEach(b=>b.onclick=()=>{close(b.dataset.close);if(b.dataset.close==='mDetail')stopGlobe();});
 $$('.mask').forEach(m=>m.addEventListener('mousedown',e=>{
-  if(e.target===m && m.id!=='mIntro' && m.id!=='mDone') close(m.id);
+  if(e.target===m && m.id!=='mIntro' && m.id!=='mDone'){close(m.id);if(m.id==='mDetail')stopGlobe();}
 }));
 
 /* ==========================================================================
@@ -2872,6 +2880,128 @@ function paintDexCards(root,bn){
     d.onclick=()=>showBodyDetail(b,bn);
   });
 }
+/* ==========================================================================
+   도감 구체 뷰어 — 실제 텍스처를 입혀 드래그로 돌려본다
+   텍스처는 천체 id와 같은 이름의 textures/<id>.jpg 를 쓴다.
+   파일이 없거나 로드에 실패하면 조용히 절차적 렌더링으로 넘어간다.
+   ========================================================================== */
+const TEX_IDS=new Set(['st_sun','pl_mercury','pl_venus','pl_earth','pl_mars',
+                       'pl_jupiter','pl_saturn','pl_uranus','pl_neptune','mn_moon']);
+const _texCache={};
+function loadTexture(id){
+  if(!TEX_IDS.has(id)) return Promise.resolve(null);
+  if(_texCache[id]!==undefined) return Promise.resolve(_texCache[id]);
+  return new Promise(res=>{
+    const im=new Image();
+    im.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=im.naturalWidth;c.height=im.naturalHeight;
+      const x=c.getContext('2d');x.drawImage(im,0,0);
+      _texCache[id]={w:c.width,h:c.height,data:x.getImageData(0,0,c.width,c.height).data};
+      res(_texCache[id]);
+    };
+    im.onerror=()=>{_texCache[id]=null;res(null);};
+    im.src='textures/'+id+'.jpg';
+  });
+}
+
+/** 정거원통도법 텍스처를 구에 입혀 그린다. lon/lat 은 라디안 */
+function drawGlobe(cv,tex,lon,lat,tint){
+  const x=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const R=Math.min(W,H)/2-2, cx=W/2, cy=H/2;
+  const img=x.createImageData(W,H), d=img.data;
+  const cosLat=Math.cos(lat), sinLat=Math.sin(lat);
+  // 빛은 왼쪽 위에서
+  const lx=-0.55, ly=-0.45, lz=0.70;
+  for(let py=0;py<H;py++){
+    const sy=(py-cy)/R;
+    for(let px=0;px<W;px++){
+      const i=(py*W+px)*4;
+      const sx=(px-cx)/R;
+      const r2=sx*sx+sy*sy;
+      if(r2>1){d[i+3]=0;continue;}
+      const sz=Math.sqrt(1-r2);
+      // 위도 회전(구를 기울임)
+      const ny=sy*cosLat - sz*sinLat;
+      const nz=sy*sinLat + sz*cosLat;
+      const la=Math.asin(Math.max(-1,Math.min(1,ny)));
+      const lo=Math.atan2(sx,nz)+lon;
+      let u=((lo/TAU)%1+1)%1, v=(la+Math.PI/2)/Math.PI;
+      const tx=Math.min(tex.w-1,(u*tex.w)|0), ty=Math.min(tex.h-1,((1-v)*tex.h)|0);
+      const ti=(ty*tex.w+tx)*4;
+      // 램버트 음영 + 약간의 환경광
+      const sh=Math.max(0, sx*lx + sy*ly + sz*lz)*0.92+0.16;
+      const rim=Math.pow(1-sz,3)*0.35;      // 가장자리 대기 산란 느낌
+      d[i]  =Math.min(255,tex.data[ti]  *sh + tint[0]*rim);
+      d[i+1]=Math.min(255,tex.data[ti+1]*sh + tint[1]*rim);
+      d[i+2]=Math.min(255,tex.data[ti+2]*sh + tint[2]*rim);
+      d[i+3]=r2>0.985?Math.round(255*(1-r2)/0.015):255;
+    }
+  }
+  x.putImageData(img,0,0);
+}
+
+/** 구체 뷰어용 고리. lat 기울기를 따라가며 앞/뒤를 나눠 그린다 */
+function drawGlobeRing(x,cx,cy,R,lat,color,part){
+  const ry=Math.max(2,Math.abs(Math.sin(lat))*R*0.92)+R*0.05;
+  x.save();
+  x.strokeStyle=color;
+  x.lineWidth=R*0.30;
+  x.globalAlpha=part==='back'?0.42:0.82;
+  x.beginPath();
+  if(part==='back') x.ellipse(cx,cy,R*1.95,ry,0,Math.PI,TAU);
+  else              x.ellipse(cx,cy,R*1.95,ry,0,0,Math.PI);
+  x.stroke();
+  x.globalAlpha=part==='back'?0.20:0.42;
+  x.lineWidth=R*0.11;
+  x.beginPath();
+  if(part==='back') x.ellipse(cx,cy,R*2.45,ry*1.25,0,Math.PI,TAU);
+  else              x.ellipse(cx,cy,R*2.45,ry*1.25,0,0,Math.PI);
+  x.stroke();
+  x.restore();
+}
+
+let _globe=null;
+function stopGlobe(){ if(_globe){cancelAnimationFrame(_globe.raf);_globe=null;} }
+function startGlobe(cv,tex,body){
+  stopGlobe();
+  const tint=hx(body.c1);
+  const ring=!!(body.f&&body.f.ring), rcol=mix(body.c1,'#ffffff',.3);
+  _globe={raf:0,lon:0,lat:ring?0.42:0,spin:0.22,drag:null,cv,tex,tint};
+  const gx=cv.getContext('2d');
+  // 고리 여백을 위해 구체를 조금 줄여 그린다
+  const inner=ring?document.createElement('canvas'):null;
+  if(inner){inner.width=Math.round(cv.width*0.50);inner.height=inner.width;}
+  let last=performance.now();
+  (function loop(now){
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    if(!_globe)return;
+    if(!_globe.drag) _globe.lon+=_globe.spin*dt;
+    if(ring){
+      const W=cv.width,R=inner.width/2,cx=W/2,cy=W/2;
+      gx.clearRect(0,0,W,W);
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,rcol,'back');
+      drawGlobe(inner,tex,_globe.lon,_globe.lat,tint);
+      gx.drawImage(inner,cx-R,cy-R);
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,rcol,'front');
+    }else{
+      drawGlobe(cv,tex,_globe.lon,_globe.lat,tint);
+    }
+    _globe.raf=requestAnimationFrame(loop);
+  })(last);
+
+  const down=e=>{e.preventDefault();_globe.drag={x:e.clientX,y:e.clientY};cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);};
+  const move=e=>{
+    if(!_globe||!_globe.drag)return;
+    const dx=e.clientX-_globe.drag.x, dy=e.clientY-_globe.drag.y;
+    _globe.drag={x:e.clientX,y:e.clientY};
+    _globe.lon-=dx*0.011;
+    _globe.lat=clamp(_globe.lat+dy*0.011,-1.35,1.35);
+  };
+  const up=()=>{if(_globe)_globe.drag=null;};
+  cv.onpointerdown=down;cv.onpointermove=move;cv.onpointerup=up;cv.onpointercancel=up;
+}
+
 /** 천체 상세 (요구사항 14) — 긴 설명과 실측 제원을 함께 보여준다 */
 function showBodyDetail(b,bn){
   const kind=bn==='star'?'항성':bn==='planet'?'행성':'위성';
@@ -2879,16 +3009,27 @@ function showBodyDetail(b,bn){
   $('#dtKind').innerHTML=`<span class="s${b.t}">${'★'.repeat(b.t)}</span> · ${kind}
     ${b.en?`<span class="dtEn">${esc(b.en)}</span>`:''}`;
   $('#dtBody').innerHTML=`
-    <div style="display:flex;justify-content:center;margin-bottom:18px">
-      <canvas id="dtCv" width="280" height="280" style="width:140px;height:140px"></canvas>
+    <div class="globeWrap">
+      <canvas id="dtCv" width="300" height="300"></canvas>
+      <div class="globeHint" id="globeHint"></div>
     </div>
     <p class="dtDesc">${esc(b.dd||b.d||'')}</p>
     ${b.st?`<div class="dtSpec">${b.st.map(r=>
       `<div><span>${esc(r[0])}</span><b>${esc(r[1])}</b></div>`).join('')}</div>`:''}
     <div class="dtFoot">
       ${b.m!==undefined?`질량 ${b.m}태양질량 · `:''}${isPlaced(b.id)?'항성계에 배치됨':'보관함에 보관 중'}
+      ${TEX_IDS.has(b.id)?'<br><span class="texCredit">텍스처 © Solar System Scope · CC BY 4.0</span>':''}
     </div>`;
-  paintThumb($('#dtCv'),b,bn);
+  const cv=$('#dtCv');
+  paintThumb(cv,b,bn);                       // 텍스처가 오기 전/없을 때의 기본 그림
+  stopGlobe();
+  loadTexture(b.id).then(tex=>{
+    if(!tex||!$('#mDetail').classList.contains('on'))return;
+    if($('#dtName').textContent!==b.n)return; // 그 사이 다른 천체를 열었으면 무시
+    cv.classList.add('globe');
+    $('#globeHint').textContent='드래그해서 돌려보세요 · 실제 관측 텍스처';
+    startGlobe(cv,tex,b);
+  });
   open('mDetail');
 }
 
