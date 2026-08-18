@@ -1631,7 +1631,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.18-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.18-d';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4690,7 +4690,8 @@ function renderSettings(){
       <div class="setSep">알림과 설치</div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
-        버전 ${APP_VER}</div>`;
+        버전 ${APP_VER} · 뒤로가기 ${trapArmed()?'준비됨':'미설정'}
+        (${history.length}) · ${isNative()?'앱':isStandalone()?'홈화면':'브라우저'}</div>`;
   renderPwaRows();
   $$('#setBody .setRow').forEach(el=>el.onclick=()=>{
     const k=el.dataset.k;
@@ -4851,7 +4852,16 @@ function flushPush(){ if(_pushPending&&AUTH&&cloudReady()) cloudPush(true); }
    히스토리에 덫을 하나 깔아 두고 popstate 를 받는다. 열린 창이 있으면
    먼저 닫고, 없을 때만 종료를 묻는다. 종료 전에는 밀린 동기화를 밀어 넣는다. */
 let _exiting=false;
-function pushTrap(){ try{ history.pushState({sf:1},''); }catch(e){} }
+/** 지금 히스토리 맨 위가 우리 덫인가 */
+function trapArmed(){ try{ return !!(history.state&&history.state.sf); }catch(e){ return false; } }
+function pushTrap(){ try{ if(!trapArmed()) history.pushState({sf:1},''); }catch(e){} }
+/* 덫이 사라지면 뒤로가기를 못 받는다. 앱으로 돌아올 때마다 다시 깐다 —
+   창을 오래 떠나 있으면 브라우저가 히스토리를 정리하는 경우가 있다. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') pushTrap();
+});
+addEventListener('focus',pushTrap);
+addEventListener('pageshow',pushTrap);
 function topMask(){
   const on=$$('.mask.on');
   return on.length?on[on.length-1]:null;
@@ -4889,6 +4899,12 @@ async function exitApp(){
   setTimeout(()=>{ pushTrap(); toast('동기화 완료 · 이제 닫아도 됩니다'); },350);
 }
 addEventListener('popstate',onBack);
+/* 안드로이드 래퍼에서는 하드웨어 버튼이 popstate 를 거치지 않을 수 있다.
+   Capacitor 가 있으면 그쪽 이벤트도 같은 경로로 보낸다. */
+try{
+  const A=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+  if(A&&A.addListener) A.addListener('backButton',()=>onBack());
+}catch(e){}
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden') flushPush();      // 이 이벤트는 document 에서 난다
 });
