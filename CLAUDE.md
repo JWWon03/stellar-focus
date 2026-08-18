@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `manifest.webmanifest` | PWA 매니페스트 (홈 화면 설치·standalone) |
 | `sw.js` | 서비스워커 — 오프라인 캐시 + 알림 통로 |
 | `icons/` | 설치 아이콘 (192·512·maskable·apple-touch) |
+| `mobile/` | 안드로이드 래퍼 (Capacitor). 빌드 방법은 `mobile/README.md` |
 
 ## 명령
 
@@ -219,7 +220,11 @@ CDN 스크립트와 웹폰트를 **일절 추가하지 않는다.** 궤도 화�
 
 **화면이 꺼지면 rAF 가 멈춘다.** 완료 판정이 렌더 루프에 있으므로 탭이 뒤로 가면 알림이 제때 안 뜬다. `armNotify()`가 세션 시작 시 `endAt`에 맞춰 `setTimeout`을 걸어 둔다. 시작·정지·초기화·부팅(진행 중 세션 복구)에서 짝을 맞출 것 — `disarmNotify()`가 반대다.
 
-**앱을 완전히 종료하면 알림은 오지 않는다.** 예약 알림을 보내려면 푸시 서버(Web Push + VAPID)가 필요한데 이 앱에는 없다. 설정 화면에 이 한계를 명시해 두었으니 지우지 말 것 — "알림이 안 온다"는 문의의 대부분이 이 경우다.
+**웹에서는 앱을 완전히 종료하면 알림이 오지 않는다.** 예약 알림을 보내려면 푸시 서버(Web Push + VAPID)가 필요한데 이 앱에는 없다. 설정 화면에 이 한계를 명시해 두었으니 지우지 말 것 — "알림이 안 온다"는 문의의 대부분이 이 경우다.
+
+**안드로이드 래퍼에서는 이 한계가 없다.** `mobile/`의 Capacitor 앱은 `@capacitor/local-notifications`로 **OS에 알림을 예약**하므로 앱을 종료해도 뜬다(`allowWhileIdle`로 도즈 모드까지 관통). `nativeArm()`/`nativeDisarm()`이 그 경로이고, `isNative()`가 거짓인 브라우저에서는 통째로 꺼져 기존 웹 경로만 돈다. **두 경로가 동시에 알림을 띄우지 않도록** 웹 타이머는 `isNative()`면 스스로 빠지고, 렌더 루프가 완료를 처리하면 `nativeDisarm()`으로 예약을 지운다.
+
+Capacitor 플러그인은 번들러 없이 `window.Capacitor.Plugins.<이름>`으로 부른다 — 이 프로젝트에 빌드 단계를 들이지 않기 위한 선택이다. `mobile/sync-web.mjs`가 루트에서 웹 자산을 긁어가며 **서비스워커 등록을 끈다**(네이티브 WebView 는 로컬 파일을 읽으므로 캐시가 불필요하고, sw 가 끼면 앱을 새로 깔아도 낡은 화면이 남는다).
 
 **서비스워커 갱신 규칙이 자산마다 다르다.** `index.html`은 네트워크 우선(캐시 우선이면 배포해도 낡은 앱을 계속 쓴다), 텍스처·아이콘은 캐시 우선. 캐시 이름에 `VER`이 들어 있어 올리면 옛 캐시가 지워진다. **`sw.js`를 고치면 `VER`을 올릴 것.**
 

@@ -55,26 +55,20 @@
 safe-area 인셋 처리, 외부 네트워크 요청 0개, 절대 시각(타임스탬프) 기반 타이머라
 앱이 백그라운드로 내려갔다 와도 남은 시간이 어긋나지 않습니다.
 
-가장 손이 적게 가는 경로는 Capacitor입니다.
+**`mobile/` 폴더에 Capacitor 래퍼가 준비돼 있습니다.** 빌드 방법은 [mobile/README.md](mobile/README.md)를 보세요.
+
+앱으로 감싸는 실익은 **알림**입니다. 웹(PWA)은 앱을 완전히 종료하면 예약 알림을 띄울 수
+없지만, 앱은 안드로이드 OS에 알림을 예약하므로 종료해도 제때 옵니다. 나머지 기능은
+같은 `index.html`을 쓰므로 완전히 동일합니다.
 
 ```bash
-npm create vite@latest stellar-focus-app -- --template vanilla
+cd mobile && npm install && npm run sync-web && npx cap add android && npm run apk
 ```
 
-만든 프로젝트의 `index.html`을 이 파일로 교체한 뒤:
+JDK 17 · Node.js · Android Studio(SDK용)가 필요합니다. iOS는 `npx cap add ios` + Xcode(맥 필요).
 
-```bash
-npm i @capacitor/core @capacitor/cli && npx cap init
-```
-
-```bash
-npm run build && npx cap add android && npx cap sync && npx cap open android
-```
-
-Android Studio에서 APK를 뽑으면 됩니다. iOS는 `npx cap add ios` + Xcode(맥 필요).
-
-설치까지는 필요 없고 홈 화면에만 두고 싶다면, 파일을 아무 정적 호스팅(GitHub Pages 등)에
-올리고 모바일 브라우저의 "홈 화면에 추가"를 쓰는 방법이 더 간단합니다.
+설치까지 필요 없다면 https://jwwon03.github.io/stellar-focus/ 를 모바일 브라우저로 열고
+"홈 화면에 추가"를 쓰면 됩니다. 아이콘이 생기고 전체화면으로 뜹니다.
 
 ## 초기화
 
