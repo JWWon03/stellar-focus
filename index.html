@@ -191,6 +191,7 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 /* 촬영 모드 */
 .camOnly,.camBar{display:none}
 .capPanel{display:none;width:196px;padding:12px 13px;margin-bottom:7px;
+  max-height:calc(100vh - 190px);overflow-y:auto;
   /* 구도를 가리므로 틀이 비쳐 보이게 한다 */
   background:rgba(9,12,22,.66);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 body.capture .capPanel.on{display:block}
@@ -208,6 +209,9 @@ body.capture .capPanel.on{display:block}
 .capRow .capBtn:last-child{grid-column:1/-1}
 .capChk{padding:9px 11px;margin-bottom:6px}
 .capChk .txt b{font-size:12px;white-space:nowrap}
+.capChk .txt span{display:block;font-size:9.5px;color:var(--txt-3);margin-top:2px;white-space:nowrap}
+.capReset{display:none;width:100%;margin-bottom:6px}
+.capReset.on{display:block}
 .capChk .tgl{width:36px;height:20px}
 .capChk .tgl::after{width:14px;height:14px}
 .capChk.on .tgl::after{left:18px}
@@ -853,10 +857,15 @@ body.locked #timerPanel input{cursor:not-allowed}
       <button class="capBtn" id="capEdge">Edge-on</button>
       <button class="capBtn" id="capFit">전체 보기</button>
     </div>
+    <div class="capSec">배치</div>
+    <div class="setRow capChk" id="capAlign">
+      <div class="txt"><b>일렬 정렬</b></div><div class="tgl"></div>
+    </div>
     <div class="capSec">표시</div>
     <div class="setRow capChk on" id="capLabels">
-      <div class="txt"><b>별 이름</b></div><div class="tgl"></div>
+      <div class="txt"><b>별 이름</b><span>드래그로 위치</span></div><div class="tgl"></div>
     </div>
+    <button class="capBtn capReset" id="capNameReset">이름 위치 되돌리기</button>
     <div class="setRow capChk on" id="capOrbits">
       <div class="txt"><b>궤도선</b></div><div class="tgl"></div>
     </div>
@@ -1621,7 +1630,7 @@ const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
 function freshState(){
   return {
     created:false,
-    star:{name:'',color:'#ffd97a',skin:null},   // skin = STAR_POOL id 또는 null(직접 지정한 색)
+    star:{name:'',color:'#ffd97a',skin:null,namePos:null},  // skin=STAR_POOL id 또는 null · namePos=이름표 자유 배치(화면 비율)
     tokens:0,
     owned:{star:[],planet:[],moon:[]},
     pity:{star:{p4:0,p5:0},planet:{p4:0,p5:0},moon:{p4:0,p5:0}},
@@ -1649,8 +1658,11 @@ function load(raw0){
     if(!raw) {S=freshState();return;}
     const o=typeof raw==='string'?JSON.parse(raw):raw;
     S=Object.assign(freshState(),o);
-    S.star=Object.assign({name:'',color:'#ffd97a',skin:null},o.star||{});
+    S.star=Object.assign({name:'',color:'#ffd97a',skin:null,namePos:null},o.star||{});
     if(S.star.skin&&!BY_ID[S.star.skin])S.star.skin=null;   // 없는 스킨 id 방어
+    const np=S.star.namePos;                                // 망가진 좌표 방어
+    S.star.namePos=(np&&isFinite(np.x)&&isFinite(np.y))
+      ?{x:clamp(np.x,.03,.97),y:clamp(np.y,.01,.97)}:null;
     S.owned=Object.assign({star:[],planet:[],moon:[]},o.owned||{});
     S.pity=Object.assign({star:{p4:0,p5:0},planet:{p4:0,p5:0},moon:{p4:0,p5:0}},o.pity||{});
     S.timer=Object.assign(freshState().timer,o.timer||{});
@@ -2226,6 +2238,22 @@ function starMasses(){
   return {m0, c0, c1, m1:c0?(c0.m||1):0, m2:c1?(c1.m||1):0};
 }
 const SEP_IN=0.165, SEP_OUT=0.30, ZK_IN=0.06, ZK_OUT=0.09;
+
+/* 촬영 모드 상태. 조작부는 아래 '촬영 모드' 절에 있지만 sceneBodies/render 가
+   먼저 읽으므로 선언은 여기 있어야 한다 (let 은 위로 끌어올려지지 않는다). */
+let showLabels=true, showOrbits=true, capRatio='full', capAlign=false, _hideGuide=false;
+
+/* 일렬 정렬 — 모든 천체를 같은 황경 ALIGN_LON 에 놓는다.
+   케플러 방정식을 거꾸로 풀어(진근점이각 → 이심근점이각 → 평균근점이각)
+   그 위치가 되는 revs 를 구한다. 궤도 경사는 0.25rad 이하라 1도 미만만
+   어긋나므로 무시한다. */
+const ALIGN_LON=Math.PI;               // 화면 왼쪽 — 오른쪽은 설정창이 가린다
+function alignRevs(el){
+  const nu=ALIGN_LON-el.peri-el.node;
+  const E=2*Math.atan2(Math.sqrt(1-el.e)*Math.sin(nu/2),
+                       Math.sqrt(1+el.e)*Math.cos(nu/2));
+  return (E-el.e*Math.sin(E)-el.M0)/TAU;
+}
 /** 중심별의 표면을 만들 가상 천체. 스킨이 있으면 그 항성을 그대로 쓴다. */
 function centralStarBody(lk){
   if(lk.skinBody) return lk.skinBody;
@@ -2240,14 +2268,14 @@ function starPositions(){
              innerCM:{x:0,y:0,z:0},          // 안쪽 쌍성의 질량중심 (궤도 그리기용)
              rPrimary:0, rComp0:0, rComp1:0, rInner:0};
   if(c0){
-    const a=SEP_IN, ang=(phase/0.22)*TAU+0.7, tot=m0+m1;
+    const a=SEP_IN, ang=capAlign?ALIGN_LON+Math.PI:(phase/0.22)*TAU+0.7, tot=m0+m1;
     const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*ZK_IN};
     out.rPrimary=a*m1/tot; out.rComp0=a*m0/tot;
     out.primary={x:-p.x*m1/tot, y:-p.y*m1/tot, z:-p.z*m1/tot};
     out.comp[0]={x:p.x*m0/tot, y:p.y*m0/tot, z:p.z*m0/tot};
   }
   if(c1){
-    const a=SEP_OUT, ang=(phase/0.62)*TAU+2.4, tot=m0+m1+m2, inner=m0+m1;
+    const a=SEP_OUT, ang=capAlign?ALIGN_LON+Math.PI:(phase/0.62)*TAU+2.4, tot=m0+m1+m2, inner=m0+m1;
     const p={x:Math.cos(ang)*a, y:Math.sin(ang)*a, z:Math.sin(ang)*a*ZK_OUT};
     const sh={x:-p.x*m2/tot, y:-p.y*m2/tot, z:-p.z*m2/tot};
     out.rInner=a*m2/tot; out.rComp1=a*inner/tot;
@@ -2295,7 +2323,7 @@ function sceneBodies(g){
   for(let i=0;i<MAX_PLANET;i++){
     const sl=S.sys.slots[i];if(!sl.p)continue;
     const b=BY_ID[sl.p], el=orbitEl(i);
-    const revs=phase*Math.pow(aRef/el.a,1.5);      // 케플러 3법칙
+    const revs=capAlign?alignRevs(el):phase*Math.pow(aRef/el.a,1.5);   // 케플러 3법칙
     const wp=orbitPos(el,revs);
     const pr=Math.max(3.5,g.R*VIEW.zoom*.026*b.sz);
     const lit=litAt(el.a);
@@ -2308,9 +2336,9 @@ function sceneBodies(g){
       const mb=BY_ID[mid];
       const mEl=moonEl(i,k);
       const mScale=(pr*(2.6+k*1.5))/(g.R*VIEW.zoom);   // 화면상 위성 궤도 크기
-      const mp=orbitPos(mEl,revs*(5.4-k*1.9),mScale);
+      const mrevs=capAlign?alignRevs(mEl):revs*(5.4-k*1.9);
+      const mp=orbitPos(mEl,mrevs,mScale);
       const wm={x:wp.x+mp.x, y:wp.y+mp.y, z:wp.z+mp.z};
-      const mrevs=revs*(5.4-k*1.9);
       out.push({key:'m'+i+'_'+k, kind:'moon', slot:i, mi:k, body:mb, name:mb.n,
                 world:wm, scr:toScreen(wm,g), r:Math.max(1.8,pr*.34*mb.sz), lit,
                 el:mEl, revs:mrevs, mScale, parent:wp,
@@ -2447,13 +2475,7 @@ function render(t){
           ctx.drawImage(sc,o.scr.x-o.r,o.scr.y-o.r,o.r*2,o.r*2);ctx.restore();
         }
       }
-      ctx.save();
-      ctx.font='600 12px Pretendard,system-ui,sans-serif';
-      ctx.textAlign='center';ctx.textBaseline='top';
-      ctx.fillStyle='rgba(232,238,252,.85)';
-      ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
-      if(showLabels) ctx.fillText(S.star.name,o.scr.x,o.scr.y+o.r+10);
-      ctx.restore();
+      drawStarName(o);
       return;
     }
     const la=Math.atan2(primary.scr.y-o.scr.y, primary.scr.x-o.scr.x);
@@ -2482,10 +2504,52 @@ function render(t){
   });
 
   // 구도 가이드는 천체 위에 얹혀야 잘릴 부분이 보인다
-  if(document.body.classList.contains('capture')) drawCaptureGuide(ctx);
+  if(document.body.classList.contains('capture')){
+    drawCaptureGuide(ctx);
+    drawNameHandle(ctx);
+  }
+}
+
+/* 중심별 이름표. namePos 가 있으면 화면 비율 좌표에 자유 배치하고,
+   없으면 예전처럼 별 아래에 붙인다. 히트박스는 드래그용으로 남긴다. */
+let _nameBox=null;
+function drawStarName(o){
+  if(!showLabels||!S.star.name){_nameBox=null;return;}
+  const np=S.star.namePos;
+  const free=!!np;
+  const x=free?np.x*W:o.scr.x, y=free?np.y*H:o.scr.y+o.r+10;
+  ctx.save();
+  ctx.font=(free?'600 15px ':'600 12px ')+'Pretendard,system-ui,sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillStyle='rgba(232,238,252,'+(free?'.95':'.85')+')';
+  if(free)ctx.letterSpacing='0.06em';
+  ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=8;
+  ctx.fillText(S.star.name,x,y);
+  const w=ctx.measureText(S.star.name).width, h=free?18:14;
+  ctx.restore();
+  _nameBox={x:x-w/2, y, w, h};
+}
+/* 촬영 중에만 보이는 드래그 손잡이 표시 */
+function drawNameHandle(ctx){
+  if(_hideGuide||!_nameBox)return;
+  const b=_nameBox, pad=6;
+  ctx.save();
+  ctx.strokeStyle=_nameDrag?'rgba(138,180,255,.85)':'rgba(255,255,255,.30)';
+  ctx.setLineDash([4,4]);ctx.lineWidth=1;
+  ctx.strokeRect(b.x-pad,b.y-pad,b.w+pad*2,b.h+pad*2);
+  ctx.restore();
+}
+/** 이름표를 잡았는지. 손가락을 감안해 넉넉히 잡는다 */
+function hitNameBox(cx,cy){
+  if(!_nameBox)return false;
+  const b=_nameBox,p=14;
+  const r=cv.getBoundingClientRect();
+  const x=cx-r.left, y=cy-r.top;
+  return x>=b.x-p&&x<=b.x+b.w+p&&y>=b.y-p&&y<=b.y+b.h+p;
 }
 
 function drawSelectionRing(o,t){
+  if(_hideGuide)return;        // 선택 표시는 사진에 남으면 안 된다
   ctx.save();
   const rr=o.r+7+Math.sin(t*2.6)*1.6;
   ctx.strokeStyle='rgba(138,180,255,.85)';ctx.lineWidth=1.4;
@@ -2528,12 +2592,26 @@ function resetView(){
 
 /* 드래그로 시점 회전 (요구사항 5)
    가로 = 방위각, 세로 = 경사각. 회전 중심은 질량중심(또는 추적 중인 천체)이다. */
-let _drag=null;
+let _drag=null,_nameDrag=null;
 cv.addEventListener('pointerdown',e=>{
+  // 촬영 중이면 이름표가 시점 회전보다 먼저다
+  if(document.body.classList.contains('capture')&&hitNameBox(e.clientX,e.clientY)){
+    const r=cv.getBoundingClientRect();
+    _nameDrag={ox:(e.clientX-r.left)-(_nameBox.x+_nameBox.w/2),
+               oy:(e.clientY-r.top)-_nameBox.y};
+    try{cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);}catch(_){}
+    return;
+  }
   _drag={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,t:performance.now(),moved:false};
   try{cv.setPointerCapture&&cv.setPointerCapture(e.pointerId);}catch(_){}
 });
 cv.addEventListener('pointermove',e=>{
+  if(_nameDrag){
+    const r=cv.getBoundingClientRect();
+    S.star.namePos={x:clamp((e.clientX-r.left-_nameDrag.ox)/W,.03,.97),
+                    y:clamp((e.clientY-r.top -_nameDrag.oy)/H,.01,.97)};
+    return;
+  }
   if(!_drag)return;
   if(Math.hypot(e.clientX-_drag.x,e.clientY-_drag.y)>6)_drag.moved=true;
   if(!_drag.moved)return;
@@ -2547,15 +2625,18 @@ cv.addEventListener('pointermove',e=>{
   updateViewUI();
 });
 function endDrag(e){
+  if(_nameDrag){_nameDrag=null;save();syncCapUI();return;}
   if(!_drag)return;
   const quick=performance.now()-_drag.t<500 && !_drag.moved;
   _drag=null;
   if(!quick||!S.created)return;
+  // 촬영 중에는 탭으로 추적을 걸지 않는다. 확대·이동이 따라와 잡아둔 구도가 날아간다
+  if(document.body.classList.contains('capture'))return;
   const hit=pickAt(e.clientX,e.clientY);
   followBody(hit&&hit.key!=='star'?hit.key:null);
 }
 cv.addEventListener('pointerup',endDrag);
-cv.addEventListener('pointercancel',()=>{_drag=null;});
+cv.addEventListener('pointercancel',()=>{_drag=null;_nameDrag=null;});
 cv.addEventListener('wheel',e=>{
   e.preventDefault();
   zoomBy(e.deltaY>0?0.90:1.11);
@@ -4058,9 +4139,8 @@ $$('.dexTab').forEach(t=>t.onclick=()=>{dexBanner=t.dataset.bn;renderDex();});
 $('#btnDex').onclick=()=>{if(!S.created||guard())return;renderDex();open('mDex');};
 
 /* ---- 촬영 모드 ---- */
-const CAP_RATIOS=[['full','전체'],['1:1','1:1'],['4:5','4:5'],
+const CAP_RATIOS=[['full','전체'],['1:1','1:1'],['4:3','4:3'],
                   ['3:4','3:4'],['9:16','9:16'],['16:9','16:9']];
-let showLabels=true, showOrbits=true, capRatio='full', _hideGuide=false;
 
 /** 지금 비율로 잘려 나갈 화면 영역 */
 function captureRect(){
@@ -4098,7 +4178,7 @@ function setCapture(on){
   else {
     // 촬영용 토글이 평소 화면까지 따라가면 궤도선이 사라진 채로 남는다
     $('#capPanel').classList.remove('on');
-    showLabels=true; showOrbits=true; capRatio='full';
+    showLabels=true; showOrbits=true; capRatio='full'; capAlign=false;
   }
   syncCapUI();
 }
@@ -4108,6 +4188,8 @@ function syncCapUI(){
   if(!wrap||!wrap.children.length) return;
   $$('#capRatios button').forEach(el=>el.classList.toggle('on',el.dataset.r===capRatio));
   $('#capLabels').classList.toggle('on',showLabels);
+  $('#capAlign').classList.toggle('on',capAlign);
+  $('#capNameReset').classList.toggle('on',showLabels&&!!S.star.namePos);
   $('#capOrbits').classList.toggle('on',showOrbits);
   $('#capFace').classList.toggle('on',VIEW.tiltTo<0.30);
   $('#capEdge').classList.toggle('on',VIEW.tiltTo>1.25);
@@ -4120,6 +4202,8 @@ $('#capFace').onclick=()=>{setTilt(VIEW.tiltTo<0.30?TILT_DEFAULT:TILT_FACE);sync
 $('#capEdge').onclick=()=>{setTilt(VIEW.tiltTo>1.25?TILT_DEFAULT:TILT_EDGE);syncCapUI();};
 $('#capFit').onclick=()=>{resetView();syncCapUI();};
 $('#capLabels').onclick=()=>{showLabels=!showLabels;syncCapUI();};
+$('#capAlign').onclick=()=>{capAlign=!capAlign;syncCapUI();};
+$('#capNameReset').onclick=()=>{S.star.namePos=null;save();syncCapUI();};
 $('#capOrbits').onclick=()=>{showOrbits=!showOrbits;syncCapUI();};
 
 $('#btnCamera').onclick=()=>{if(!S.created||guard())return;setCapture(true);
