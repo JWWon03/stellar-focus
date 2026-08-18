@@ -2700,15 +2700,21 @@ function paintPreview(cvEl,look,t){
   const w=cvEl.width,h=cvEl.height;
   const L=typeof look==='string'?{color:look,feat:{}}:look;
   c.clearRect(0,0,w,h);
-  const R=w*0.19;
-  drawStar(c,w/2,h/2,R,L.color,1,t,Object.assign({haloK:2.55},L.feat||{}));
-  // 스킨을 씌웠으면 그 항성의 실제 표면까지 보여준다
-  const sk=L.skinBody;
-  if(sk&&!(sk.f&&(sk.f.acc||sk.f.beam))){
-    const sp=bodySprite(sk,R*2,0);
-    if(sp) c.drawImage(sp,w/2-R,h/2-R,R*2,R*2);
-    else onSpriteReady(sk.id,()=>{ if(cvEl.isConnected) paintPreview(cvEl,look,performance.now()/1000); });
+  const sk=L.skinBody, F=L.feat||{};
+  if(F.acc||F.beam){                               // 블랙홀·펄서는 연출이 곧 정체성이다
+    drawStar(c,w/2,h/2,thumbFitRadius(w,F),L.color,1,t,Object.assign({},F,{haloK:2.6}));
+    return;
   }
+  const R=w*0.34;
+  if(sk){
+    const sp=bodySprite(sk,R*2,0);
+    if(sp){c.drawImage(sp,w/2-R,h/2-R,R*2,R*2);return;}
+    onSpriteReady(sk.id,()=>{ if(cvEl.isConnected) paintPreview(cvEl,look,performance.now()/1000); });
+  }
+  // 스킨이 없으면 고른 색으로 매끈한 구를 그린다
+  const g=c.createRadialGradient(w/2-R*.2,h/2-R*.2,R*.06,w/2,h/2,R);
+  g.addColorStop(0,lighten(L.color,.45)); g.addColorStop(.8,L.color); g.addColorStop(1,shade(L.color,.62));
+  c.fillStyle=g; c.beginPath(); c.arc(w/2,h/2,R,0,TAU); c.fill();
 }
 
 /* 중심별 선택 상태. {color, skin} 을 함께 들고 다닌다. */
@@ -3023,36 +3029,43 @@ $('#btnPull5').onclick=()=>pullMany(5);
 $('#btnPull10').onclick=()=>pullMany(10);
 
 /** 카드/도감용 썸네일.
-    스프라이트(실제 렌더링)가 준비되면 그것을 쓰고, 아직이면 간단한 그림으로
-    대체한 뒤 준비되는 대로 다시 그린다. */
+    도감에서는 천체 주변으로 퍼지는 빛을 그리지 않는다 — 정사각형 캔버스
+    밖으로 넘쳐 네모로 잘려 보이기 때문이다. 표면이 없는 블랙홀·펄서만
+    자기 연출을 쓰되, 전체가 캔버스 안에 들어오도록 반지름을 맞춘다. */
+function thumbFitRadius(w,F){
+  const ext=F.acc?3.4:F.beam?7.4:F.wind?3.2:2.8;   // 연출이 뻗는 최대 배율
+  return w*0.5/ext*0.95;
+}
 function paintThumb(cvEl,b,bn){
   if(!cvEl)return;
   const c=cvEl.getContext('2d');
   const w=cvEl.width,h=cvEl.height;
   c.clearRect(0,0,w,h);
   const F=b.f||{}, isStar=b.m!==undefined, noSurface=!!(F.acc||F.beam);
-  const sp=noSurface?null:bodySprite(b,w*0.62,0);
+  if(noSurface){                                   // 블랙홀·중성자별
+    drawStar(c,w/2,h/2,thumbFitRadius(w,F),b.c1,1,performance.now()/1000,
+             Object.assign({},F,{haloK:2.6}));
+    return;
+  }
+  const sp=bodySprite(b,w*0.62,0);
   if(sp){
-    const R=w*(F.ring?0.30:0.36);
-    if(isStar) drawStar(c,w/2,h/2,R*0.92,b.c1,1,performance.now()/1000,
-                        Object.assign({haloK:1.75},F));
-    else if(F.glow||F.atmos){
-      const g=c.createRadialGradient(w/2,h/2,R*0.9,w/2,h/2,R*(F.glow?2.0:1.5));
-      g.addColorStop(0,rgba(b.c1,F.glow?.28:.16));
-      g.addColorStop(1,rgba(b.c1,0));
-      c.fillStyle=g;c.beginPath();c.arc(w/2,h/2,R*(F.glow?2.0:1.5),0,TAU);c.fill();
-    }
+    const R=w*(F.ring?0.30:0.38);
     if(F.ring) drawRingFlat(c,w/2,h/2,R,b.id,'back');
     c.drawImage(sp,w/2-R,h/2-R,R*2,R*2);
     if(F.ring) drawRingFlat(c,w/2,h/2,R,b.id,'front');
     return;
   }
-  // 대체 그림 + 준비되면 다시 그리기
-  if(isStar) drawStar(c,w/2,h/2,w*0.20,b.c1,1,performance.now()/1000,
-                      Object.assign({haloK:2.5},F));
-  else       drawBody(c,w/2,h/2,w*0.19,b,-2.3,1);
-  if(!noSurface) onSpriteReady(b.id,()=>{ if(cvEl.isConnected) paintThumb(cvEl,b,bn); });
+  // 스프라이트가 준비되기 전의 대체 그림 — 이것도 빛 없이 그린다
+  if(isStar){
+    const R=w*0.36, g=c.createRadialGradient(w/2-R*.2,h/2-R*.2,R*.06,w/2,h/2,R);
+    g.addColorStop(0,lighten(b.c1,.45)); g.addColorStop(.8,b.c1); g.addColorStop(1,shade(b.c1,.62));
+    c.fillStyle=g; c.beginPath(); c.arc(w/2,h/2,R,0,TAU); c.fill();
+  }else{
+    drawBody(c,w/2,h/2,w*0.30,b,-2.3,1);
+  }
+  onSpriteReady(b.id,()=>{ if(cvEl.isConnected) paintThumb(cvEl,b,bn); });
 }
+
 /** 썸네일·미리보기용 고리 (카메라와 무관하게 고정 각도) */
 function drawRingFlat(ctx,x,y,r,id,part){
   const st=ringStyle(id), squash=0.34, rOut=r*st.rout;
@@ -3715,10 +3728,9 @@ function startGlobe(cv,tex,body){
       gx.drawImage(inner,cx-R,cy-R);
       drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front',{id:body.id});
     }else if(isStar){
-      // 코로나를 먼저 깔고 그 위에 표면을 얹는다
-      const W=cv.width, R=Math.round(W*0.30);
+      // 도감에서는 코로나를 그리지 않는다. 표면만 크게 보여준다.
+      const W=cv.width, R=Math.round(W*0.46);
       gx.clearRect(0,0,W,W);
-      drawStar(gx,W/2,W/2,R,body.c1,1,now/1000,Object.assign({haloK:1.62},body.f||{}));
       halo.width=W;
       drawGlobe(halo,tex,_globe.lon,_globe.lat,tint,gopt);
       gx.drawImage(halo,W/2-R,W/2-R,R*2,R*2);
