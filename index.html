@@ -275,7 +275,74 @@ body.admin #tokenCount{color:var(--gold)}
 .sw.on::after{
   content:'';position:absolute;inset:-7px;border-radius:50%;border:1px solid rgba(255,255,255,.35)
 }
-.swName{text-align:center;font-size:11px;color:var(--txt-2);margin-top:12px;height:14px;letter-spacing:.04em}
+".swName{text-align:center;font-size:11px;color:var(--txt-2);margin-top:12px;min-height:14px;letter-spacing:.04em}
+
+/* 색상환 스와치 */
+.sw.wheelSw{border-color:rgba(255,255,255,.35)}
+.sw.wheelSw canvas{width:100%;height:100%;border-radius:50%;display:block}
+.sw.wheelSw::before{
+  content:'';position:absolute;inset:34%;border-radius:50%;
+  background:rgba(10,14,26,.72);border:1px solid rgba(255,255,255,.4)
+}
+
+/* 보유 항성 스킨 */
+.skinGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.skin{
+  border:1px solid var(--line);border-radius:13px;padding:8px 6px 7px;text-align:center;
+  background:rgba(255,255,255,.02);cursor:pointer;transition:.15s
+}
+.skin:hover{border-color:var(--line-2);background:rgba(255,255,255,.05)}
+.skin.on{border-color:rgba(255,198,92,.7);background:rgba(255,198,92,.09);
+  box-shadow:0 0 22px rgba(255,190,80,.2)}
+.skin canvas{width:46px;height:46px;display:block;margin:0 auto 5px}
+.skin .n{font-size:10.5px;font-weight:600;line-height:1.3}
+.skin .s{font-size:9px;margin-top:2px;letter-spacing:.08em}
+
+/* 큰 색상환 피커 */
+.cwTop{display:flex;gap:16px;align-items:center;margin-bottom:18px}
+.cwWrap{position:relative;width:200px;height:200px;flex:0 0 auto;touch-action:none}
+#cwCanvas{width:200px;height:200px;display:block;border-radius:50%;cursor:crosshair;
+  box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#cwCursor{
+  position:absolute;width:16px;height:16px;border-radius:50%;transform:translate(-50%,-50%);
+  border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.6);
+  pointer-events:none
+}
+.cwSide{flex:1;text-align:center;min-width:0}
+#cwPreview{width:100px;height:100px;display:block;margin:0 auto}
+#cwHex{margin-top:6px;font-size:12px;color:var(--txt-2);letter-spacing:.1em;
+  font-family:ui-monospace,Consolas,monospace}
+.cwRow{display:flex;align-items:center;gap:12px;margin-top:12px}
+.cwRow label{font-size:11.5px;color:var(--txt-2);width:32px;flex:0 0 auto}
+.cwRow span{font-size:11px;color:var(--txt-3);width:38px;text-align:right;flex:0 0 auto;
+  font-variant-numeric:tabular-nums}
+.cwRow input[type=range]{
+  flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;
+  background:rgba(255,255,255,.12);outline:none
+}
+.cwRow input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;
+  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)
+}
+.cwRow input[type=range]::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;background:#fff;border:none;cursor:pointer
+}
+
+/* 설정 토글 */
+.setRow{
+  display:flex;align-items:center;gap:14px;padding:13px 14px;border:1px solid var(--line);
+  border-radius:13px;background:rgba(255,255,255,.02);margin-bottom:9px;cursor:pointer;transition:.15s
+}
+.setRow:hover{border-color:var(--line-2)}
+.setRow .txt{flex:1;min-width:0}
+.setRow .txt b{display:block;font-size:13.5px;font-weight:600}
+.setRow .txt span{display:block;font-size:11px;color:var(--txt-3);margin-top:3px;line-height:1.5}
+.tgl{width:42px;height:24px;border-radius:20px;background:rgba(255,255,255,.10);
+  border:1px solid var(--line);position:relative;flex:0 0 auto;transition:.18s}
+.tgl::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+  background:#8390b5;transition:.18s}
+.setRow.on .tgl{background:rgba(58,110,255,.5);border-color:rgba(138,180,255,.6)}
+.setRow.on .tgl::after{left:20px;background:#fff}
 
 /* 가챠 */
 .tabs{display:flex;gap:8px;padding:0 22px 14px;border-bottom:1px solid var(--line)}
@@ -551,6 +618,7 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="tHead">
       <div class="ttl">집중 타이머</div>
       <div class="ico" id="btnSound" title="완료 사운드">♪</div>
+      <div class="ico" id="btnSettings" title="설정">⚙</div>
       <div class="ico" id="btnMini" title="접기/펼치기">—</div>
     </div>
     <div class="tBody">
@@ -633,9 +701,7 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="mBody">
       <div class="introStar"><canvas id="introCv" width="300" height="300"></canvas></div>
       <input class="inpBig" id="inStarName" maxlength="14" placeholder="중심별의 이름" autocomplete="off" spellcheck="false">
-      <div class="secLbl">별의 색</div>
-      <div class="pal" id="palette"></div>
-      <div class="swName" id="swName"></div>
+      <div id="palette"></div>
     </div>
     <div class="mFoot">
       <button class="cbtn primary" id="btnCreate" style="width:100%;text-align:center">항성계 시작하기</button>
@@ -712,6 +778,54 @@ body.locked #timerPanel input{cursor:not-allowed}
   </div>
 </div>
 
+<!-- ============ 모달: 색상환 피커 ============ -->
+<div class="mask" id="mWheel">
+  <div class="modal" style="max-width:400px">
+    <div class="mHead">
+      <div style="flex:1"><h2>별의 색 고르기</h2><p>바깥으로 갈수록 진해집니다</p></div>
+      <button class="mClose" data-close="mWheel">✕</button>
+    </div>
+    <div class="mBody">
+      <div class="cwTop">
+        <div class="cwWrap">
+          <canvas id="cwCanvas" width="480" height="480"></canvas>
+          <div id="cwCursor"></div>
+        </div>
+        <div class="cwSide">
+          <canvas id="cwPreview" width="200" height="200"></canvas>
+          <div id="cwHex">#FFD97A</div>
+        </div>
+      </div>
+      <div class="cwRow">
+        <label>채도</label>
+        <input type="range" id="cwSat" min="0" max="100" value="60">
+        <span id="cwSatV">60%</span>
+      </div>
+      <div class="cwRow">
+        <label>명도</label>
+        <input type="range" id="cwVal" min="15" max="100" value="100">
+        <span id="cwValV">100%</span>
+      </div>
+    </div>
+    <div class="mFoot">
+      <div class="spacer"></div>
+      <button class="cbtn" data-close="mWheel">취소</button>
+      <button class="cbtn primary" id="cwOk">이 색으로</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 모달: 설정 ============ -->
+<div class="mask" id="mSettings">
+  <div class="modal" style="max-width:420px">
+    <div class="mHead">
+      <div style="flex:1"><h2>설정</h2><p>조작과 소리를 취향에 맞춥니다</p></div>
+      <button class="mClose" data-close="mSettings">✕</button>
+    </div>
+    <div class="mBody" id="setBody"></div>
+  </div>
+</div>
+
 <!-- ============ 모달: 확인 다이얼로그 ============ -->
 <div class="mask" id="mAsk">
   <div class="modal" style="max-width:380px">
@@ -766,9 +880,7 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="mBody">
       <div class="introStar"><canvas id="editCv" width="260" height="260" style="width:130px;height:130px"></canvas></div>
       <input class="inpBig" id="inStarName2" maxlength="14" autocomplete="off" spellcheck="false">
-      <div class="secLbl">별의 색</div>
-      <div class="pal" id="palette2"></div>
-      <div class="swName" id="swName2"></div>
+      <div id="palette2"></div>
     </div>
     <div class="mFoot">
       <button class="cbtn" data-close="mStarEdit">취소</button>
@@ -799,6 +911,30 @@ function shade(h,f){const c=hx(h);return toHex(c[0]*f,c[1]*f,c[2]*f);}
 function lighten(h,f){const c=hx(h);return toHex(c[0]+(255-c[0])*f,c[1]+(255-c[1])*f,c[2]+(255-c[2])*f);}
 function mix(a,b,t){const A=hx(a),B=hx(b);
   return toHex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t);}
+function rgb2hsv(hex){
+  const c=hx(hex), r=c[0]/255,g=c[1]/255,b=c[2]/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0;
+  if(d){
+    if(mx===r)      h=((g-b)/d+(g<b?6:0));
+    else if(mx===g) h=((b-r)/d+2);
+    else            h=((r-g)/d+4);
+    h*=60;
+  }
+  return [h, mx?d/mx:0, mx];
+}
+function hsv2hex(h,s,v){
+  h=((h%360)+360)%360;
+  const c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+  let r,g,b;
+  if(h<60)       [r,g,b]=[c,x,0];
+  else if(h<120) [r,g,b]=[x,c,0];
+  else if(h<180) [r,g,b]=[0,c,x];
+  else if(h<240) [r,g,b]=[0,x,c];
+  else if(h<300) [r,g,b]=[x,0,c];
+  else           [r,g,b]=[c,0,x];
+  return toHex((r+m)*255,(g+m)*255,(b+m)*255);
+}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function dayKey(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function fnv(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
@@ -908,6 +1044,23 @@ const CLOUD={
 };
 const cloudReady=()=>!!(CLOUD.url&&CLOUD.key);
 
+/* 중심별의 최종 외형. 가챠로 얻은 항성을 스킨으로 씌울 수 있다.
+   스킨이 있으면 그 항성의 색·연출·질량을 그대로 따르고,
+   없으면 사용자가 고른 색을 쓰며 질량은 색에서 추정한다. */
+function starLook(st){
+  st=st||S.star;
+  const b=st.skin?BY_ID[st.skin]:null;
+  if(b) return {color:b.c1, feat:b.f||{}, mass:b.m||1, name:b.n, sz:b.sz};
+  const pal=PALETTE.find(p=>p.c===st.color);
+  return {color:st.color, feat:{}, mass:pal?pal.m:massFromColor(st.color), name:null, sz:1};
+}
+/* 팔레트에 없는 색은 색조로 질량을 어림한다 — 푸를수록 무겁고 붉을수록 가볍다 */
+function massFromColor(hex){
+  const [h,,]=rgb2hsv(hex);
+  const blue=Math.cos((h-225)*Math.PI/180);   // 225도(청색)에서 1, 45도(주황)에서 -1
+  return +(Math.pow(10,blue*0.85)).toFixed(2);
+}
+
 /* 관리자 계정: 토큰 무제한 + 타이머 최소 1분.
    클라이언트 판정이라 진짜 권한 통제가 아니라 테스트용 편의 기능이다. */
 const ADMIN_IDS=['__selftest__'];
@@ -922,7 +1075,7 @@ const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
 function freshState(){
   return {
     created:false,
-    star:{name:'',color:'#ffd97a'},
+    star:{name:'',color:'#ffd97a',skin:null},   // skin = STAR_POOL id 또는 null(직접 지정한 색)
     tokens:0,
     owned:{star:[],planet:[],moon:[]},
     pity:{star:{p4:0,p5:0},planet:{p4:0,p5:0},moon:{p4:0,p5:0}},
@@ -939,7 +1092,7 @@ function freshState(){
       useLong:true
     },
     stats:{sessions:0,focusMs:0,day:'',dayMs:0},
-    sound:true, mini:false
+    sound:true, mini:false, invX:false, invY:false
   };
 }
 let S=freshState();
@@ -950,7 +1103,8 @@ function load(raw0){
     if(!raw) {S=freshState();return;}
     const o=typeof raw==='string'?JSON.parse(raw):raw;
     S=Object.assign(freshState(),o);
-    S.star=Object.assign({name:'',color:'#ffd97a'},o.star||{});
+    S.star=Object.assign({name:'',color:'#ffd97a',skin:null},o.star||{});
+    if(S.star.skin&&!BY_ID[S.star.skin])S.star.skin=null;   // 없는 스킨 id 방어
     S.owned=Object.assign({star:[],planet:[],moon:[]},o.owned||{});
     S.pity=Object.assign({star:{p4:0,p5:0},planet:{p4:0,p5:0},moon:{p4:0,p5:0}},o.pity||{});
     S.timer=Object.assign(freshState().timer,o.timer||{});
@@ -1374,8 +1528,7 @@ function litAt(a){
    푼다 — 안쪽 쌍성이 먼저 짝을 이루고, 바깥 동반성이 그 쌍의 질량중심을 돈다.
    실제 삼중성계가 안정적으로 존재하는 방식이 이것이다. */
 function starMasses(){
-  const pal=PALETTE.find(p=>p.c===S.star.color);
-  const m0=pal?pal.m:1;
+  const m0=starLook().mass;
   const c0=S.sys.comp[0]?BY_ID[S.sys.comp[0]]:null;
   const c1=S.sys.comp[1]?BY_ID[S.sys.comp[1]]:null;
   return {m0, c0, c1, m1:c0?(c0.m||1):0, m2:c1?(c1.m||1):0};
@@ -1556,8 +1709,9 @@ function render(t){
     const rad=reveal.t*1.6;
     ctx.save();
     ctx.globalAlpha=clamp(1.25-reveal.t,0,1)*.5;
-    ctx.strokeStyle=rgba(S.star.color,1);
-    ctx.lineWidth=2.4;ctx.shadowColor=rgba(S.star.color,.9);ctx.shadowBlur=22;
+    const rc=starLook().color;
+    ctx.strokeStyle=rgba(rc,1);
+    ctx.lineWidth=2.4;ctx.shadowColor=rgba(rc,.9);ctx.shadowBlur=22;
     ctx.beginPath();
     for(let k=0;k<=90;k++){
       const a2=k/90*TAU;
@@ -1572,7 +1726,8 @@ function render(t){
   blaze=reveal.on?clamp(1+reveal.t*.8,1,1.8):1;   // 중심별은 늘 밝다
   bodies.slice().sort((a,b)=>a.scr.depth-b.scr.depth).forEach(o=>{
     if(o.kind==='star'){
-      drawStar(ctx,o.scr.x,o.scr.y,o.r,S.star.color,Math.min(1,blaze),t,{});
+      const lk=starLook();
+      drawStar(ctx,o.scr.x,o.scr.y,o.r,lk.color,Math.min(1,blaze),t,lk.feat);
       ctx.save();
       ctx.font='600 12px Pretendard,system-ui,sans-serif';
       ctx.textAlign='center';ctx.textBaseline='top';
@@ -1649,8 +1804,8 @@ cv.addEventListener('pointermove',e=>{
   _drag.lx=e.clientX;_drag.ly=e.clientY;
   // 손으로 항성계를 붙잡고 돌리는 느낌이 되도록 부호를 맞춘다.
   // 오른쪽으로 끌면 앞쪽(화면 아래) 천체가 오른쪽으로, 아래로 끌면 원반이 눕는다.
-  VIEW.azTo  -= dx*0.008;
-  VIEW.tiltTo = clamp(VIEW.tiltTo - dy*0.006, 0, 1.53);
+  VIEW.azTo  -= dx*0.008*(S.invX?-1:1);
+  VIEW.tiltTo = clamp(VIEW.tiltTo - dy*0.006*(S.invY?-1:1), 0, 1.53);
   VIEW.az=VIEW.azTo;VIEW.tilt=VIEW.tiltTo;      // 드래그 중에는 즉시 반영
   updateViewUI();
 });
@@ -1992,41 +2147,143 @@ $$('.mask').forEach(m=>m.addEventListener('mousedown',e=>{
 /* ==========================================================================
    7. 인트로 (중심별 생성)
    ========================================================================== */
-let pickColor=PALETTE[4].c;
-function buildPalette(el,nameEl,cur,cb){
-  el.innerHTML='';
-  PALETTE.forEach(p=>{
-    const d=document.createElement('div');
-    d.className='sw'+(p.c===cur?' on':'');
-    d.innerHTML=`<i style="background:radial-gradient(circle at 34% 30%, ${lighten(p.c,.5)}, ${p.c} 55%, ${shade(p.c,.55)});box-shadow:0 0 16px ${rgba(p.c,.65)}"></i>`;
-    d.onclick=()=>{
-      $$('.sw',el).forEach(x=>x.classList.remove('on'));
-      d.classList.add('on');nameEl.textContent=p.n;cb(p.c);
-    };
-    el.appendChild(d);
-  });
-  nameEl.textContent=(PALETTE.find(p=>p.c===cur)||{}).n||'';
-}
-function paintPreview(cvEl,color,t){
+/** 중심별 미리보기. look 은 문자열(색) 또는 starLook() 결과 */
+function paintPreview(cvEl,look,t){
+  if(!cvEl)return;
   const c=cvEl.getContext('2d');
   const w=cvEl.width,h=cvEl.height;
+  const L=typeof look==='string'?{color:look,feat:{}}:look;
   c.clearRect(0,0,w,h);
-  drawStar(c,w/2,h/2,w*0.19,color,1,t,{haloK:2.55});
+  drawStar(c,w/2,h/2,w*0.19,L.color,1,t,Object.assign({haloK:2.55},L.feat||{}));
 }
+
+/* 중심별 선택 상태. {color, skin} 을 함께 들고 다닌다. */
+let pickSel={color:PALETTE[4].c, skin:null};
+let editSel={color:PALETTE[4].c, skin:null};
+
+/** 원형 색상환을 캔버스에 그린다 (각도=색조, 반지름=채도) */
+function paintWheel(cv,val){
+  const x=cv.getContext('2d'), w=cv.width, R=w/2;
+  const img=x.createImageData(w,w), d=img.data;
+  for(let py=0;py<w;py++)for(let px=0;px<w;px++){
+    const dx=px-R+.5, dy=py-R+.5, r=Math.hypot(dx,dy), i=(py*w+px)*4;
+    if(r>R){d[i+3]=0;continue;}
+    const h=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
+    const c=hx(hsv2hex(h, Math.min(1,r/R), val));
+    d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];
+    d[i+3]=r>R-1.5?Math.round(255*(R-r)/1.5):255;   // 가장자리 안티앨리어싱
+  }
+  x.putImageData(img,0,0);
+}
+
+/** 중심별 선택 UI 전체를 그린다 (색상환 + 프리셋 + 보유 항성 스킨) */
+function buildStarPicker(root,sel,onChange){
+  const owned=S.owned.star.map(id=>BY_ID[id]).filter(Boolean).sort((a,b)=>b.t-a.t);
+  root.innerHTML=`
+    <div class="secLbl" style="margin-top:0">별의 색</div>
+    <div class="pal">
+      <div class="sw wheelSw" id="swWheel" title="직접 고르기">
+        <canvas width="120" height="120"></canvas>
+      </div>
+      ${PALETTE.map(pp=>`<div class="sw" data-c="${pp.c}" data-n="${pp.n}">
+        <i style="background:radial-gradient(circle at 34% 30%, ${lighten(pp.c,.5)}, ${pp.c} 55%, ${shade(pp.c,.55)});box-shadow:0 0 16px ${rgba(pp.c,.65)}"></i>
+      </div>`).join('')}
+    </div>
+    <div class="swName" id="swNameOut"></div>
+    ${owned.length?`
+      <div class="secLbl">획득한 항성으로 바꾸기 <span style="color:var(--txt-3);font-weight:400">· ${owned.length}종</span></div>
+      <div class="skinGrid">
+        ${owned.map(b=>`<div class="skin ${sel.skin===b.id?'on':''}" data-skin="${b.id}">
+          <canvas width="110" height="110"></canvas>
+          <div class="n">${b.n}</div>
+          <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
+        </div>`).join('')}
+      </div>`
+    :`<div class="pickerHint" style="margin-top:16px">가챠 <b>항성 배너</b>에서 별을 얻으면 중심별의 모습으로 씌울 수 있습니다.</div>`}
+  `;
+  const nameOut=$('#swNameOut',root);
+  const mark=()=>{
+    $$('.sw',root).forEach(x=>x.classList.toggle('on', !sel.skin && x.dataset.c===sel.color));
+    $$('.skin',root).forEach(x=>x.classList.toggle('on', sel.skin===x.dataset.skin));
+    const lk=starLook(sel);
+    nameOut.textContent=sel.skin?`${lk.name} · ${lk.mass}태양질량`
+      :((PALETTE.find(p=>p.c===sel.color)||{}).n || `직접 고른 색 · 약 ${lk.mass}태양질량`);
+  };
+  paintWheel($('#swWheel canvas',root), 1);
+  $('#swWheel',root).onclick=()=>openColorWheel(sel.color,c=>{
+    sel.color=c;sel.skin=null;mark();onChange&&onChange();
+  });
+  $$('.sw[data-c]',root).forEach(el=>el.onclick=()=>{
+    sel.color=el.dataset.c;sel.skin=null;mark();onChange&&onChange();
+  });
+  $$('.skin',root).forEach(el=>{
+    const b=BY_ID[el.dataset.skin];
+    paintThumb($('canvas',el),b,'star');
+    el.onclick=()=>{
+      sel.skin=(sel.skin===b.id)?null:b.id;mark();onChange&&onChange();
+    };
+  });
+  mark();
+}
+
+/* ---- 큰 색상환 피커 (채도·명도 조절) ---- */
+let _wheelCb=null, _wh={h:45,s:.6,v:1};
+function openColorWheel(startHex,cb){
+  _wheelCb=cb;
+  const [h,sa,v]=rgb2hsv(startHex);
+  _wh={h, s:sa, v:Math.max(.25,v)};
+  $('#cwSat').value=Math.round(_wh.s*100);
+  $('#cwVal').value=Math.round(_wh.v*100);
+  redrawWheel();
+  open('mWheel');
+}
+function redrawWheel(){
+  const cv=$('#cwCanvas');
+  paintWheel(cv,_wh.v);
+  const hex=hsv2hex(_wh.h,_wh.s,_wh.v);
+  $('#cwHex').textContent=hex.toUpperCase();
+  $('#cwSatV').textContent=Math.round(_wh.s*100)+'%';
+  $('#cwValV').textContent=Math.round(_wh.v*100)+'%';
+  // 커서
+  const R=cv.clientWidth/2, rad=_wh.s*R, a=_wh.h*Math.PI/180;
+  const cur=$('#cwCursor');
+  cur.style.left=(R+Math.cos(a)*rad)+'px';
+  cur.style.top =(R+Math.sin(a)*rad)+'px';
+  cur.style.background=hex;
+  paintPreview($('#cwPreview'),{color:hex,feat:{}},performance.now()/1000);
+}
+function wheelPick(e){
+  const cv=$('#cwCanvas'), r=cv.getBoundingClientRect();
+  const px=(e.touches?e.touches[0].clientX:e.clientX)-r.left-r.width/2;
+  const py=(e.touches?e.touches[0].clientY:e.clientY)-r.top-r.height/2;
+  _wh.h=(Math.atan2(py,px)*180/Math.PI+360)%360;
+  _wh.s=Math.min(1,Math.hypot(px,py)/(r.width/2));
+  $('#cwSat').value=Math.round(_wh.s*100);
+  redrawWheel();
+}
+let _wheelDrag=false;
+$('#cwCanvas').addEventListener('pointerdown',e=>{_wheelDrag=true;wheelPick(e);});
+$('#cwCanvas').addEventListener('pointermove',e=>{if(_wheelDrag)wheelPick(e);});
+window.addEventListener('pointerup',()=>{_wheelDrag=false;});
+$('#cwSat').addEventListener('input',e=>{_wh.s=+e.target.value/100;redrawWheel();});
+$('#cwVal').addEventListener('input',e=>{_wh.v=+e.target.value/100;redrawWheel();});
+$('#cwOk').onclick=()=>{close('mWheel');_wheelCb&&_wheelCb(hsv2hex(_wh.h,_wh.s,_wh.v));};
+
 let introRAF=0;
 function introLoop(){
   const t=performance.now()/1000;
-  if($('#mIntro').classList.contains('on')) paintPreview($('#introCv'),pickColor,t);
-  if($('#mStarEdit').classList.contains('on')) paintPreview($('#editCv'),editColor,t);
+  if($('#mIntro').classList.contains('on'))    paintPreview($('#introCv'),starLook(pickSel),t);
+  if($('#mStarEdit').classList.contains('on')) paintPreview($('#editCv'),starLook(editSel),t);
+  if($('#mWheel').classList.contains('on'))    paintPreview($('#cwPreview'),{color:hsv2hex(_wh.h,_wh.s,_wh.v),feat:{}},t);
   introRAF=requestAnimationFrame(introLoop);
 }
 introLoop();
 
-buildPalette($('#palette'),$('#swName'),pickColor,c=>pickColor=c);
+buildStarPicker($('#palette'),pickSel);
 $('#btnCreate').onclick=()=>{
   const nm=$('#inStarName').value.trim();
   if(!nm){toast('중심별의 이름을 입력해 주세요');$('#inStarName').focus();return;}
-  S.created=true;S.star.name=nm;S.star.color=pickColor;
+  S.created=true;S.star.name=nm;S.star.color=pickSel.color;S.star.skin=pickSel.skin;
   S.tokens=1;                       // 첫 1회 무료
   saveNow();close('mIntro');
   paintTokens();updateTimerUI();
@@ -2034,16 +2291,16 @@ $('#btnCreate').onclick=()=>{
 };
 $('#inStarName').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnCreate').click();});
 
-let editColor=pickColor;
 $('#btnStarSave').onclick=()=>{
   const nm=$('#inStarName2').value.trim();
   if(!nm){toast('이름을 입력해 주세요');return;}
-  S.star.name=nm;S.star.color=editColor;saveNow();close('mStarEdit');renderSystem();toast('중심별을 수정했습니다');
+  S.star.name=nm;S.star.color=editSel.color;S.star.skin=editSel.skin;
+  saveNow();close('mStarEdit');renderSystem();toast('중심별을 수정했습니다');
 };
 function openStarEdit(){
-  editColor=S.star.color;
+  editSel={color:S.star.color, skin:S.star.skin||null};
   $('#inStarName2').value=S.star.name;
-  buildPalette($('#palette2'),$('#swName2'),editColor,c=>editColor=c);
+  buildStarPicker($('#palette2'),editSel);
   open('mStarEdit');
 }
 
@@ -2358,7 +2615,7 @@ function renderSystem(){
       안쪽 행성은 케플러 제3법칙에 따라 더 빠르게 공전합니다.
     </div>`;
 
-  paintPreview($('#sysStarCv'),S.star.color,performance.now()/1000);
+  paintPreview($('#sysStarCv'),starLook(),performance.now()/1000);
   $('#btnEditStar').onclick=openStarEdit;
 
   $$('[data-act]',body).forEach(el=>{
@@ -2589,6 +2846,31 @@ $('#btnSound').onclick=()=>{
   S.sound=!S.sound;$('#btnSound').classList.toggle('off',!S.sound);
   save();toast(S.sound?'완료 사운드 켜짐':'완료 사운드 꺼짐');
 };
+
+/* ---- 설정 ---- */
+const SETTINGS=[
+  {k:'sound', t:'완료 사운드',      d:'세션이 끝나면 짧은 종소리를 냅니다'},
+  {k:'invX',  t:'좌우 드래그 반전', d:'끄면 손으로 붙잡고 돌리는 방향, 켜면 카메라를 돌리는 방향입니다'},
+  {k:'invY',  t:'상하 드래그 반전', d:'위아래로 끌었을 때 시점이 기울어지는 방향을 뒤집습니다'},
+];
+function renderSettings(){
+  $('#setBody').innerHTML=SETTINGS.map(o=>`
+    <div class="setRow ${S[o.k]?'on':''}" data-k="${o.k}">
+      <div class="txt"><b>${o.t}</b><span>${o.d}</span></div>
+      <div class="tgl"></div>
+    </div>`).join('')
+    +`<div class="pickerHint" style="margin-top:14px">
+        드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
+        화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>`;
+  $$('#setBody .setRow').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k;
+    S[k]=!S[k];
+    el.classList.toggle('on',S[k]);
+    if(k==='sound')$('#btnSound').classList.toggle('off',!S.sound);
+    save();
+  });
+}
+$('#btnSettings').onclick=()=>{renderSettings();open('mSettings');};
 
 /* 시점 조작 */
 function updateViewUI(){
