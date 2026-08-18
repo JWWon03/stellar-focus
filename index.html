@@ -7,6 +7,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stellar Focus">
+<meta name="application-name" content="Stellar Focus">
+<meta name="description" content="집중한 시간만큼 나의 항성계가 정확히 한 바퀴를 돕니다.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Stellar Focus · 나만의 항성계</title>
 <style>
 /* ============================================================
@@ -602,6 +608,8 @@ body.capture #hint{display:none}
 .dtFoot{margin-top:14px;font-size:11px;color:var(--txt-3);text-align:center;line-height:1.7}
 .texCredit{font-size:9.5px;opacity:.72}
 
+.setSep{font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--txt-3);
+  margin:20px 0 9px;padding-top:15px;border-top:1px solid var(--line)}
 .pickerHint{font-size:11.5px;color:var(--txt-3);margin-bottom:10px;line-height:1.6}
 .emptyMsg{text-align:center;color:var(--txt-3);font-size:12.5px;padding:32px 16px;line-height:1.7}
 
@@ -2782,11 +2790,12 @@ function startPhase(kind){
     // 요구사항 10 — 시작하면 항성계로 다가간다
     VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom()*1.12;
   }
-  save();updateTimerUI();updateLockUI();
+  save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
 }
 function pause(){
   const T=S.timer;if(!T.running)return;
+  disarmNotify();
   T.remain=Math.max(0,T.endAt-Date.now());T.running=false;save();updateTimerUI();
 }
 function resume(){
@@ -2794,6 +2803,7 @@ function resume(){
   T.endAt=Date.now()+T.remain;T.running=true;save();updateTimerUI();
 }
 function resetTimer(){
+  disarmNotify();
   const T=S.timer;
   T.phase='idle';T.running=false;T.remain=0;T.total=0;T.round=0;
   hideTokenPopup();
@@ -2845,21 +2855,49 @@ function onPhaseDone(){
   updateTimerUI();updateLockUI();
 }
 
-/* 시스템 알림 (요구사항 8). 권한이 있을 때만 뜬다 — PWA 설치 시 잠금화면까지 간다 */
-function notifyDone(gain,bonus){
+/* 시스템 알림 (요구사항 8).
+   홈 화면에 추가한 PWA, 특히 iOS 에서는 페이지의 new Notification() 이
+   동작하지 않는다. 서비스워커 등록본의 showNotification 만 통한다. */
+function showNotif(title,opt){
   try{
     if(!('Notification' in window)||Notification.permission!=='granted')return;
-    new Notification('집중 완료 ✦',{
-      body:`가챠 토큰 +${gain}${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
-      tag:'sf-done',renotify:true
-    });
+    const o=Object.assign({icon:'icons/icon-192.png',badge:'icons/icon-192.png'},opt);
+    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready
+        .then(r=>r.showNotification(title,o))
+        .catch(()=>{try{new Notification(title,o);}catch(_){}});
+      return;
+    }
+    new Notification(title,o);
   }catch(e){}
 }
+function notifyDone(gain,bonus){
+  showNotif('집중 완료 ✦',{
+    body:`가챠 토큰 +${gain}${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
+    tag:'sf-done',renotify:true});
+}
 function notifyBreakDone(){
-  try{
-    if(!('Notification' in window)||Notification.permission!=='granted')return;
-    new Notification('휴식 종료 ☾',{body:'다음 집중 세션을 시작할 시간입니다',tag:'sf-break',renotify:true});
-  }catch(e){}
+  showNotif('휴식 종료 ☾',{body:'다음 집중 세션을 시작할 시간입니다',tag:'sf-break',renotify:true});
+}
+/* 화면이 꺼지면 rAF 가 멈춰 완료 판정이 늦어진다. 시작할 때 끝나는 시각에
+   맞춰 타이머를 하나 걸어 두면 탭이 뒤로 가 있어도 제때 알림이 뜬다.
+   (앱을 완전히 종료하면 이것도 죽는다 — 그건 푸시 서버가 있어야 한다.) */
+let _notifTimer=0;
+function disarmNotify(){ clearTimeout(_notifTimer); _notifTimer=0; }
+function armNotify(){
+  disarmNotify();
+  const T=S.timer;
+  if(!T.running||!T.endAt)return;
+  const ms=T.endAt-Date.now();
+  if(ms<=0||ms>1000*60*60*6)return;
+  const wasFocus=T.phase==='focus';
+  _notifTimer=setTimeout(()=>{
+    if(document.visibilityState==='visible')return;   // 보고 있으면 렌더 루프가 처리한다
+    if(wasFocus) showNotif('집중 완료 ✦',
+      {body:`${S.star.name} 항성계가 한 바퀴를 돌았습니다 · 앱을 열어 토큰을 받으세요`,
+       tag:'sf-done',renotify:true});
+    else notifyBreakDone();
+  },ms+400);
 }
 function askNotifyPermission(){
   try{
@@ -4603,7 +4641,10 @@ function renderSettings(){
     </div>`).join('')
     +`<div class="pickerHint" style="margin-top:14px">
         드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
-        화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>`;
+        화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>
+      <div class="setSep">알림과 설치</div>
+      <div id="pwaRows"></div>`;
+  renderPwaRows();
   $$('#setBody .setRow').forEach(el=>el.onclick=()=>{
     const k=el.dataset.k;
     S[k]=!S[k];
@@ -4611,6 +4652,59 @@ function renderSettings(){
     if(k==='sound')$('#btnSound').classList.toggle('off',!S.sound);
     save();
   });
+}
+/* ---- 알림 권한 · 홈 화면 설치 ---- */
+let _installPrompt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();_installPrompt=e;
+  if($('#mSettings').classList.contains('on'))renderPwaRows();});
+addEventListener('appinstalled',()=>{_installPrompt=null;
+  if($('#mSettings').classList.contains('on'))renderPwaRows();});
+function isStandalone(){
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+}
+function renderPwaRows(){
+  const el=$('#pwaRows'); if(!el)return;
+  const sup=('Notification' in window);
+  const perm=sup?Notification.permission:'unsupported';
+  const nTxt=!sup?'이 브라우저는 알림을 지원하지 않습니다'
+    :perm==='granted'?'켜져 있습니다 · 세션이 끝나면 알려줍니다'
+    :perm==='denied' ?'차단됨 · 브라우저 사이트 설정에서 풀어야 합니다'
+    :'집중이 끝나면 알림을 보냅니다';
+  const ios=/iP(hone|ad|od)/.test(navigator.userAgent);
+  el.innerHTML=
+    `<div class="setRow ${perm==='granted'?'on':''}" id="rowNotif">
+       <div class="txt"><b>완료 알림</b><span>${nTxt}</span></div>
+       <div class="tgl"></div>
+     </div>`
+    +(isStandalone()
+      ? `<div class="pickerHint">홈 화면에서 실행 중입니다. 이 상태여야 알림이 잠금화면까지 옵니다.</div>`
+      : _installPrompt
+        ? `<button class="cbtn primary" id="btnInstall" style="width:100%;margin-top:8px">홈 화면에 추가</button>`
+        : ios
+          ? `<div class="pickerHint">아이폰은 사파리 공유 버튼 → <b>홈 화면에 추가</b>를 눌러야 알림을 쓸 수 있습니다. 브라우저 탭으로 열어둔 상태에서는 iOS가 알림을 막습니다.</div>`
+          : `<div class="pickerHint">브라우저 메뉴의 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>로 설치하면 알림이 잠금화면까지 옵니다.</div>`)
+    +`<div class="pickerHint" style="margin-top:8px">
+        앱을 <b>완전히 종료</b>하면 알림이 오지 않습니다. 예약 알림을 보내려면
+        푸시 서버가 필요한데 이 앱에는 없습니다. 화면을 끄거나 다른 앱을 보는 정도는 괜찮습니다.</div>`;
+  const row=$('#rowNotif');
+  if(row) row.onclick=async()=>{
+    if(!sup) return warn('이 브라우저는 알림을 지원하지 않습니다');
+    if(Notification.permission==='granted') return toast('알림은 브라우저 설정에서 끌 수 있습니다');
+    if(Notification.permission==='denied')  return warn('브라우저 사이트 설정에서 알림 차단을 풀어주세요');
+    try{
+      const r=await Notification.requestPermission();
+      renderPwaRows();
+      if(r==='granted'){ showNotif('알림이 켜졌습니다 ✦',{body:'집중이 끝나면 이렇게 알려드립니다',tag:'sf-test'}); }
+      else warn('알림 권한을 받지 못했습니다');
+    }catch(e){warn('알림 권한 요청에 실패했습니다');}
+  };
+  const ib=$('#btnInstall');
+  if(ib) ib.onclick=async()=>{
+    if(!_installPrompt)return;
+    _installPrompt.prompt();
+    try{await _installPrompt.userChoice;}catch(e){}
+    _installPrompt=null; renderPwaRows();
+  };
 }
 $('#btnSettings').onclick=()=>{renderSettings();open('mSettings');};
 $('#btnMenuToggle').onclick=()=>{
@@ -4992,7 +5086,29 @@ function boot(){
       showHint('우하단 <b>항성계 설정</b>에서 보관함의 행성을 궤도에 배치해 보세요');
   }
   cloudSyncOnBoot();
+  registerSW();
+  if(T.running) armNotify();          // 새로고침해도 예약이 살아 있게
   requestAnimationFrame(frame);
+}
+
+/* 서비스워커 — 오프라인 캐시와 알림 통로.
+   file:// 로 열면 등록이 안 되는데(보안 제약) 그건 정상이고 앱은 그대로 돈다. */
+function registerSW(){
+  if(!('serviceWorker' in navigator))return;
+  if(location.protocol==='file:')return;
+  navigator.serviceWorker.register('sw.js',{scope:'./'})
+    .then(reg=>{
+      // 새 버전이 대기 중이면 바로 넘긴다. 단일 파일 앱이라 갈아끼워도 안전하다.
+      if(reg.waiting) reg.waiting.postMessage({type:'skipWaiting'});
+      reg.addEventListener('updatefound',()=>{
+        const w=reg.installing;
+        if(w) w.addEventListener('statechange',()=>{
+          if(w.state==='installed'&&navigator.serviceWorker.controller)
+            w.postMessage({type:'skipWaiting'});
+        });
+      });
+    })
+    .catch(()=>{});
 }
 boot();
 </script>

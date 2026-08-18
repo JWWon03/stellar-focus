@@ -1,0 +1,21 @@
+{
+  "name": "Stellar Focus · 나만의 항성계",
+  "short_name": "Stellar Focus",
+  "description": "집중한 시간만큼 나의 항성계가 정확히 한 바퀴를 돕니다. 완주하면 가챠 토큰을 얻어 실존 천체 87종을 모읍니다.",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "stellar-focus",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#05060d",
+  "theme_color": "#05060d",
+  "categories": ["productivity", "education", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
