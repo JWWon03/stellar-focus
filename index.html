@@ -2466,7 +2466,7 @@ function render(t){
       // 스킨이 있으면 그 항성을, 없으면 고른 색으로 만든 표면을 입힌다
       const sb=centralStarBody(lk);
       if(sb&&!(sb.f&&(sb.f.acc||sb.f.beam))){
-        const tx=readyTexture(sb);
+        const tx=readyTexture(sb,o.r);
         if(tx){
           const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
           const sc=scratchFor(need);
@@ -2487,7 +2487,7 @@ function render(t){
                  Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},cf));
         // 중심별과 마찬가지로 실제 표면을 얹는다. 안 그러면 뭉갠 얼룩만 보인다.
         if(!cf.acc&&!cf.beam){
-          const tx=readyTexture(o.body);
+          const tx=readyTexture(o.body,o.r);
           if(tx){
             const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
             const sc=scratchFor(need);
@@ -3462,7 +3462,7 @@ function paintDexCards(root,bn){
    ========================================================================== */
 /* 도감 구체는 최대 190px 로 그려지므로 이 해상도면 충분하다.
    최초 1회만 굽고 캐시한다. */
-const PROC_W=768, PROC_H=384;
+const PROC_W=512, PROC_H=256;   // 도감 구체 지름 276px 기준 1:1 이상. 768은 3배 낭비였다
 
 function _h3(ix,iy,iz,seed){
   let n=(Math.imul(ix,374761393)+Math.imul(iy,668265263)+Math.imul(iz,2147483647)+Math.imul(seed,1274126177))|0;
@@ -3672,24 +3672,28 @@ function starSurface(b,x,y,z,nlat){
 
 /* 텍스처 한 장을 굽는다. 결과는 실제 텍스처와 같은 {w,h,data} 형식. */
 const _procCache={};
+/* 위도 한 줄을 채운다. 통짜 굽기와 시간 분할 굽기가 같이 쓴다. */
+function procRow(b,data,py,W,H,recipe){
+  const lat=(py+0.5)/H*Math.PI-Math.PI/2;
+  const nlat=lat/(Math.PI/2), cl=Math.cos(lat), sl=Math.sin(lat);
+  for(let px=0;px<W;px++){
+    const lon=(px+0.5)/W*TAU;
+    const x=cl*Math.cos(lon), y=sl, z=cl*Math.sin(lon);
+    if(recipe) recipe(x,y,z,nlat);
+    else if(b.m!==undefined) starSurface(b,x,y,z,nlat);
+    else procGeneric(b,x,y,z,nlat);
+    const i=(py*W+px)*4;
+    data[i]=_cr; data[i+1]=_cg; data[i+2]=_cb; data[i+3]=255;
+  }
+}
+/* 통짜 굽기. 도감처럼 지금 당장 있어야 하는 자리에서만 쓴다.
+   PROC_W*PROC_H 픽셀을 한 번에 도는 동기 루프라 그동안 화면이 멈춘다. */
 function makeProcTexture(b){
   if(_procCache[b.id]) return _procCache[b.id];
   const W=PROC_W,H=PROC_H;
   const data=new Uint8ClampedArray(W*H*4);
   const recipe=PROC_RECIPE[b.id];
-  for(let py=0;py<H;py++){
-    const lat=(py+0.5)/H*Math.PI-Math.PI/2;
-    const nlat=lat/(Math.PI/2), cl=Math.cos(lat), sl=Math.sin(lat);
-    for(let px=0;px<W;px++){
-      const lon=(px+0.5)/W*TAU;
-      const x=cl*Math.cos(lon), y=sl, z=cl*Math.sin(lon);
-      if(recipe) recipe(x,y,z,nlat);
-      else if(b.m!==undefined) starSurface(b,x,y,z,nlat);
-      else procGeneric(b,x,y,z,nlat);
-      const i=(py*W+px)*4;
-      data[i]=_cr; data[i+1]=_cg; data[i+2]=_cb; data[i+3]=255;
-    }
-  }
+  for(let py=0;py<H;py++) procRow(b,data,py,W,H,recipe);
   return _procCache[b.id]={w:W,h:H,data};
 }
 
@@ -3942,7 +3946,8 @@ function spriteKey(id,px,fr){ return id+'@'+spriteBucket(px)+'#'+fr; }
 
 /** 텍스처가 준비돼 있으면 돌려주고, 없으면 굽기를 예약한 뒤 null */
 const _texQ=[]; let _texBusy=false;
-function readyTexture(b){
+const _texPri={};      // id → 화면상 반지름. 큰 것부터 굽는다
+function readyTexture(b,pri){
   // 실제 사진이 있으면 그것이 우선. 도감을 열어야만 불러오면 궤도 화면이
   // 계속 절차적 그림으로 남는다.
   if(TEX_IDS.has(b.id)){
@@ -3950,17 +3955,41 @@ function readyTexture(b){
     if(_texCache[b.id]===undefined) loadTexture(b.id);   // 한 번만 시작된다
   }
   if(_procCache[b.id]) return _procCache[b.id];          // 도착 전까지 대체
+  if(pri!==undefined&&pri>(_texPri[b.id]||0)) _texPri[b.id]=pri;
   if(_texQ.indexOf(b.id)<0){_texQ.push(b.id);pumpTex();}
   return null;
 }
+/* 텍스처 굽기는 천체 하나가 30만 픽셀짜리 동기 루프라 그대로 돌리면
+   그동안 프레임이 통째로 멈춘다. 매 프레임 예산(BAKE_MS)만큼 위도 줄만
+   채우고 넘긴다. 총 시간은 같지만 화면은 계속 돈다. */
+const BAKE_MS=5;
+let _bake=null;
 function pumpTex(){
-  if(_texBusy||!_texQ.length)return;
+  if(_texBusy)return;
   _texBusy=true;
-  setTimeout(()=>{
-    const id=_texQ.shift();
-    if(id&&BY_ID[id]) makeProcTexture(BY_ID[id]);
-    _texBusy=false; pumpTex();
-  },0);
+  requestAnimationFrame(bakeSlice);
+}
+function bakeSlice(){
+  const t0=performance.now();
+  while(performance.now()-t0<BAKE_MS){
+    if(!_bake){
+      // 화면에서 큰 천체부터. 중심별이 절차적인데 위성부터 구우면 눈에 띈다
+      if(!_texQ.length){_texBusy=false;return;}
+      _texQ.sort((a,b)=>(_texPri[b]||0)-(_texPri[a]||0));
+      const id=_texQ.shift(), b=BY_ID[id];
+      if(!b||_procCache[id])continue;
+      _bake={b,data:new Uint8ClampedArray(PROC_W*PROC_H*4),py:0,
+             recipe:PROC_RECIPE[id]};
+    }
+    const k=_bake;
+    procRow(k.b,k.data,k.py++,PROC_W,PROC_H,k.recipe);
+    if(k.py>=PROC_H){
+      _procCache[k.b.id]={w:PROC_W,h:PROC_H,data:k.data};
+      if(typeof invalidateSprites==='function') invalidateSprites(k.b.id);
+      _bake=null;
+    }
+  }
+  requestAnimationFrame(bakeSlice);
 }
 /* 궤도 화면용 스크래치 캔버스 — 크기별로 하나씩 재사용한다 */
 const _scratch={};
@@ -3990,9 +4019,17 @@ function pumpSprites(){
       const id=k.slice(0,at), size=+k.slice(at+1,hs), fr=+k.slice(hs+1);
       const b=BY_ID[id];
       if(b){
+        // 여기서 makeProcTexture 를 부르면 시간 분할을 우회해 30만 픽셀을
+        // 통짜로 돈다. 아직이면 굽기만 예약하고 이 스프라이트는 뒤로 미룬다.
+        const tex=(TEX_IDS.has(id)&&_texCache[id])?_texCache[id]:_procCache[id];
+        if(!tex){
+          readyTexture(b,size);
+          _spriteQ.push(k); _spriteBusy=false;
+          setTimeout(pumpSprites,80);
+          return;
+        }
         const F=b.f||{};
         const c=document.createElement('canvas'); c.width=c.height=size;
-        const tex=(TEX_IDS.has(id)&&_texCache[id])?_texCache[id]:makeProcTexture(b);
         drawGlobe(c,tex,fr/SPIN_FRAMES*TAU,0.20,hx(b.c1),
           {shape:shapeOf(id),shapeId:id,atmos:!!(F.atmos||F.ocean||F.glow),emis:b.m!==undefined});
         _sprite[k]=c;
