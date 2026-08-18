@@ -2404,9 +2404,23 @@ function render(t){
     }
     const la=Math.atan2(primary.scr.y-o.scr.y, primary.scr.x-o.scr.x);
     if(o.kind==='comp'){
-      if(o.lit<.02) drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0);
-      else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,
-                              Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},o.body.f||{}));
+      if(o.lit<.02){ drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0); }
+      else{
+        const cf=o.body.f||{};
+        drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,
+                 Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},cf));
+        // 중심별과 마찬가지로 실제 표면을 얹는다. 안 그러면 뭉갠 얼룩만 보인다.
+        if(!cf.acc&&!cf.beam){
+          const tx=readyTexture(o.body);
+          if(tx){
+            const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
+            const sc=scratchFor(need);
+            drawGlobe(sc,tx,phase*2.2,Math.PI/2-VIEW.tilt,hx(o.body.c1),{emis:true});
+            ctx.save();ctx.globalAlpha=o.lit;
+            ctx.drawImage(sc,o.scr.x-o.r,o.scr.y-o.r,o.r*2,o.r*2);ctx.restore();
+          }
+        }
+      }
     }else{
       drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spinLon:o.spinLon});
     }
@@ -3791,8 +3805,13 @@ function spriteKey(id,px,fr){ return id+'@'+spriteBucket(px)+'#'+fr; }
 /** 텍스처가 준비돼 있으면 돌려주고, 없으면 굽기를 예약한 뒤 null */
 const _texQ=[]; let _texBusy=false;
 function readyTexture(b){
-  if(TEX_IDS.has(b.id)&&_texCache[b.id]) return _texCache[b.id];
-  if(_procCache[b.id]) return _procCache[b.id];
+  // 실제 사진이 있으면 그것이 우선. 도감을 열어야만 불러오면 궤도 화면이
+  // 계속 절차적 그림으로 남는다.
+  if(TEX_IDS.has(b.id)){
+    if(_texCache[b.id]) return _texCache[b.id];
+    if(_texCache[b.id]===undefined) loadTexture(b.id);   // 한 번만 시작된다
+  }
+  if(_procCache[b.id]) return _procCache[b.id];          // 도착 전까지 대체
   if(_texQ.indexOf(b.id)<0){_texQ.push(b.id);pumpTex();}
   return null;
 }
