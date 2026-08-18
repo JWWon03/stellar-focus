@@ -1548,7 +1548,7 @@ const cloudReady=()=>!!(CLOUD.url&&CLOUD.key);
 function starLook(st){
   st=st||S.star;
   const b=st.skin?BY_ID[st.skin]:null;
-  if(b) return {color:b.c1, feat:b.f||{}, mass:b.m||1, name:b.n, sz:b.sz};
+  if(b) return {color:b.c1, feat:b.f||{}, mass:b.m||1, name:b.n, sz:b.sz, skinBody:b};
   const pal=PALETTE.find(p=>p.c===st.color);
   return {color:st.color, feat:{}, mass:pal?pal.m:massFromColor(st.color), name:null, sz:1};
 }
@@ -1652,12 +1652,12 @@ function feats(b){
 
 /** 구체(행성·위성·동반성) 그리기.
  *  lightAng : 별 방향(라디안). lit : 0=검은 구체, 1=완전 발광 */
-function drawBody(ctx,x,y,r,b,lightAng,lit){
+function drawBody(ctx,x,y,r,b,lightAng,lit,opt){
   if(r<0.4) return;
   const F=b.f||{};
   // 어두운 상태(집중 중)와 아주 작을 때는 기존 방식이 더 싸고 충분하다
   if(lit<.02 || r<3.5){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
-  const sp=(typeof bodySprite==='function')?bodySprite(b,r*2):null;
+  const sp=(typeof bodySprite==='function')?bodySprite(b,r*2,opt&&opt.spin||0):null;
   if(!sp){ drawBodyCore(ctx,x,y,r,b,lightAng,lit); return; }
 
   if(F.glow||F.atmos){                       // 헤일로는 회전시키지 않는다
@@ -1800,24 +1800,34 @@ function drawBodyCore(ctx,x,y,r,b,lightAng,lit){
   if(F.ring) drawRing(ctx,x,y,r,b.id,dark,lit,'front');
 }
 
-/** 궤도 화면의 고리. 천체마다 실제 고리의 밝기·폭·겹 수가 다르다. */
+/** 궤도 화면의 고리.
+    토성처럼 실제 텍스처가 있으면 도감과 같은 원반을 쓰고, 없으면 얇은 띠로 그린다.
+    고리는 궤도면에 놓이므로 납작한 정도는 카메라 기울기를 따른다. */
 function drawRing(ctx,x,y,r,id,dark,lit,part){
   const st=ringStyle(id);
-  const SQ=0.35;                        // 화면상 고리 기울기
+  const squash=Math.max(0.05,Math.abs(Math.cos(VIEW.tilt)));
+  const rOut=r*st.rout;
   const a0=part==='back'?Math.PI:0, a1=part==='back'?TAU:Math.PI;
-  const base=dark?0.30:(0.45+0.55*lit);
-  const col=dark?'#14161f':st.color;
   ctx.save();
-  ctx.strokeStyle=col;
-  const bands=st.bands||[[(st.rin+st.rout)/2,(st.rout-st.rin)/2]];
-  bands.forEach(bd=>{
-    const rad=r*bd[0];
-    ctx.globalAlpha=st.alpha*base*(part==='back'?0.55:1);
-    ctx.lineWidth=Math.max(0.5,r*bd[1]*2);
-    ctx.beginPath();
-    ctx.ellipse(x,y,rad,rad*SQ,.34,a0,a1);
-    ctx.stroke();
-  });
+  ctx.beginPath();                       // 앞/뒤 반평면으로 자른다 (가림 순서용)
+  if(part==='back') ctx.rect(x-rOut-4,y-rOut-4,rOut*2+8,rOut+4);
+  else              ctx.rect(x-rOut-4,y,        rOut*2+8,rOut+4);
+  ctx.clip();
+  if(st.tex&&_ringTex&&!dark){
+    ctx.translate(x,y); ctx.scale(1,squash);
+    ctx.globalAlpha=st.alpha*lit;
+    ctx.drawImage(ringDisc(id,_ringTex,st),-rOut,-rOut,rOut*2,rOut*2);
+  }else{
+    ctx.strokeStyle=dark?'#14161f':st.color;
+    (st.bands||[[(st.rin+st.rout)/2,(st.rout-st.rin)/2]]).forEach(bd=>{
+      const rad=r*bd[0];
+      ctx.globalAlpha=st.alpha*(dark?0.3:0.35+0.65*lit);
+      ctx.lineWidth=Math.max(0.5,r*bd[1]*2);
+      ctx.beginPath();
+      ctx.ellipse(x,y,rad,rad*squash,0,a0,a1);
+      ctx.stroke();
+    });
+  }
   ctx.restore();
 }
 
@@ -2123,7 +2133,8 @@ function sceneBodies(g){
     const pr=Math.max(3.5,g.R*VIEW.zoom*.026*b.sz);
     const lit=litAt(el.a);
     out.push({key:'p'+i, kind:'planet', slot:i, body:b, name:b.n, world:wp,
-              scr:toScreen(wp,g), r:pr, lit, el, revs});
+              scr:toScreen(wp,g), r:pr, lit, el, revs,
+              spin:Math.round(revs*spinRate(b)*SPIN_FRAMES)});
 
     sl.m.forEach((mid,k)=>{
       if(!mid)return;
@@ -2132,9 +2143,11 @@ function sceneBodies(g){
       const mScale=(pr*(2.6+k*1.5))/(g.R*VIEW.zoom);   // 화면상 위성 궤도 크기
       const mp=orbitPos(mEl,revs*(5.4-k*1.9),mScale);
       const wm={x:wp.x+mp.x, y:wp.y+mp.y, z:wp.z+mp.z};
+      const mrevs=revs*(5.4-k*1.9);
       out.push({key:'m'+i+'_'+k, kind:'moon', slot:i, mi:k, body:mb, name:mb.n,
                 world:wm, scr:toScreen(wm,g), r:Math.max(1.8,pr*.34*mb.sz), lit,
-                el:mEl, revs:revs*(5.4-k*1.9), mScale, parent:wp});
+                el:mEl, revs:mrevs, mScale, parent:wp,
+                spin:Math.round(mrevs*spinRate(mb)*SPIN_FRAMES)});
     });
   }
   return out;
@@ -2251,6 +2264,12 @@ function render(t){
     if(o.kind==='star'){
       const lk=starLook();
       drawStar(ctx,o.scr.x,o.scr.y,o.r,lk.color,Math.min(1,blaze),t,lk.feat);
+      const skb=lk.skinBody;
+      if(skb&&!(skb.f&&(skb.f.acc||skb.f.beam))){
+        const sp=bodySprite(skb,o.r*2,Math.round(phase*2*SPIN_FRAMES));
+        if(sp){ctx.save();ctx.globalAlpha=Math.min(1,blaze);
+          ctx.drawImage(sp,o.scr.x-o.r,o.scr.y-o.r,o.r*2,o.r*2);ctx.restore();}
+      }
       ctx.save();
       ctx.font='600 12px Pretendard,system-ui,sans-serif';
       ctx.textAlign='center';ctx.textBaseline='top';
@@ -2265,7 +2284,7 @@ function render(t){
       if(o.lit<.02) drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0);
       else          drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,o.body.f||{});
     }else{
-      drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit);
+      drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spin:o.spin});
     }
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
@@ -2681,7 +2700,15 @@ function paintPreview(cvEl,look,t){
   const w=cvEl.width,h=cvEl.height;
   const L=typeof look==='string'?{color:look,feat:{}}:look;
   c.clearRect(0,0,w,h);
-  drawStar(c,w/2,h/2,w*0.19,L.color,1,t,Object.assign({haloK:2.55},L.feat||{}));
+  const R=w*0.19;
+  drawStar(c,w/2,h/2,R,L.color,1,t,Object.assign({haloK:2.55},L.feat||{}));
+  // 스킨을 씌웠으면 그 항성의 실제 표면까지 보여준다
+  const sk=L.skinBody;
+  if(sk&&!(sk.f&&(sk.f.acc||sk.f.beam))){
+    const sp=bodySprite(sk,R*2,0);
+    if(sp) c.drawImage(sp,w/2-R,h/2-R,R*2,R*2);
+    else onSpriteReady(sk.id,()=>{ if(cvEl.isConnected) paintPreview(cvEl,look,performance.now()/1000); });
+  }
 }
 
 /* 중심별 선택 상태. {color, skin} 을 함께 들고 다닌다. */
@@ -2995,14 +3022,59 @@ $('#btnPull').onclick=pull;
 $('#btnPull5').onclick=()=>pullMany(5);
 $('#btnPull10').onclick=()=>pullMany(10);
 
-/** 카드/도감용 썸네일 */
+/** 카드/도감용 썸네일.
+    스프라이트(실제 렌더링)가 준비되면 그것을 쓰고, 아직이면 간단한 그림으로
+    대체한 뒤 준비되는 대로 다시 그린다. */
 function paintThumb(cvEl,b,bn){
+  if(!cvEl)return;
   const c=cvEl.getContext('2d');
   const w=cvEl.width,h=cvEl.height;
   c.clearRect(0,0,w,h);
-  // 헤일로/고리가 캔버스 밖으로 잘리지 않도록 반경을 보수적으로 잡는다
-  if(bn==='star') drawStar(c,w/2,h/2,w*0.20,b.c1,1,performance.now()/1000,Object.assign({haloK:2.5},b.f||{}));
-  else            drawBody(c,w/2,h/2,w*0.19,b,-2.3,1);
+  const F=b.f||{}, isStar=b.m!==undefined, noSurface=!!(F.acc||F.beam);
+  const sp=noSurface?null:bodySprite(b,w*0.62,0);
+  if(sp){
+    const R=w*(F.ring?0.30:0.36);
+    if(isStar) drawStar(c,w/2,h/2,R*0.92,b.c1,1,performance.now()/1000,
+                        Object.assign({haloK:1.75},F));
+    else if(F.glow||F.atmos){
+      const g=c.createRadialGradient(w/2,h/2,R*0.9,w/2,h/2,R*(F.glow?2.0:1.5));
+      g.addColorStop(0,rgba(b.c1,F.glow?.28:.16));
+      g.addColorStop(1,rgba(b.c1,0));
+      c.fillStyle=g;c.beginPath();c.arc(w/2,h/2,R*(F.glow?2.0:1.5),0,TAU);c.fill();
+    }
+    if(F.ring) drawRingFlat(c,w/2,h/2,R,b.id,'back');
+    c.drawImage(sp,w/2-R,h/2-R,R*2,R*2);
+    if(F.ring) drawRingFlat(c,w/2,h/2,R,b.id,'front');
+    return;
+  }
+  // 대체 그림 + 준비되면 다시 그리기
+  if(isStar) drawStar(c,w/2,h/2,w*0.20,b.c1,1,performance.now()/1000,
+                      Object.assign({haloK:2.5},F));
+  else       drawBody(c,w/2,h/2,w*0.19,b,-2.3,1);
+  if(!noSurface) onSpriteReady(b.id,()=>{ if(cvEl.isConnected) paintThumb(cvEl,b,bn); });
+}
+/** 썸네일·미리보기용 고리 (카메라와 무관하게 고정 각도) */
+function drawRingFlat(ctx,x,y,r,id,part){
+  const st=ringStyle(id), squash=0.34, rOut=r*st.rout;
+  const a0=part==='back'?Math.PI:0, a1=part==='back'?TAU:Math.PI;
+  ctx.save();
+  ctx.beginPath();
+  if(part==='back') ctx.rect(x-rOut-2,y-rOut-2,rOut*2+4,rOut+2);
+  else              ctx.rect(x-rOut-2,y,        rOut*2+4,rOut+2);
+  ctx.clip();
+  if(st.tex&&_ringTex){
+    ctx.translate(x,y);ctx.scale(1,squash);
+    ctx.globalAlpha=st.alpha;
+    ctx.drawImage(ringDisc(id,_ringTex,st),-rOut,-rOut,rOut*2,rOut*2);
+  }else{
+    ctx.strokeStyle=st.color;
+    (st.bands||[[(st.rin+st.rout)/2,(st.rout-st.rin)/2]]).forEach(bd=>{
+      ctx.globalAlpha=st.alpha*(part==='back'?0.4:0.85);
+      ctx.lineWidth=Math.max(0.6,r*bd[1]*2);
+      ctx.beginPath();ctx.ellipse(x,y,r*bd[0],r*bd[0]*squash,0,a0,a1);ctx.stroke();
+    });
+  }
+  ctx.restore();
 }
 
 function renderGacha(){
@@ -3442,7 +3514,7 @@ function drawGlobe(cv,tex,lon,lat,tint,opt){
 
 /* 고리 텍스처(가로축 = 안쪽→바깥쪽 반경)를 위에서 내려다본 원반으로 미리 굽는다.
    매 프레임 극좌표 변환을 하지 않도록 한 번만 만들고 재사용한다. */
-let _ringDisc=null;
+const _ringDiscs={};
 /* 고리는 천체마다 전혀 다르다. 토성만 밝고 넓으며, 천왕성은 실제로
    맨눈에 보이지 않을 만큼 어둡고 가느다란 고리 여러 겹이다. */
 const RING_STYLE={
@@ -3469,7 +3541,9 @@ function buildRingDisc(tex,st){
     const dx=px-R+.5, dy=py-R+.5, r=Math.hypot(dx,dy), i=(py*N+px)*4;
     if(r<rIn||r>R){d[i+3]=0;continue;}
     const ti=Math.min(tex.width-1,(((r-rIn)/(R-rIn))*tex.width)|0)*4;
-    d[i]=td[ti];d[i+1]=td[ti+1];d[i+2]=td[ti+2];
+    // 원본은 셰이더로 밝히라고 만든 어두운 값이다. 햇빛 받는 고리처럼 올린다.
+    const K=1.95;
+    d[i]=Math.min(255,td[ti]*K);d[i+1]=Math.min(255,td[ti+1]*K);d[i+2]=Math.min(255,td[ti+2]*K);
     // 가장자리 부드럽게
     let a=td[ti+3];
     if(r>R-1.5) a*= (R-r)/1.5;
@@ -3480,7 +3554,10 @@ function buildRingDisc(tex,st){
   return c;
 }
 /** 고리의 앞/뒤 절반을 그린다. lat 이 0에 가까우면 거의 선으로 보인다. */
-function drawGlobeRing(x,cx,cy,R,lat,tex,st,part){
+function ringDisc(id,tex,st){
+  return _ringDiscs[id]||(_ringDiscs[id]=buildRingDisc(tex,st));
+}
+function drawGlobeRing(x,cx,cy,R,lat,tex,st,part,opt){
   const squash=Math.max(0.03,Math.abs(Math.sin(lat)));
   const rOut=R*st.rout;
   x.save();
@@ -3490,10 +3567,10 @@ function drawGlobeRing(x,cx,cy,R,lat,tex,st,part){
   x.clip();
   const shade=part==='back'?0.62:1;
   if(st.tex&&tex){
-    if(!_ringDisc) _ringDisc=buildRingDisc(tex,st);
+    const disc=ringDisc(opt&&opt.id||'saturn',tex,st);
     x.translate(cx,cy); x.scale(1,squash);
-    x.globalAlpha=st.alpha*shade;
-    x.drawImage(_ringDisc,-rOut,-rOut,rOut*2,rOut*2);
+    x.globalAlpha=st.alpha;
+    x.drawImage(disc,-rOut,-rOut,rOut*2,rOut*2);
   }else{
     // 얇은 고리 여러 겹을 각각 그린다 (천왕성은 실제로 이런 모습이다)
     x.strokeStyle=st.color;
@@ -3554,44 +3631,56 @@ function smapAt(m,u,v){                          // 이중선형 보간
 }
 
 /* ---------- 궤도 화면용 스프라이트 ----------
-   매 프레임 구면 매핑을 돌리면 무거우므로 천체마다 한 번 구워 재사용한다.
-   스프라이트의 조명 방향은 고정이고, 그릴 때 별 쪽을 향하도록 회전시킨다.
-   구체는 회전 대칭이라 이렇게 해도 조명이 맞는다. */
-const SPRITE_LIGHT=Math.atan2(-0.45,-0.55);      // 스프라이트에 박힌 광원 각도
-const _sprite={}, _spriteQ=[]; let _spriteBusy=false;
-function spriteKey(id,px){ return id+'@'+(px<=26?32:px<=58?64:128); }
-function bodySprite(b,px){
-  const k=spriteKey(b.id,px);
-  if(_sprite[k]!==undefined) return _sprite[k];
-  if(_spriteQ.indexOf(k)<0){_spriteQ.push(k);_sprite[k]=null;pumpSprites();}
-  return null;
+   매 프레임 구면 매핑을 돌리면 무거우므로 천체마다 미리 구워 재사용한다.
+   경도를 달리한 프레임을 여러 장 구워 두고 자전 위상에 맞춰 골라 쓴다.
+   스프라이트의 광원은 고정이고, 그릴 때 별 쪽을 향하도록 회전시킨다 —
+   구는 회전 대칭이라 이렇게 해도 조명이 맞는다. */
+const SPRITE_LIGHT=Math.atan2(-0.45,-0.55);
+const SPIN_FRAMES=12;
+const _sprite={}, _spriteQ=[], _spriteWait=[]; let _spriteBusy=false;
+const spriteBucket=px=>px<=26?32:px<=58?64:128;
+function spriteKey(id,px,fr){ return id+'@'+spriteBucket(px)+'#'+fr; }
+
+/** 준비된 스프라이트를 돌려주고, 없으면 굽기를 예약한다 */
+function bodySprite(b,px,fr){
+  fr=((fr|0)%SPIN_FRAMES+SPIN_FRAMES)%SPIN_FRAMES;
+  const k=spriteKey(b.id,px,fr);
+  if(_sprite[k]) return _sprite[k];
+  if(_sprite[k]===undefined){_sprite[k]=null;_spriteQ.push(k);pumpSprites();}
+  const k0=spriteKey(b.id,px,0);          // 아직이면 기준 프레임으로 대체
+  return _sprite[k0]||null;
 }
-/** 한 번에 하나씩 구워 프레임이 끊기지 않게 한다 */
 function pumpSprites(){
   if(_spriteBusy||!_spriteQ.length)return;
   _spriteBusy=true;
   setTimeout(()=>{
     const k=_spriteQ.shift();
     if(k){
-      const id=k.slice(0,k.indexOf('@')), size=+k.slice(k.indexOf('@')+1);
+      const at=k.indexOf('@'), hs=k.indexOf('#');
+      const id=k.slice(0,at), size=+k.slice(at+1,hs), fr=+k.slice(hs+1);
       const b=BY_ID[id];
       if(b){
         const F=b.f||{};
         const c=document.createElement('canvas'); c.width=c.height=size;
         const tex=(TEX_IDS.has(id)&&_texCache[id])?_texCache[id]:makeProcTexture(b);
-        drawGlobe(c,tex,0.6,0.20,hx(b.c1),
+        drawGlobe(c,tex,fr/SPIN_FRAMES*TAU,0.20,hx(b.c1),
           {shape:shapeOf(id),shapeId:id,atmos:!!(F.atmos||F.ocean||F.glow),emis:b.m!==undefined});
         _sprite[k]=c;
+        for(let i=_spriteWait.length-1;i>=0;i--)
+          if(_spriteWait[i].id===id){ try{_spriteWait[i].fn();}catch(e){} _spriteWait.splice(i,1); }
       }
     }
     _spriteBusy=false;
     pumpSprites();
   },0);
 }
-/** 실제 텍스처가 뒤늦게 도착하면 그 천체의 스프라이트를 다시 굽는다 */
+function onSpriteReady(id,fn){ _spriteWait.push({id,fn}); }
 function invalidateSprites(id){
   Object.keys(_sprite).forEach(k=>{ if(k.indexOf(id+'@')===0) delete _sprite[k]; });
 }
+/* 자전 속도 — 위성은 대부분 조석 고정이라 공전 1회에 자전 1회다.
+   행성은 훨씬 빠르지만 그대로 쓰면 어지러워 적당히 눌렀다. */
+function spinRate(b){ return b.id.slice(0,3)==='mn_'?1:6; }
 
 let _globe=null;
 function stopGlobe(){ if(_globe){cancelAnimationFrame(_globe.raf);_globe=null;} }
@@ -3603,7 +3692,6 @@ function startGlobe(cv,tex,body){
   // 대기 산란은 대기가 있는 천체에만. 대기 없는 암석에 넣으면 가스에 싸인 것처럼 보인다.
   const gopt={shape:shp, shapeId:body.id, atmos:!!(F.atmos||F.ocean||F.glow), emis:!!body.m};
   _globe={raf:0,lon:0,lat:ring?0.46:0,spin:0.22,drag:null,cv,tex,tint};
-  _ringDisc=null;                       // 천체마다 고리 모양이 다르므로 다시 굽는다
   if(ring&&rst.tex) loadRingTex();
   const gx=cv.getContext('2d');
   const isStar=body.m!==undefined;
@@ -3622,10 +3710,10 @@ function startGlobe(cv,tex,body){
     if(ring){
       const W=cv.width,R=inner.width/2,cx=W/2,cy=W/2;
       gx.clearRect(0,0,W,W);
-      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'back');
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'back',{id:body.id});
       drawGlobe(inner,tex,_globe.lon,_globe.lat,tint,gopt);
       gx.drawImage(inner,cx-R,cy-R);
-      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front');
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front',{id:body.id});
     }else if(isStar){
       // 코로나를 먼저 깔고 그 위에 표면을 얹는다
       const W=cv.width, R=Math.round(W*0.30);
@@ -4116,7 +4204,7 @@ function cloudPush(immediate){
     setCloudState('sync');
     try{
       const r=await api('sf_push',{p_id:AUTH.id,p_token:AUTH.token,p_data:S});
-      if(r&&r.ok) setCloudState('ok');
+      if(r&&r.ok){setCloudState('ok'); if(immediate)toast('동기화 완료');}
       else if(r&&r.error==='auth'){doLogout(true);warn(ERRMSG.auth);}
       else setCloudState('err');
     }catch(e){setCloudState('err');}
@@ -4345,7 +4433,7 @@ function renderAccount(){
       변경사항은 자동으로 저장됩니다. 다른 기기에서 항성계를 키웠다면
       <b>클라우드에서 불러오기</b>로 이 기기에 덮어쓸 수 있습니다.
     </div>`;
-  $('#acSync').onclick=()=>{cloudPush(true);toast('동기화 중…');};
+  $('#acSync').onclick=()=>{toast('동기화 중…');cloudPush(true);};
   $('#acLogout').onclick=async()=>{
     if(await ask('로그아웃할까요?','클라우드 저장본은 그대로 남아 있어 다시 로그인하면 이어서 할 수 있습니다.','로그아웃',true))
       doLogout();
