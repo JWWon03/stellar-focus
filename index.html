@@ -232,6 +232,10 @@ body.admin #tokenCount{color:var(--gold)}
    더 위에 올린다. 그렇지 않으면 어두운 막이 두 겹이 되어 지저분해진다. */
 #mAsk{z-index:88;background:rgba(2,3,8,.55)}
 #mAsk .modal{box-shadow:0 34px 100px rgba(0,0,0,.85)}
+/* 색상환은 중심별 수정 창 위에서 열린다. DOM 순서상 뒤에 있는 #mStarEdit 에
+   가리므로 z-index 를 따로 올린다. */
+#mWheel{z-index:84;background:rgba(2,3,8,.6)}
+#mWheel .modal{box-shadow:0 30px 90px rgba(0,0,0,.82)}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{
   width:100%;max-width:560px;max-height:86vh;display:flex;flex-direction:column;
@@ -2501,14 +2505,14 @@ function buildStarPicker(root,sel,onChange){
   root.innerHTML=`
     <div class="secLbl" style="margin-top:0">별의 색</div>
     <div class="pal">
-      <div class="sw wheelSw" id="swWheel" title="직접 고르기">
+      <div class="sw wheelSw" title="직접 고르기">
         <canvas width="120" height="120"></canvas>
       </div>
       ${PALETTE.map(pp=>`<div class="sw" data-c="${pp.c}" data-n="${pp.n}">
         <i style="background:radial-gradient(circle at 34% 30%, ${lighten(pp.c,.5)}, ${pp.c} 55%, ${shade(pp.c,.55)});box-shadow:0 0 16px ${rgba(pp.c,.65)}"></i>
       </div>`).join('')}
     </div>
-    <div class="swName" id="swNameOut"></div>
+    <div class="swName swNameOut"></div>
     ${owned.length?`
       <div class="secLbl">획득한 항성으로 바꾸기 <span style="color:var(--txt-3);font-weight:400">· ${owned.length}종</span></div>
       <div class="skinGrid">
@@ -2520,7 +2524,7 @@ function buildStarPicker(root,sel,onChange){
       </div>`
     :`<div class="pickerHint" style="margin-top:16px">가챠 <b>항성 배너</b>에서 별을 얻으면 중심별의 모습으로 씌울 수 있습니다.</div>`}
   `;
-  const nameOut=$('#swNameOut',root);
+  const nameOut=$('.swNameOut',root);
   const mark=()=>{
     $$('.sw',root).forEach(x=>x.classList.toggle('on', !sel.skin && x.dataset.c===sel.color));
     $$('.skin',root).forEach(x=>x.classList.toggle('on', sel.skin===x.dataset.skin));
@@ -2528,8 +2532,8 @@ function buildStarPicker(root,sel,onChange){
     nameOut.textContent=sel.skin?`${lk.name} · ${lk.mass}태양질량`
       :((PALETTE.find(p=>p.c===sel.color)||{}).n || `직접 고른 색 · 약 ${lk.mass}태양질량`);
   };
-  paintWheel($('#swWheel canvas',root), 1);
-  $('#swWheel',root).onclick=()=>openColorWheel(sel.color,c=>{
+  paintWheel($('.wheelSw canvas',root), 1);
+  $('.wheelSw',root).onclick=()=>openColorWheel(sel.color,c=>{
     sel.color=c;sel.skin=null;mark();onChange&&onChange();
   });
   $$('.sw[data-c]',root).forEach(el=>el.onclick=()=>{
@@ -2553,8 +2557,8 @@ function openColorWheel(startHex,cb){
   _wh={h, s:sa, v:Math.max(.25,v)};
   $('#cwSat').value=Math.round(_wh.s*100);
   $('#cwVal').value=Math.round(_wh.v*100);
+  open('mWheel');      // 레이아웃이 잡힌 뒤에 커서를 놓아야 한다 (닫힌 상태면 폭이 0)
   redrawWheel();
-  open('mWheel');
 }
 function redrawWheel(){
   const cv=$('#cwCanvas');
