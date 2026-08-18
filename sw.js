@@ -10,7 +10,7 @@
      낡은 앱을 계속 쓰게 된다.
    - 텍스처·아이콘: 캐시 우선. 내용이 바뀌지 않고 용량이 크다.
 */
-const VER   = 'sf-v1';
+const VER   = 'sf-v2';
 const SHELL = VER + '-shell';
 const ASSET = VER + '-asset';
 

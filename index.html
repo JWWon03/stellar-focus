@@ -1631,6 +1631,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
+const APP_VER='2026.08.18-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1699,9 +1700,14 @@ function load(raw0){
 }
 let saveT=0;
 function writeLocal(){
+  S.updatedAt=Date.now();          // 어느 쪽이 최신인지 판단하는 근거
   lsSet(lsKey(),JSON.stringify(S));
   if(AUTH) cloudPush();
 }
+/* 마지막으로 클라우드와 맞춘 시각. S 안에 두면 그 자체가 계속 달라져
+   비교를 망치므로 기기 로컬에만 따로 둔다. */
+function syncedAt(){ return +(lsGet(lsKey()+'.syncedAt')||0)||0; }
+function markSynced(t){ lsSet(lsKey()+'.syncedAt', String(t||S.updatedAt||Date.now())); }
 function save(){clearTimeout(saveT);saveT=setTimeout(writeLocal,180);}
 function saveNow(){clearTimeout(saveT);writeLocal();}
 
@@ -4682,7 +4688,9 @@ function renderSettings(){
         드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
         화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>
       <div class="setSep">알림과 설치</div>
-      <div id="pwaRows"></div>`;
+      <div id="pwaRows"></div>
+      <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
+        버전 ${APP_VER}</div>`;
   renderPwaRows();
   $$('#setBody .setRow').forEach(el=>el.onclick=()=>{
     const k=el.dataset.k;
@@ -4827,7 +4835,7 @@ function cloudPush(immediate){
     setCloudState('sync');
     try{
       const r=await api('sf_push',{p_id:AUTH.id,p_token:AUTH.token,p_data:S});
-      if(r&&r.ok){setCloudState('ok'); if(immediate)toast('동기화 완료');}
+      if(r&&r.ok){setCloudState('ok'); markSynced(S.updatedAt); if(immediate)toast('동기화 완료');}
       else if(r&&r.error==='auth'){doLogout(true);warn(ERRMSG.auth);}
       else setCloudState('err');
     }catch(e){setCloudState('err');}
@@ -4838,6 +4846,49 @@ function cloudPush(immediate){
    푸시가 그대로 날아가면 클라우드가 뒤처지고, 다음 부팅에 "어느 항성계를
    쓸까요?" 가 뜬다. 화면을 벗어날 때 밀린 것을 즉시 밀어 넣는다. */
 function flushPush(){ if(_pushPending&&AUTH&&cloudReady()) cloudPush(true); }
+
+/* ---- 뒤로가기 ----
+   히스토리에 덫을 하나 깔아 두고 popstate 를 받는다. 열린 창이 있으면
+   먼저 닫고, 없을 때만 종료를 묻는다. 종료 전에는 밀린 동기화를 밀어 넣는다. */
+let _exiting=false;
+function pushTrap(){ try{ history.pushState({sf:1},''); }catch(e){} }
+function topMask(){
+  const on=$$('.mask.on');
+  return on.length?on[on.length-1]:null;
+}
+async function onBack(){
+  if(_exiting)return;
+  const m=topMask();
+  if(m){                                   // 열린 창부터 닫는다
+    if(m.id==='mIntro'){pushTrap();return;} // 중심별 이름을 정하기 전엔 나갈 데가 없다
+    close(m.id); pushTrap(); return;
+  }
+  if(document.body.classList.contains('capture')){ setCapture(false); pushTrap(); return; }
+  _exiting=true;
+  const go=await ask('종료할까요?','저장은 이미 끝났습니다. 진행 중인 타이머는 다시 열면 이어집니다.','종료');
+  _exiting=false;
+  if(!go){ pushTrap(); return; }
+  await exitApp();
+}
+/** 나가기 전에 클라우드를 맞추고, 가능한 환경이면 실제로 앱을 닫는다 */
+async function exitApp(){
+  saveNow();
+  if(AUTH&&cloudReady()){
+    setCloudState('sync');
+    try{ await api('sf_push',{p_id:AUTH.id,p_token:AUTH.token,p_data:S}); markSynced(S.updatedAt); }
+    catch(e){}
+    _pushPending=false;
+  }
+  // 안드로이드 래퍼면 진짜로 닫을 수 있다
+  try{
+    const A=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.App;
+    if(A&&A.exitApp){ A.exitApp(); return; }
+  }catch(e){}
+  try{ window.close(); }catch(e){}
+  // 브라우저는 스크립트로 창을 닫지 못하는 경우가 많다. 그때는 알려만 준다.
+  setTimeout(()=>{ pushTrap(); toast('동기화 완료 · 이제 닫아도 됩니다'); },350);
+}
+addEventListener('popstate',onBack);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden') flushPush();      // 이 이벤트는 document 에서 난다
 });
@@ -4887,15 +4938,38 @@ function cloudSyncOnBoot(){
     }
     const cd=r.data&&Object.keys(r.data).length?r.data:null;
     if(!cd){setCloudState('ok');cloudPush(true);return;}          // 클라우드가 비었으면 올린다
+    setCloudState('ok');
     if(fingerprint(cd)===fingerprint(S)){
       // 항성계는 같다. 기록만 어긋났으면 합쳐서 올리고 조용히 넘어간다.
       const m=mergeStats(S.stats,cd.stats);
       if(JSON.stringify(m)!==JSON.stringify(S.stats)||
          JSON.stringify(m)!==JSON.stringify(cd.stats)){ S.stats=m; saveNow(); }
-      setCloudState('ok');return;
+      else markSynced(S.updatedAt);
+      return;
     }
-    if(!S.created){load(cd);saveNow();afterAccountSwitch();setCloudState('ok');return;}
-    setCloudState('ok');adoptCloud(cd);                           // 둘 다 있고 다르면 물어본다
+    if(!S.created){load(cd);saveNow();afterAccountSwitch();return;}
+
+    /* 여기부터가 "다르다". 그래도 대부분은 물어볼 일이 아니다 —
+       한 기기만 쓰면 둘 중 하나는 그냥 낡은 것이기 때문이다.
+       마지막으로 맞춘 시각을 기준으로 어느 쪽에 새 변경이 있었는지 본다. */
+    const sAt=syncedAt(), lAt=+(S.updatedAt||0), cAt=+(cd.updatedAt||0);
+    if(sAt&&lAt&&cAt){
+      const localNew=lAt>sAt, cloudNew=cAt>sAt;
+      if(!localNew&&cloudNew){                    // 이 기기엔 새 변경이 없다 → 클라우드가 최신
+        load(cd);saveNow();afterAccountSwitch();return;
+      }
+      if(localNew&&!cloudNew){                    // 클라우드가 낡았다 → 올린다
+        cloudPush(true);return;
+      }
+    }
+    /* 시각을 못 믿는 경우(옛 기록이라 updatedAt 이 없다) — 진행도로 본다.
+       보유 천체 수와 세션 수는 되돌아가지 않는 값이라, 한쪽이 두 항목 모두
+       크거나 같고 하나라도 앞서면 그쪽이 뒤쪽을 포함한다. 잃을 게 없으니
+       물어볼 이유도 없다. */
+    if(dominates(S,cd)){ cloudPush(true); return; }
+    if(dominates(cd,S)){ load(cd);saveNow();afterAccountSwitch(); return; }
+
+    adoptCloud(cd);        // 서로 갈라졌을 때만 물어본다
   }).catch(()=>setCloudState('err'));
 }
 
@@ -4915,7 +4989,8 @@ function adoptCloud(serverData){
   const localHas=(()=>{try{return localRaw&&JSON.parse(localRaw).created;}catch(e){return false;}})();
   const serverHas=serverData&&serverData.created;
 
-  const useServer=()=>{load(serverData);saveNow();afterAccountSwitch();};
+  // 올리지 않으면 클라우드에는 옛 스키마가 남아 다음 부팅에 또 어긋난다
+  const useServer=()=>{load(serverData);saveNow();cloudPush(true);afterAccountSwitch();};
   const useLocal =()=>{load(localRaw);saveNow();cloudPush(true);afterAccountSwitch();};
 
   if(serverHas&&localHas){
@@ -4925,6 +5000,8 @@ function adoptCloud(serverData){
       <div class="em" style="filter:drop-shadow(0 0 24px rgba(138,180,255,.6))">⇅</div>
       <h3>어느 항성계를 쓸까요?</h3>
       <p>이 기기와 클라우드 양쪽에 저장된 항성계가 있습니다.<br>선택하지 않은 쪽은 덮어쓰기 됩니다.</p>
+      <p style="font-size:11px;color:var(--txt-3);margin-top:-4px">
+        다른 점: ${esc(diffFields(JSON.parse(localRaw),serverData).join(' · ')||'기록만')}</p>
       <div class="statLine">
         <div class="statBox"><div class="v">${esc((JSON.parse(localRaw).star||{}).name||'—')}</div><div class="k">이 기기</div></div>
         <div class="statBox"><div class="v">${esc((serverData.star||{}).name||'—')}</div><div class="k">클라우드</div></div>
@@ -4938,6 +5015,32 @@ function adoptCloud(serverData){
     return;
   }
   if(serverHas) useServer(); else useLocal();
+}
+/* 되돌아가지 않는 값만 센다. 토큰은 뽑으면 줄어서 진행도가 못 된다. */
+function progress(o){
+  const w=(o&&o.owned)||{}, n=a=>Array.isArray(a)?a.length:0;
+  return { own:n(w.star)+n(w.planet)+n(w.moon),
+           ses:((o&&o.stats&&o.stats.sessions)|0) };
+}
+/** a 가 b 를 포함하는가 (모두 크거나 같고, 하나라도 큼) */
+function dominates(a,b){
+  const x=progress(a), y=progress(b);
+  const k=['own','ses'];
+  return k.every(i=>x[i]>=y[i]) && k.some(i=>x[i]>y[i]);
+}
+
+/** 어느 항목이 달라서 물어보는지 — 같은 창이 반복되면 원인을 짚을 수 있어야 한다 */
+function diffFields(a,b){
+  const out=[];
+  const one=(label,pick)=>{
+    if(JSON.stringify(canon(pick(a||{})))!==JSON.stringify(canon(pick(b||{}))))out.push(label);
+  };
+  one('중심별',o=>o.star);
+  one('토큰',o=>o.tokens);
+  one('배치',o=>o.sys);
+  one('보유 천체',o=>{const w=o.owned||{};const s=x=>Array.isArray(x)?x.slice().sort():[];
+    return {star:s(w.star),planet:s(w.planet),moon:s(w.moon)};});
+  return out;
 }
 function afterAccountSwitch(){
   syncAdminUI();paintTokens();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
@@ -5176,6 +5279,7 @@ function boot(){
   }
   cloudSyncOnBoot();
   registerSW();
+  pushTrap();                         // 뒤로가기를 받아내기 위한 히스토리 항목
   if(T.running) armNotify();          // 새로고침해도 예약이 살아 있게
   requestAnimationFrame(frame);
 }
