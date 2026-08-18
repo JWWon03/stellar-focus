@@ -140,20 +140,26 @@ body.admin #tokenCount{color:var(--gold)}
 .menuToggle svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
   transition:transform .22s}
 .menuToggle:hover{border-color:var(--line-2);color:var(--txt)}
-body.menuOpen .menuToggle svg{transform:rotate(180deg)}
+/* 접혀 있을 때는 아래쪽(펼치기), 펼치면 위쪽(접기)을 가리킨다 */
+.menuToggle svg{transform:rotate(90deg)}
+body.menuOpen .menuToggle svg{transform:rotate(-90deg)}
 
-.menuStack{display:flex;flex-direction:column;gap:7px;align-items:flex-end}
-.mLbl{display:none}
-body.menuOpen .mLbl{display:inline}
+/* 세로로 접힌다 — 펼치면 아이콘이 주르륵, 접으면 화살표만 */
+.menuStack{
+  display:flex;flex-direction:column;gap:7px;align-items:flex-end;
+  overflow:hidden;max-height:0;opacity:0;pointer-events:none;
+  transition:max-height .28s cubic-bezier(.3,1,.4,1), opacity .2s, margin-top .28s;
+  margin-top:0
+}
+body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-top:7px}
 .mBtn{
-  display:flex;align-items:center;justify-content:center;gap:10px;padding:9px;width:40px;
+  display:flex;align-items:center;justify-content:center;padding:9px;width:40px;
   background:var(--panel);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
   border:1px solid var(--line);border-radius:13px;cursor:pointer;transition:.16s;
   box-shadow:0 8px 26px rgba(0,0,0,.45);color:var(--txt-2)
 }
 .mBtn svg{width:19px;height:19px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6}
 .mBtn span{font-size:12.5px;font-weight:600;letter-spacing:.01em}
-body.menuOpen .mBtn{width:auto;min-width:118px;justify-content:flex-start;padding:8px 14px 8px 11px}
 .mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt);transform:translateX(-2px)}
 .mBtn:active{transform:translateX(0) scale(.98)}
 #btnGacha:hover{color:var(--acc-2)}
@@ -215,7 +221,6 @@ body.capture #hint{display:none}
 /* 토큰 칩 */
 #tokenChip{display:flex;align-items:center;gap:6px;padding:7px 11px;font-size:12.5px}
 #tokenChip .lbl{display:none}
-body.menuOpen #tokenChip .lbl{display:inline}
 #tokenChip .tk{color:var(--gold);font-size:15px;text-shadow:0 0 12px rgba(255,198,92,.7)}
 #tokenChip b{font-size:16px;font-variant-numeric:tabular-nums}
 #tokenChip .lbl{color:var(--txt-3);font-size:11px}
@@ -713,31 +718,31 @@ body.locked #timerPanel input{cursor:not-allowed}
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M2 7h7M3.5 11h6M6 15h5" stroke-linecap="round"/>
         <path d="M16 4l1.9 4.1L22 10l-4.1 1.9L16 16l-1.9-4.1L10 10l4.1-1.9z" fill="currentColor" stroke="none"/>
-      </svg><span class="mLbl">가챠</span>
+      </svg>
     </button>
     <button class="mBtn" id="btnSystem" title="항성계 설정">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <ellipse cx="12" cy="12" rx="10" ry="4.6"/>
         <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/>
-      </svg><span class="mLbl">항성계</span>
+      </svg>
     </button>
     <button class="mBtn" id="btnDex" title="천체 도감">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 6.5S9.5 4.5 3 5.2v13C9.5 17.5 12 19.5 12 19.5s2.5-2 9-1.3v-13C14.5 4.5 12 6.5 12 6.5z"/>
         <path d="M12 6.5v13"/>
-      </svg><span class="mLbl">도감</span>
+      </svg>
     </button>
     <button class="mBtn" id="btnCamera" title="촬영 모드">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 8.5h3.2l1.6-2.2h8.4l1.6 2.2H21v10H3z"/>
         <circle cx="12" cy="13.2" r="3.6"/>
-      </svg><span class="mLbl">카메라</span>
+      </svg>
     </button>
     <button class="mBtn" id="btnSettings" title="설정">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="3.2"/>
         <path d="M12 2.6v3M12 18.4v3M21.4 12h-3M5.6 12h-3M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1M18.6 18.6l-2.1-2.1M7.5 7.5L5.4 5.4" stroke-linecap="round"/>
-      </svg><span class="mLbl">설정</span>
+      </svg>
     </button>
   </div>
 </div>
@@ -1662,7 +1667,7 @@ function drawBody(ctx,x,y,r,b,lightAng,lit){
     ctx.fillStyle=ga;ctx.beginPath();ctx.arc(x,y,r*(F.glow?2.5:1.7),0,TAU);ctx.fill();
   }
   // 고리 뒤쪽
-  if(F.ring) drawRing(ctx,x,y,r,dark?'#0c0e16':mix(c1,'#ffffff',.25),dark?.35:.55*lit+.12,'back');
+  if(F.ring) drawRing(ctx,x,y,r,b.id,dark,lit,'back');
 
   // 본체
   ctx.save();
@@ -1770,24 +1775,27 @@ function drawBody(ctx,x,y,r,b,lightAng,lit){
   ctx.restore();
 
   // 고리 앞쪽
-  if(F.ring) drawRing(ctx,x,y,r,dark?'#14161f':mix(c1,'#ffffff',.35),dark?.4:.72*lit+.14,'front');
+  if(F.ring) drawRing(ctx,x,y,r,b.id,dark,lit,'front');
 }
 
-function drawRing(ctx,x,y,r,color,alpha,part){
+/** 궤도 화면의 고리. 천체마다 실제 고리의 밝기·폭·겹 수가 다르다. */
+function drawRing(ctx,x,y,r,id,dark,lit,part){
+  const st=ringStyle(id);
+  const SQ=0.35;                        // 화면상 고리 기울기
+  const a0=part==='back'?Math.PI:0, a1=part==='back'?TAU:Math.PI;
+  const base=dark?0.30:(0.45+0.55*lit);
+  const col=dark?'#14161f':st.color;
   ctx.save();
-  ctx.globalAlpha=alpha;
-  ctx.strokeStyle=color;
-  ctx.lineWidth=Math.max(1,r*.30);
-  ctx.beginPath();
-  if(part==='back') ctx.ellipse(x,y,r*2.05,r*.72,.34,Math.PI,TAU);
-  else              ctx.ellipse(x,y,r*2.05,r*.72,.34,0,Math.PI);
-  ctx.stroke();
-  ctx.globalAlpha=alpha*.5;
-  ctx.lineWidth=Math.max(.6,r*.10);
-  ctx.beginPath();
-  if(part==='back') ctx.ellipse(x,y,r*2.55,r*.90,.34,Math.PI,TAU);
-  else              ctx.ellipse(x,y,r*2.55,r*.90,.34,0,Math.PI);
-  ctx.stroke();
+  ctx.strokeStyle=col;
+  const bands=st.bands||[[(st.rin+st.rout)/2,(st.rout-st.rin)/2]];
+  bands.forEach(bd=>{
+    const rad=r*bd[0];
+    ctx.globalAlpha=st.alpha*base*(part==='back'?0.55:1);
+    ctx.lineWidth=Math.max(0.5,r*bd[1]*2);
+    ctx.beginPath();
+    ctx.ellipse(x,y,rad,rad*SQ,.34,a0,a1);
+    ctx.stroke();
+  });
   ctx.restore();
 }
 
@@ -3067,7 +3075,7 @@ function paintDexCards(root,bn){
    ========================================================================== */
 const TEX_IDS=new Set(['st_sun','pl_mercury','pl_venus','pl_earth','pl_mars',
                        'pl_jupiter','pl_saturn','pl_uranus','pl_neptune','pl_pluto',
-                       'pl_ceres','mn_moon','mn_europa','mn_enceladus']);
+                       'mn_moon','mn_europa','mn_enceladus']);
 let _ringTex=null, _ringTried=false;
 function loadRingTex(){
   if(_ringTried) return Promise.resolve(_ringTex);
@@ -3136,8 +3144,19 @@ function drawGlobe(cv,tex,lon,lat,tint){
 /* 고리 텍스처(가로축 = 안쪽→바깥쪽 반경)를 위에서 내려다본 원반으로 미리 굽는다.
    매 프레임 극좌표 변환을 하지 않도록 한 번만 만들고 재사용한다. */
 let _ringDisc=null;
-const RING_IN=1.24, RING_OUT=2.27;      // 본체 반지름 대비 실제 고리 반경비
-function buildRingDisc(tex){
+/* 고리는 천체마다 전혀 다르다. 토성만 밝고 넓으며, 천왕성은 실제로
+   맨눈에 보이지 않을 만큼 어둡고 가느다란 고리 여러 겹이다. */
+const RING_STYLE={
+  pl_saturn :{rin:1.24,rout:2.27,tex:true, alpha:1.00,color:'#e8d9b4',
+              bands:[[1.42,.16],[1.75,.20],[2.10,.09]]},
+  pl_uranus :{rin:1.64,rout:2.00,tex:false,alpha:0.30,color:'#7f8a96',
+              bands:[[1.64,.012],[1.75,.010],[1.79,.010],[1.84,.012],[1.90,.014],[1.95,.030],[2.00,.020]]},
+  pl_haumea :{rin:2.05,rout:2.25,tex:false,alpha:0.34,color:'#c9d2dc',bands:[[2.10,.055]]},
+  mn_ring   :{rin:1.4, rout:2.0, tex:false,alpha:0.45,color:'#e8dcc0',bands:[[1.7,.20]]}
+};
+const RING_DEF={rin:1.3,rout:2.1,tex:false,alpha:0.5,color:'#d8c79a',bands:[[1.7,.25]]};
+const ringStyle=id=>RING_STYLE[id]||RING_DEF;
+function buildRingDisc(tex,st){
   const N=420, c=document.createElement('canvas'); c.width=c.height=N;
   const x=c.getContext('2d');
   // 세로로 평균 낸 한 줄만 뽑아 쓴다
@@ -3146,7 +3165,7 @@ function buildRingDisc(tex){
   tx.drawImage(tex,0,0,tex.width,tex.height,0,0,tex.width,1);
   const td=tx.getImageData(0,0,tex.width,1).data;
   const img=x.createImageData(N,N), d=img.data;
-  const R=N/2, rIn=R*(RING_IN/RING_OUT);
+  const R=N/2, rIn=R*(st.rin/st.rout);
   for(let py=0;py<N;py++)for(let px=0;px<N;px++){
     const dx=px-R+.5, dy=py-R+.5, r=Math.hypot(dx,dy), i=(py*N+px)*4;
     if(r<rIn||r>R){d[i+3]=0;continue;}
@@ -3162,26 +3181,31 @@ function buildRingDisc(tex){
   return c;
 }
 /** 고리의 앞/뒤 절반을 그린다. lat 이 0에 가까우면 거의 선으로 보인다. */
-function drawGlobeRing(x,cx,cy,R,lat,tex,fallback,part){
+function drawGlobeRing(x,cx,cy,R,lat,tex,st,part){
   const squash=Math.max(0.03,Math.abs(Math.sin(lat)));
-  const rOut=R*RING_OUT;
+  const rOut=R*st.rout;
   x.save();
   x.beginPath();                       // 앞/뒤 반평면으로 자른다
   if(part==='back') x.rect(cx-rOut-4, cy-rOut-4, rOut*2+8, rOut+4);
   else              x.rect(cx-rOut-4, cy,        rOut*2+8, rOut+4);
   x.clip();
-  if(tex){
-    if(!_ringDisc) _ringDisc=buildRingDisc(tex);
+  const shade=part==='back'?0.62:1;
+  if(st.tex&&tex){
+    if(!_ringDisc) _ringDisc=buildRingDisc(tex,st);
     x.translate(cx,cy); x.scale(1,squash);
-    x.globalAlpha=part==='back'?0.62:1;     // 뒤쪽은 본체 그림자에 가려진 느낌
+    x.globalAlpha=st.alpha*shade;
     x.drawImage(_ringDisc,-rOut,-rOut,rOut*2,rOut*2);
   }else{
-    const rIn=R*RING_IN;
-    x.strokeStyle=fallback; x.lineWidth=rOut-rIn;
-    x.globalAlpha=part==='back'?0.35:0.7;
-    x.beginPath();
-    x.ellipse(cx,cy,(rIn+rOut)/2,(rIn+rOut)/2*squash,0,0,TAU);
-    x.stroke();
+    // 얇은 고리 여러 겹을 각각 그린다 (천왕성은 실제로 이런 모습이다)
+    x.strokeStyle=st.color;
+    (st.bands||[[ (st.rin+st.rout)/2, (st.rout-st.rin)/2 ]]).forEach(bd=>{
+      const rad=R*bd[0], w=Math.max(0.7,R*bd[1]);
+      x.globalAlpha=st.alpha*shade;
+      x.lineWidth=w;
+      x.beginPath();
+      x.ellipse(cx,cy,rad,rad*squash,0,0,TAU);
+      x.stroke();
+    });
   }
   x.restore();
 }
@@ -3191,14 +3215,15 @@ function stopGlobe(){ if(_globe){cancelAnimationFrame(_globe.raf);_globe=null;} 
 function startGlobe(cv,tex,body){
   stopGlobe();
   const tint=hx(body.c1);
-  const ring=!!(body.f&&body.f.ring), rcol=mix(body.c1,'#ffffff',.3);
+  const ring=!!(body.f&&body.f.ring), rst=ringStyle(body.id);
   _globe={raf:0,lon:0,lat:ring?0.46:0,spin:0.22,drag:null,cv,tex,tint};
-  if(ring) loadRingTex();
+  _ringDisc=null;                       // 천체마다 고리 모양이 다르므로 다시 굽는다
+  if(ring&&rst.tex) loadRingTex();
   const gx=cv.getContext('2d');
   // 고리 여백을 위해 구체를 조금 줄여 그린다
   // 고리가 본체 반지름의 2.32배까지 뻗으므로 구체를 그만큼 줄여 여백을 만든다
   const inner=ring?document.createElement('canvas'):null;
-  if(inner){inner.width=Math.round(cv.width*0.41);inner.height=inner.width;}
+  if(inner){inner.width=Math.round(cv.width*0.94/rst.rout);inner.height=inner.width;}
   let last=performance.now();
   (function loop(now){
     const dt=Math.min(.05,(now-last)/1000);last=now;
@@ -3207,10 +3232,10 @@ function startGlobe(cv,tex,body){
     if(ring){
       const W=cv.width,R=inner.width/2,cx=W/2,cy=W/2;
       gx.clearRect(0,0,W,W);
-      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rcol,'back');
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'back');
       drawGlobe(inner,tex,_globe.lon,_globe.lat,tint);
       gx.drawImage(inner,cx-R,cy-R);
-      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rcol,'front');
+      drawGlobeRing(gx,cx,cy,R,_globe.lat,_ringTex,rst,'front');
     }else{
       drawGlobe(cv,tex,_globe.lon,_globe.lat,tint);
     }
