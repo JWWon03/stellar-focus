@@ -343,6 +343,12 @@ body.capture #hint{display:none}
   border-bottom:1px dashed var(--line-2);padding:0 0 2px;font-family:inherit
 }
 .bigIn:focus{border-bottom-color:var(--acc)}
+/* 누르면 고칠 수 있다는 것을 알려준다 */
+.dial .big.editable{pointer-events:auto;cursor:pointer;
+  border-bottom:1px dashed transparent;transition:border-color .15s}
+.dial .big.editable:hover{border-bottom-color:var(--line-2)}
+.tHint{font-size:10.5px;color:var(--txt-3);text-align:center;
+  margin:-4px 0 9px;letter-spacing:.03em}
 .bigIn::-webkit-outer-spin-button,.bigIn::-webkit-inner-spin-button{
   -webkit-appearance:none;margin:0}
 .bigIn{-moz-appearance:textfield}
@@ -870,6 +876,7 @@ body.locked #timerPanel input{cursor:not-allowed}
         </div>
       </div>
 
+      <div class="tHint" id="tHint">집중 시간 · 최소 10분</div>
       <div class="btnRow">
         <button class="cbtn primary" id="btnStart">시작</button>
         <button class="cbtn ghost" id="btnReset">초기화</button>
@@ -1668,7 +1675,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.19-i';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.19-j';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3504,15 +3511,18 @@ function updateTimerUI(){
   const rem=T.phase==='idle'?currentFocusMin()*60000:remainMs();
   $('#bigTime').textContent=mmss(rem);
   $('#miniTime').textContent=mmss(rem);      // 접힌 상태에도 남은 시간을 보인다
-  // 대기 중 카운트다운에서는 다이얼 가운데가 곧 입력창이다
-  const editing=T.phase==='idle'&&T.mode==='count';
+  // 다이얼 가운데는 평소 남은 시간이고, 눌렀을 때만 입력창으로 바뀐다
+  const canEdit=T.phase==='idle'&&T.mode==='count';
+  const editing=_editing&&canEdit;
   $('#inCount').style.display=editing?'block':'none';
   $('#bigTime').style.display=editing?'none':'block';
+  $('#bigTime').classList.toggle('editable',canEdit);
+  $('#tHint').style.display=canEdit?'':'none';
+  $('#tHint').textContent=`집중 시간 · 최소 ${limMin('count')}분`;
   const prog=T.total>0&&T.phase!=='idle'?clamp(1-rem/T.total,0,1):0;
   $('#ring').setAttribute('stroke-dashoffset',(326.7*(1-prog)).toFixed(1));
   let st=phaseLabel();
-  if(editing) st=`분 · 최소 ${limMin('count')}`;
-  else if(T.phase!=='idle'&&!T.running&&T.remain>0) st='일시정지';
+  if(T.phase!=='idle'&&!T.running&&T.remain>0) st='일시정지';
   $('#stTxt').innerHTML=T.mode==='pomo'&&T.phase!=='idle'
     ? st.replace(/(\d+)회차/,'<b>$1</b>회차')
     : st;
@@ -5180,6 +5190,23 @@ function syncLongUI(){
   $('#mdLong').classList.toggle('on',S.timer.useLong);
   $('#longRow').style.display=S.timer.useLong?'':'none';
 }
+
+/* 다이얼 가운데 편집 — 누르면 입력창, 빠져나오면 다시 시간 표시 */
+let _editing=false;
+function beginEdit(){
+  const T=S.timer;
+  if(guard()||T.phase!=='idle'||T.mode!=='count')return;
+  _editing=true; $('#inCount').value=T.count; updateTimerUI();
+  const el=$('#inCount'); el.focus(); el.select();
+}
+function endEdit(){ _editing=false; updateTimerUI(); }
+$('#bigTime').onclick=beginEdit;
+$('#inCount').addEventListener('blur',endEdit);
+// blur 만 믿으면 안 된다. 값이 바뀌어 change 가 뜨는 경로에서도 닫는다.
+$('#inCount').addEventListener('change',endEdit);
+$('#inCount').addEventListener('keydown',e=>{
+  if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();e.target.blur();}
+});
 
 Object.keys(LIMITS).forEach(k=>{
   const el=$(LIMITS[k].el);
