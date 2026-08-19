@@ -195,6 +195,9 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 .followChip button:hover{background:rgba(255,255,255,.08);color:var(--warn)}
 
 /* 촬영 모드 */
+/* 시작 연출 중에는 HUD 를 걷어 몰입을 살린다 */
+.hud{transition:opacity .4s ease}
+body.fx .hud{opacity:0;pointer-events:none}
 .camOnly,.camBar{display:none}
 .capPanel{display:none;width:196px;padding:12px 13px;margin-bottom:7px;
   max-height:calc(100vh - 190px);overflow-y:auto;
@@ -213,6 +216,7 @@ body.capture .capPanel.on{display:block}
   border-color:rgba(138,180,255,.6);color:#fff}
 .capRow{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .capRow .capBtn:last-child{grid-column:1/-1}
+#introPick .capBtn:last-child{grid-column:auto}   /* 3등분 유지 */
 .capChk{padding:9px 11px;margin-bottom:6px}
 .capChk .txt b{font-size:12px;white-space:nowrap}
 .capChk .txt span{display:block;font-size:9.5px;color:var(--txt-3);margin-top:2px;white-space:nowrap}
@@ -1631,7 +1635,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.18-g';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.19-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1639,6 +1643,7 @@ const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
 function freshState(){
   return {
     created:false,
+    intro:'scope',                              // 시작 연출: none | scope | comet
     star:{name:'',color:'#ffd97a',skin:null,namePos:null},  // skin=STAR_POOL id 또는 null · namePos=이름표 자유 배치(화면 비율)
     tokens:0,
     owned:{star:[],planet:[],moon:[]},
@@ -2518,11 +2523,150 @@ function render(t){
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
 
+  drawStartFx(ctx,performance.now());
+
   // 구도 가이드는 천체 위에 얹혀야 잘릴 부분이 보인다
   if(document.body.classList.contains('capture')){
     drawCaptureGuide(ctx);
     drawNameHandle(ctx);
   }
+}
+
+/* ==========================================================================
+   시작 연출 — 세션을 시작할 때 잠깐 재생하고 사라진다.
+   별도 루프를 돌리지 않고 render() 맨 끝에 얹는다. 타이머는 연출과 무관하게
+   이미 시작돼 있다(절대 시각 기준이라 연출 길이가 정확도에 영향을 주지 않는다).
+   ========================================================================== */
+const FX_DUR={scope:2400, comet:2600};
+let startFx=null;
+function beginStartFx(kind){
+  if(!kind||kind==='none'){startFx=null;return false;}
+  if(!FX_DUR[kind])return false;
+  if(!VIEW.zoomTo) VIEW.zoomTo=fitZoom();
+  const z0=VIEW.zoomTo*(kind==='scope'?0.16:0.42);
+  startFx={kind,t0:performance.now(),z0,az0:VIEW.azTo-(kind==='comet'?0.6:0.22)};
+  VIEW.zoom=z0; VIEW.az=startFx.az0;
+  document.body.classList.add('fx');
+  return true;
+}
+function endStartFx(){
+  startFx=null;
+  document.body.classList.remove('fx');
+  VIEW.zoom=VIEW.zoomTo; VIEW.az=VIEW.azTo;
+}
+/** 매 프레임 시점을 연출 진행도에 맞춰 직접 몬다 (기본 보간보다 느리게) */
+function stepStartFx(){
+  if(!startFx)return;
+  const p=clamp((performance.now()-startFx.t0)/FX_DUR[startFx.kind],0,1);
+  const e=easeIO(p);
+  VIEW.zoom=startFx.z0+(VIEW.zoomTo-startFx.z0)*e;
+  VIEW.az  =startFx.az0+(VIEW.azTo  -startFx.az0)*e;
+  if(p>=1) endStartFx();
+}
+const easeIO=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+
+function drawStartFx(ctx,now){
+  if(!startFx)return;
+  const p=clamp((now-startFx.t0)/FX_DUR[startFx.kind],0,1);
+  if(startFx.kind==='scope') fxScope(ctx,p); else fxComet(ctx,p);
+}
+
+/* 망원경으로 훑다가 자기 항성계를 붙잡아 들어가는 연출 */
+function fxScope(ctx,p){
+  const cx=W/2, cy=H/2, hold=0.52;
+  const q=p<hold?0:(p-hold)/(1-hold);
+  const R=Math.min(W,H)*0.30 + (Math.hypot(W,H)*0.56-Math.min(W,H)*0.30)*easeIO(q);
+  const fade=p>0.9?1-(p-0.9)/0.1:1;             // 끝에서 통째로 사라진다
+  ctx.save();
+  ctx.globalAlpha=fade;
+
+  // 조리개 바깥을 덮는다 (짝수-홀수 규칙으로 원만큼 구멍을 낸다)
+  ctx.beginPath();
+  ctx.rect(0,0,W,H);
+  ctx.arc(cx,cy,R,0,TAU);
+  ctx.fillStyle='rgba(2,3,8,.94)';
+  ctx.fill('evenodd');
+
+  // 조리개 테두리
+  ctx.strokeStyle='rgba(138,180,255,'+(0.5*fade)+')';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.stroke();
+
+  // 레티클 — 조리개가 열리기 시작하면 걷힌다
+  const ra=clamp(1-q*2.2,0,1);
+  if(ra>0.01){
+    ctx.globalAlpha=fade*ra;
+    ctx.strokeStyle='rgba(170,200,255,.75)';
+    ctx.lineWidth=1;
+    const r0=Math.min(W,H)*0.30;
+    ctx.beginPath();
+    ctx.moveTo(cx-r0,cy);ctx.lineTo(cx-r0*0.28,cy);
+    ctx.moveTo(cx+r0*0.28,cy);ctx.lineTo(cx+r0,cy);
+    ctx.moveTo(cx,cy-r0);ctx.lineTo(cx,cy-r0*0.28);
+    ctx.moveTo(cx,cy+r0*0.28);ctx.lineTo(cx,cy+r0);
+    ctx.stroke();
+    // 눈금
+    for(let i=0;i<48;i++){
+      const a=i/48*TAU, len=(i%4===0)?11:5;
+      const c1=Math.cos(a),s1=Math.sin(a);
+      ctx.beginPath();
+      ctx.moveTo(cx+c1*(r0-len),cy+s1*(r0-len));
+      ctx.lineTo(cx+c1*r0,cy+s1*r0);
+      ctx.stroke();
+    }
+    // 포착 표시 — 중심별을 감싸는 사각 브래킷
+    const lock=clamp((p-0.30)/0.20,0,1);
+    if(lock>0){
+      const br=Math.min(W,H)*(0.16-0.06*lock);
+      ctx.strokeStyle='rgba(255,217,122,'+(0.9*lock)+')';
+      ctx.lineWidth=2;
+      [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
+        ctx.beginPath();
+        ctx.moveTo(cx+sx*br, cy+sy*br-sy*br*0.42);
+        ctx.lineTo(cx+sx*br, cy+sy*br);
+        ctx.lineTo(cx+sx*br-sx*br*0.42, cy+sy*br);
+        ctx.stroke();
+      });
+    }
+    // 안내 문구
+    ctx.font='600 12px Pretendard,system-ui,sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='alphabetic';
+    ctx.fillStyle='rgba(200,215,245,.85)';
+    ctx.fillText(p<0.34?'항성계 탐색 중…':(S.star.name||'')+' 포착',
+                 cx, cy+Math.min(W,H)*0.30+26);
+  }
+  ctx.restore();
+}
+
+/* 혜성이 계 안으로 들어오는 연출 */
+function fxComet(ctx,p){
+  const fade=p<0.08?p/0.08:(p>0.82?1-(p-0.82)/0.18:1);
+  const e=easeIO(clamp(p/0.86,0,1));
+  // 화면 밖 왼쪽 위에서 중심 부근을 스쳐 오른쪽 아래로
+  const x=W*(-0.18+1.30*e), y=H*(0.12+0.52*e*e);
+  ctx.save();
+  ctx.globalAlpha=fade;
+  // 꼬리 — 진행 반대 방향으로 늘어난다
+  const tl=Math.min(W,H)*0.40;
+  const g=ctx.createLinearGradient(x,y,x-tl*0.92,y-tl*0.42);
+  g.addColorStop(0,'rgba(200,225,255,.85)');
+  g.addColorStop(.35,'rgba(150,190,255,.28)');
+  g.addColorStop(1,'rgba(120,160,255,0)');
+  ctx.strokeStyle=g;
+  ctx.lineCap='round';
+  ctx.lineWidth=Math.max(2.5,Math.min(W,H)*0.012);
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-tl*0.92,y-tl*0.42);ctx.stroke();
+  // 핵
+  const hr=Math.max(2.5,Math.min(W,H)*0.008);
+  const hg=ctx.createRadialGradient(x,y,0,x,y,hr*5);
+  hg.addColorStop(0,'rgba(255,255,255,.95)');
+  hg.addColorStop(.35,'rgba(190,220,255,.5)');
+  hg.addColorStop(1,'rgba(150,190,255,0)');
+  ctx.fillStyle=hg;
+  ctx.beginPath();ctx.arc(x,y,hr*5,0,TAU);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(x,y,hr,0,TAU);ctx.fill();
+  ctx.restore();
 }
 
 /* 중심별 이름표. namePos 가 있으면 화면 비율 좌표에 자유 배치하고,
@@ -2609,6 +2753,7 @@ function resetView(){
    가로 = 방위각, 세로 = 경사각. 회전 중심은 질량중심(또는 추적 중인 천체)이다. */
 let _drag=null,_nameDrag=null;
 cv.addEventListener('pointerdown',e=>{
+  if(startFx){ endStartFx(); return; }        // 연출은 아무 데나 눌러 건너뛴다
   // 촬영 중이면 이름표가 시점 회전보다 먼저다
   if(document.body.classList.contains('capture')&&hitNameBox(e.clientX,e.clientY)){
     const r=cv.getBoundingClientRect();
@@ -2701,6 +2846,7 @@ function frame(now){
   VIEW.zoom+=(VIEW.zoomTo-VIEW.zoom)*k;
   VIEW.ox  +=(VIEW.oxTo -VIEW.ox )*k;
   VIEW.oy  +=(VIEW.oyTo -VIEW.oy )*k;
+  stepStartFx();          // 연출 중에는 시점을 연출이 몬다
 
   // 모달은 전면을 덮고 blur(10px) 까지 걸린다. 그 뒤 궤도를 60fps 로 계속
   // 그릴 이유가 없다 — 세 프레임에 한 번만 그리고 나머지는 굽기에 준다.
@@ -4662,6 +4808,7 @@ $('#btnStart').onclick=async()=>{
     if(!S.created)return;
     askNotifyPermission();
     startPhase('focus');
+    beginStartFx(S.intro);       // startPhase 가 정한 zoomTo 를 두고 현재 zoom 만 당긴다
   }
   else if(T.running) pause();
   else resume();
@@ -4698,6 +4845,16 @@ function renderSettings(){
     +`<div class="pickerHint" style="margin-top:14px">
         드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
         화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>
+      <div class="setSep">시작 연출</div>
+      <div class="capRow" id="introPick" style="grid-template-columns:repeat(3,1fr)">
+        <button class="capBtn" data-fx="none">없음</button>
+        <button class="capBtn" data-fx="scope">망원경 탐사</button>
+        <button class="capBtn" data-fx="comet">혜성 접근</button>
+      </div>
+      <div class="pickerHint" style="margin-top:7px">
+        집중을 시작할 때 잠깐 재생됩니다. 화면을 누르면 건너뜁니다.
+        <span id="introTry" style="color:var(--txt-2);text-decoration:underline;cursor:pointer">지금 보기</span>
+      </div>
       <div class="setSep">알림과 설치</div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
@@ -4714,6 +4871,19 @@ function renderSettings(){
     if(k==='sound')$('#btnSound').classList.toggle('off',!S.sound);
     save();
   });
+  // 시작 연출 선택 — .capBtn 이라 위의 .setRow 훑기에 안 걸린다
+  const syncIntro=()=>$$('#introPick button').forEach(b=>
+    b.classList.toggle('on',(S.intro||'scope')===b.dataset.fx));
+  $$('#introPick button').forEach(b=>b.onclick=()=>{
+    S.intro=b.dataset.fx; save(); syncIntro();
+    if(S.intro!=='none'){ close('mSettings'); beginStartFx(S.intro); }
+  });
+  syncIntro();
+  $('#introTry').onclick=()=>{
+    if((S.intro||'scope')==='none') return toast('연출을 먼저 고르세요');
+    close('mSettings'); beginStartFx(S.intro);
+  };
+
   renderPwaRows();          // 알림 행 핸들러는 이 뒤에 걸어야 살아남는다
 }
 /* ---- 알림 권한 · 홈 화면 설치 ---- */
