@@ -1635,7 +1635,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.19-f';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.19-g';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2577,8 +2577,11 @@ function render(t){
       const sb=centralStarBody(lk);
       const skin=sb&&!(sb.f&&(sb.f.acc||sb.f.beam));
       const tx=skin?readyTexture(sb,Math.min(256,o.r*2)):null;
+      // 관측 장비 화면에서는 빛 번짐을 줄이고 경계가 뚜렷한 원으로 보여야 한다
+      const scope=!!focusFxMode();
       drawStar(ctx,o.scr.x,o.scr.y,o.r,lk.color,Math.min(1,blaze),t,
-               Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt)),noBody:!!tx},lk.feat));
+               Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt)),noBody:!!tx},lk.feat,
+                             scope?{haloK:1.55}:{}));
       if(tx){
         const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
         const sc=scratchFor(need);
@@ -2587,6 +2590,8 @@ function render(t){
         const k=o.r*globeFit(need);
         ctx.drawImage(sc,o.scr.x-k,o.scr.y-k,k*2,k*2);ctx.restore();
       }
+      // 테두리는 흐림 처리 뒤에 그려야 뚜렷하게 남는다. 좌표만 기억해 둔다.
+      _starRim=scope?{x:o.scr.x,y:o.scr.y,r:o.r,c:lk.color}:null;
       drawStarName(o);
       return;
     }
@@ -2675,6 +2680,25 @@ function drawFocusFx(ctx,now){
 /* 표적 수는 세션마다 7~13 사이에서 정해진다. 늘 같으면 지루하다.
    세션 시작 시각을 씨앗으로 삼아 그 세션 안에서는 변하지 않는다. */
 const RADAR_MIN=7, RADAR_TOP=13;
+/* 미확인 객체 강조 — 표적마다 대비되는 색을 하나씩 물린다 */
+const TGT_COLORS=['255,196,64','255,104,84','255,150,52','96,214,255','168,230,92','255,232,120'];
+const TGT_STATES=['ANOMALY DETECTED','UNKNOWN TRAJECTORY','NON-KEPLERIAN DRIFT',
+                  'ALBEDO MISMATCH','UNCATALOGUED OBJECT','SIGNAL INTERMITTENT'];
+/* 기준 궤도를 30 AU 로 본다 — 그러면 벨트가 35~43 AU 로 실제 카이퍼 벨트와 맞는다 */
+const AU_REF=30;
+function auPerUnit(){ return AU_REF/Math.max(1e-6,beltRef()); }
+/** 소천체의 관측 제원. id 를 씨앗으로 삼아 늘 같은 값이 나온다. */
+function kbSpec(o){
+  if(o._spec) return o._spec;
+  const r=mulberry(fnv('spec#'+o.id));
+  return o._spec={
+    col:TGT_COLORS[Math.floor(r()*TGT_COLORS.length)],
+    state:TGT_STATES[Math.floor(r()*TGT_STATES.length)],
+    // 지름 — sz 가 클수록 크게. 명왕성급(2377km)이 상한 근처다.
+    km:Math.round(40+o.sz*o.sz*520),
+    snr:+(4.5+r()*26).toFixed(1)
+  };
+}
 let _radarMax=RADAR_MIN;
 function rollRadarMax(){
   const seed=(S.timer&&S.timer.endAt)||0;
@@ -2736,24 +2760,92 @@ function applyScopeOptics(spots){
 }
 /** 상태 문구를 Face-on 버튼 바로 위에 오른쪽 맞춤으로 놓는다.
     HUD 위치가 화면 폭에 따라 달라지므로 좌표를 직접 읽어 맞춘다. */
-function drawScopeReadout(text){
+function scopeAnchor(){
   const el=$('#vbFace');
-  let x=W-24, y=H-120;
-  if(el){
-    const r=el.getBoundingClientRect();
-    if(r.width){ x=r.right; y=r.top-10; }
-  }
+  if(el){ const r=el.getBoundingClientRect(); if(r.width) return {x:r.right,y:r.top-10}; }
+  return {x:W-24,y:H-120};
+}
+function drawScopeReadout(text){
+  const a=scopeAnchor();
   ctx.save();
   ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
   ctx.textAlign='right'; ctx.textBaseline='alphabetic';
   ctx.fillStyle='rgba(150,175,220,.6)';
-  ctx.fillText(text,x,y);
+  ctx.fillText(text,a.x,a.y);
+  ctx.restore();
+}
+/* 축척 바와 관측 시각. 모눈 한 칸이 몇 AU 인지 보여줘야 화면의 거리 감각이 선다. */
+function drawScopeScale(g){
+  const a=scopeAnchor(), x=a.x, y=a.y-16;
+  const step=gridStep();
+  const auPerPx=auPerUnit()/Math.max(1e-6,g.R*VIEW.zoom);
+  const au=step*auPerPx;
+  ctx.save();
+  ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  // 모눈 한 칸 길이의 막대에 양끝 눈금
+  ctx.strokeStyle='rgba(150,175,220,.5)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(x-step,y-4); ctx.lineTo(x,y-4);
+  ctx.moveTo(x-step,y-7); ctx.lineTo(x-step,y-1);
+  ctx.moveTo(x,y-7);      ctx.lineTo(x,y-1);
+  ctx.stroke();
+  ctx.fillStyle='rgba(150,175,220,.6)';
+  ctx.fillText((au<10?au.toFixed(1):Math.round(au))+' AU / 칸', x, y-11);
+  // 관측 시각 — 연-일차 형식이 관측 기록다운 느낌을 준다
+  const d=new Date();
+  const doy=Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);
+  ctx.fillStyle='rgba(150,175,220,.45)';
+  ctx.fillText('OBS '+d.getFullYear()+'-'+String(doy).padStart(3,'0')+'  '+
+               pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()), x, y-26);
+  ctx.restore();
+}
+
+/* 스캔라인과 노이즈 — 전자 장비 모니터의 질감.
+   매 프레임 픽셀을 돌리면 무거우므로 타일을 한 번만 구워 패턴으로 반복한다.
+   노이즈는 프레임마다 타일 위치만 옮겨 지글거림을 만든다. */
+let _scanPat=null, _noisePat=null, _noiseN=0;
+function scanPattern(){
+  if(_scanPat) return _scanPat;
+  const c=document.createElement('canvas');
+  c.width=1; c.height=3;                       // 3px 주기: 한 줄 어둡게
+  const x=c.getContext('2d');
+  x.fillStyle='rgba(0,0,0,.30)'; x.fillRect(0,0,1,1);
+  return _scanPat=ctx.createPattern(c,'repeat');
+}
+function noisePattern(){
+  if(_noisePat) return _noisePat;
+  const N=96, c=document.createElement('canvas');
+  c.width=c.height=N;
+  const x=c.getContext('2d'), img=x.createImageData(N,N), d=img.data;
+  const r=mulberry(fnv('scopenoise'));
+  for(let i=0;i<N*N;i++){
+    const v=r()*255|0;
+    d[i*4]=d[i*4+1]=d[i*4+2]=v; d[i*4+3]=255;
+  }
+  x.putImageData(img,0,0);
+  return _noisePat=ctx.createPattern(c,'repeat');
+}
+function drawScopeNoise(ctx){
+  ctx.save();
+  // 스캔라인
+  ctx.globalAlpha=0.35;
+  ctx.fillStyle=scanPattern();
+  ctx.fillRect(0,0,W,H);
+  // 노이즈 — 매 프레임 타일을 어긋나게 밀어 지글거리게 한다
+  _noiseN=(_noiseN+1)%97;
+  ctx.globalAlpha=0.035;
+  ctx.globalCompositeOperation='lighter';
+  ctx.translate(-(_noiseN*13)%96,-(_noiseN*29)%96);
+  ctx.fillStyle=noisePattern();
+  ctx.fillRect(0,0,W+96,H+96);
   ctx.restore();
 }
 
 /** 화면 전체에 깔리는 모눈 */
+function gridStep(){ return Math.max(44,Math.round(Math.min(W,H)/14)); }
 function drawScopeGrid(ctx){
-  const step=Math.max(44,Math.round(Math.min(W,H)/14));
+  const step=gridStep();
   ctx.save();
   ctx.strokeStyle='rgba(138,180,255,.055)';
   ctx.lineWidth=1;
@@ -2768,22 +2860,38 @@ function fxRadar(ctx,prog,now){
   const g=geom();
   const spots=radarSpots(prog);
   applyScopeOptics(spots);
+  if(_starRim) strokeStarRim(_starRim.x,_starRim.y,_starRim.r,_starRim.c);
   drawScopeGrid(ctx);
+  drawScopeNoise(ctx);
   const tg=radarTargets(prog);
   ctx.save();
   ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
   ctx.textBaseline='alphabetic';
 
+  // 라벨이 서로 겹치면 아무것도 못 읽는다. 이미 놓은 자리를 기억해 두고
+  // 빈 곳을 찾아 붙이며, 자리가 없으면 식별 부호만 남긴다.
+  const taken=[];
+  const free=(x,y,w,h)=>{
+    for(let i=0;i<taken.length;i++){
+      const r=taken[i];
+      if(x<r.x+r.w&&x+w>r.x&&y<r.y+r.h&&y+h>r.y)return false;
+    }
+    return true;
+  };
+  const LH=12;
+
   spots.forEach(sp=>{
     const o=sp.o, w=sp.w, sc=sp.sc, i=sp.i;
-    // 최근에 잡힌 표적일수록(=마지막 남는 쪽) 또렷하다
-    // 브래킷은 맥동하지 않는다 — 가만히 잡고 있어야 '포착'으로 읽힌다
+    const spec=kbSpec(o);
+    // 마지막까지 남는 표적일수록 또렷하다. 맥동은 없다 — 가만히 잡고 있어야
+    // '포착'으로 읽힌다.
     const fresh=1-i/Math.max(1,tg.length);
-    const al=0.42+0.5*fresh;
+    const al=0.45+0.5*fresh;
     const half=RADAR_HALF;
+    const C=a=>'rgba('+spec.col+','+a.toFixed(3)+')';
 
     // 사진 프레임 — 네 모서리 브래킷
-    ctx.strokeStyle='rgba(138,180,255,'+al.toFixed(3)+')';
+    ctx.strokeStyle=C(al);
     ctx.lineWidth=1.4; ctx.lineCap='butt';
     const arm=half*0.42;
     [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
@@ -2795,28 +2903,70 @@ function fxRadar(ctx,prog,now){
       ctx.stroke();
     });
 
-    // 좌표 — 황경/황위와 거리
+    // 관측 수치 — 좌표·거리·크기·신호대잡음비·상태
     const rr=Math.hypot(w.x,w.y,w.z)||1e-6;
     const lon=((Math.atan2(w.y,w.x)*180/Math.PI)+360)%360;
     const lat=Math.asin(clamp(w.z/rr,-1,1))*180/Math.PI;
-    ctx.fillStyle='rgba(190,212,250,'+(al*0.95).toFixed(3)+')';
-    const coord='λ'+lon.toFixed(1)+'° β'+(lat>=0?'+':'')+lat.toFixed(1)+'°';
-    // 오른쪽에 자리가 없으면 왼쪽에 붙인다. 안 그러면 폰에서 잘린다.
-    const wNeed=Math.max(ctx.measureText(o.id).width,ctx.measureText(coord).width)+10;
-    const right=sc.x+half+wNeed<W-6;
-    ctx.textAlign=right?'left':'right';
-    const tx=right?sc.x+half+6:sc.x-half-6;
-    ctx.fillText(o.id, tx, sc.y-3);
-    ctx.fillText(coord, tx, sc.y+9);
-    ctx.strokeStyle='rgba(138,180,255,'+(al*0.5).toFixed(3)+')';
+    const lines=[
+      o.id,
+      'λ'+lon.toFixed(1)+'° β'+(lat>=0?'+':'')+lat.toFixed(1)+'°',
+      (rr*auPerUnit()).toFixed(1)+' AU  ⌀'+spec.km+' km',
+      'SNR '+spec.snr.toFixed(1)+' dB',
+      spec.state
+    ];
+    let bw=0;
+    lines.forEach(t=>{bw=Math.max(bw,ctx.measureText(t).width);});
+    bw+=8;
+    const bh=lines.length*LH;
+
+    // 오른쪽·왼쪽, 위·아래로 자리를 찾는다
+    const cands=[
+      [sc.x+half+6,  sc.y-LH],
+      [sc.x-half-6-bw, sc.y-LH],
+      [sc.x+half+6,  sc.y+half+4],
+      [sc.x-half-6-bw, sc.y+half+4],
+      [sc.x-bw/2,    sc.y+half+8],
+      [sc.x-bw/2,    sc.y-half-6-bh]
+    ];
+    let put=null;
+    for(let k=0;k<cands.length;k++){
+      const x=cands[k][0], y=cands[k][1];
+      if(x<4||x+bw>W-4||y<4||y+bh>H-4)continue;
+      if(free(x,y,bw,bh)){put={x,y};break;}
+    }
+
+    ctx.textAlign='left';
+    if(!put){
+      // 자리가 없으면 식별 부호만. 겹쳐 쓰면 둘 다 못 읽는다.
+      const x=sc.x+half+5, y=sc.y+3;
+      if(free(x,y-LH,ctx.measureText(o.id).width+6,LH)){
+        taken.push({x,y:y-LH,w:ctx.measureText(o.id).width+6,h:LH});
+        ctx.fillStyle=C(al*0.9);
+        ctx.fillText(o.id,x,y);
+      }
+      return;
+    }
+    taken.push({x:put.x-4,y:put.y-4,w:bw+8,h:bh+8});
+
+    // 브래킷과 라벨을 잇는 선
+    ctx.strokeStyle=C(al*0.45);
     ctx.lineWidth=1;
     ctx.beginPath();
-    ctx.moveTo(sc.x+(right?half:-half),sc.y);
-    ctx.lineTo(tx+(right?-3:3),sc.y);
+    ctx.moveTo(sc.x+(put.x>sc.x?half:-half),sc.y);
+    ctx.lineTo(put.x>sc.x?put.x-3:put.x+bw+3, put.y+bh/2);
     ctx.stroke();
+
+    const ty=put.y+LH-3;
+    ctx.fillStyle=C(al*0.95);                       ctx.fillText(lines[0],put.x,ty);
+    ctx.fillStyle='rgba(198,216,248,'+(al*0.9).toFixed(3)+')';
+    ctx.fillText(lines[1],put.x,ty+LH);
+    ctx.fillText(lines[2],put.x,ty+LH*2);
+    ctx.fillStyle='rgba(160,182,220,'+(al*0.7).toFixed(3)+')';
+    ctx.fillText(lines[3],put.x,ty+LH*3);
+    ctx.fillStyle=C(al*0.85);                       ctx.fillText(lines[4],put.x,ty+LH*4);
   });
 
-  // 남은 표적 수 — 진행도를 대신 읽는 장치
+  drawScopeScale(g);
   drawScopeReadout('SCANNING KUIPER BELT   ·   표적 '+tg.length+' / '+_radarMax);
   ctx.restore();
 }
@@ -2825,6 +2975,8 @@ function fxRadar(ctx,prog,now){
    세션 내내 아주 천천히 다가와, 끝날 무렵 중심에 닿는다. */
 function fxComet(ctx,prog,now){
   const g=geom();
+  drawScopeGrid(ctx);
+  drawScopeNoise(ctx);
   const e=easeIO(prog);
   const ang=-0.7+prog*0.5;
   const d=(1-e)*2.4+0.06;                       // 기준 궤도 단위 거리
@@ -2850,7 +3002,22 @@ function fxComet(ctx,prog,now){
   ctx.fillStyle=hg;ctx.beginPath();ctx.arc(sc.x,sc.y,hr*5,0,TAU);ctx.fill();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sc.x,sc.y,hr,0,TAU);ctx.fill();
   ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
-  drawScopeReadout('APPROACHING   ·   '+(d*10).toFixed(2)+' AU');
+  drawScopeScale(g);
+  drawScopeReadout('APPROACHING   ·   '+(d*auPerUnit()*2.2*beltRef()).toFixed(1)+' AU');
+  ctx.restore();
+}
+
+/** 관측 장비 화면용 또렷한 원 테두리. 코로나를 줄인 대신 경계를 세운다.
+    render() 안에서 좌표만 잡아두고 흐림 뒤에 그린다 — 같이 흐려지면 의미가 없다. */
+let _starRim=null;
+function strokeStarRim(x,y,r,c){
+  ctx.save();
+  ctx.strokeStyle=rgba(lighten(c,.55),.85);
+  ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.arc(x,y,r+0.6,0,TAU);ctx.stroke();
+  ctx.strokeStyle=rgba(c,.35);
+  ctx.lineWidth=2.6;
+  ctx.beginPath();ctx.arc(x,y,r+2.4,0,TAU);ctx.stroke();
   ctx.restore();
 }
 
@@ -2960,6 +3127,9 @@ cv.addEventListener('pointermove',e=>{
   if(!_drag)return;
   if(Math.hypot(e.clientX-_drag.x,e.clientY-_drag.y)>6)_drag.moved=true;
   if(!_drag.moved)return;
+  // 집중 중에는 시점을 통째로 잠근다. 관측 장비 화면이라 Face-on 을 유지해야
+  // 한다 — 확대축소는 그대로 열어 둔다.
+  if(isLocked())return;
   const dx=e.clientX-_drag.lx, dy=e.clientY-_drag.ly;
   _drag.lx=e.clientX;_drag.ly=e.clientY;
   // 손으로 항성계를 붙잡고 돌리는 느낌이 되도록 부호를 맞춘다.
@@ -3131,7 +3301,10 @@ function startPhase(kind){
     // 요구사항 10 — 시작하면 항성계로 다가간다
     VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom()*1.12;
   }
-  if(kind==='focus') rollRadarMax();      // 이번 세션의 표적 수를 정한다
+  if(kind==='focus'){
+    rollRadarMax();                       // 이번 세션의 표적 수를 정한다
+    VIEW.tiltTo=TILT_FACE; VIEW.azTo=0;   // 관측 장비 화면은 정면에서 내려다본다
+  }
   save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
 }
@@ -5178,8 +5351,14 @@ function updateViewUI(){
     if(o) $('#followName').textContent='추적: '+o.name;
   }else chip.classList.remove('on');
 }
-$('#vbFace').onclick=()=>setTilt(VIEW.tiltTo<0.30?TILT_DEFAULT:TILT_FACE);
-$('#vbEdge').onclick=()=>setTilt(VIEW.tiltTo>1.25?TILT_DEFAULT:TILT_EDGE);
+$('#vbFace').onclick=()=>{if(viewLocked())return;setTilt(VIEW.tiltTo<0.30?TILT_DEFAULT:TILT_FACE);};
+$('#vbEdge').onclick=()=>{if(viewLocked())return;setTilt(VIEW.tiltTo>1.25?TILT_DEFAULT:TILT_EDGE);};
+/** 집중 중에는 시점 버튼도 잠긴다 */
+function viewLocked(){
+  if(!isLocked())return false;
+  toast('집중 중에는 시점이 Face-on 으로 고정됩니다');
+  return true;
+}
 $('#vbIn').onclick=()=>zoomBy(1.28);
 $('#vbOut').onclick=()=>zoomBy(1/1.28);
 $('#vbFit').onclick=resetView;
