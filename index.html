@@ -2948,14 +2948,6 @@ function fxRadar(ctx,prog,now){
     }
     taken.push({x:put.x-4,y:put.y-4,w:bw+8,h:bh+8});
 
-    // 브래킷과 라벨을 잇는 선
-    ctx.strokeStyle=C(al*0.45);
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(sc.x+(put.x>sc.x?half:-half),sc.y);
-    ctx.lineTo(put.x>sc.x?put.x-3:put.x+bw+3, put.y+bh/2);
-    ctx.stroke();
-
     const ty=put.y+LH-3;
     ctx.fillStyle=C(al*0.95);                       ctx.fillText(lines[0],put.x,ty);
     ctx.fillStyle='rgba(198,216,248,'+(al*0.9).toFixed(3)+')';
