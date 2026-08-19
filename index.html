@@ -1309,7 +1309,7 @@ const STAR_POOL=[
    d:'화성에 맞서는 자라는 뜻의 이름을 가진 붉은 거인.',
    dd:'이름은 그리스어로 화성에 맞서는 자라는 뜻이다. 붉은빛과 밝기가 화성과 비슷해 혼동되곤 했기 때문이다. 지름이 태양의 700배가 넘어 태양계에 놓으면 화성 궤도까지 채운다. 밀도가 극히 낮아 평균적으로는 실험실 진공보다도 희박하다.',
    st:[['분광형','M1.5Iab'],['거리','550광년'],['지름','태양의 700배'],['동반성','청색 주계열성']]},
-  {id:'st_deneb',n:'데네브',en:'Deneb',cls:'청백색 초거성',t:5,sz:1.80,m:19.0,c1:'#e0ecff',c2:'#5588e8',f:{glow:1,wind:1},
+  {id:'st_deneb',n:'데네브',en:'Deneb',cls:'청백색 초거성',t:5,sz:1.80,m:19.0,c1:'#e0ecff',c2:'#5588e8',f:{glow:1},
    d:'2,600광년 밖에서도 1등성으로 보이는 괴물.',
    dd:'거리가 워낙 멀어 정확한 값조차 논쟁 중이지만, 그렇게 멀리서도 밝게 보인다는 것은 실제 광도가 태양의 20만 배에 달한다는 뜻이다. 강력한 항성풍으로 매년 태양의 10만 배 속도로 물질을 우주로 날려보내고 있다. 여름철 대삼각형의 한 꼭짓점이다.',
    st:[['분광형','A2Ia'],['거리','약 2,600광년'],['광도','태양의 20만 배'],['질량 손실','태양의 10만 배']]},
@@ -1325,7 +1325,7 @@ const STAR_POOL=[
    d:'인류가 처음으로 존재를 확신한 블랙홀.',
    dd:'1964년 강력한 X선원으로 발견됐고 1971년 블랙홀로 지목되며 최초의 유력 후보가 되었다. 호킹과 손이 이 천체가 블랙홀인지를 두고 내기를 걸었다가 1990년 호킹이 패배를 인정한 일화로 유명하다. 짝별에서 물질을 빨아들이며 강착원반이 수백만 도로 가열돼 X선을 뿜는다.',
    st:[['분류','항성질량 블랙홀'],['거리','7,200광년'],['질량','태양의 21배'],['발견','1964년']]},
-  {id:'st_wr104',n:'WR 104',en:'WR 104',cls:'볼프–레이에별',t:5,sz:1.45,m:25.0,c1:'#e6fff7',c2:'#33d9b8',f:{glow:1,wind:1},
+  {id:'st_wr104',n:'WR 104',en:'WR 104',cls:'볼프–레이에별',t:5,sz:1.45,m:25.0,c1:'#e6fff7',c2:'#33d9b8',f:{glow:1},
    d:'회전하는 먼지 바람개비를 만드는 볼프–레이에별.',
    dd:'수소 껍질을 모두 날려버리고 헬륨 핵이 드러난 극단적인 별이다. 짝별과의 항성풍이 충돌하며 만든 먼지가 8개월 주기의 나선 바람개비 모양으로 뻗어 나가는 모습이 적외선으로 촬영되었다. 초신성을 넘어 감마선 폭발을 일으킬 후보로 거론되기도 한다.',
    st:[['분류','볼프–레이에별'],['거리','8,400광년'],['나선 주기','241일'],['표면온도','45,000 K']]},
@@ -1635,7 +1635,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.19-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.19-f';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1760,7 +1760,7 @@ function drawBody(ctx,x,y,r,b,lightAng,lit,opt){
   ctx.save();
   ctx.globalAlpha=lit;
   ctx.translate(x,y); ctx.rotate(axr);
-  ctx.drawImage(sc,-r,-r,r*2,r*2);
+  { const k=r*globeFit(need); ctx.drawImage(sc,-k,-k,k*2,k*2); }
   ctx.restore();
   if(F.ring){ctx.save();ctx.translate(x,y);ctx.rotate(axr);ctx.translate(-x,-y);
              drawRing(ctx,x,y,r,b.id,false,lit,'front',lightAng-axr);ctx.restore();}
@@ -2062,21 +2062,17 @@ function drawStar(ctx,x,y,r,color,blaze,t,extra){
     ctx.beginPath();ctx.moveTo(-R*.5,0);ctx.lineTo(0,-R*7);ctx.lineTo(R*.5,0);ctx.lineTo(0,R*7);ctx.closePath();ctx.fill();
     ctx.restore();
   }
-  if(extra.wind&&blaze>.2){
-    ctx.save();ctx.globalAlpha=.20*blaze;ctx.strokeStyle=rgba(c,1);
-    for(let i=0;i<3;i++){
-      ctx.lineWidth=Math.max(.6,R*.06);
-      ctx.beginPath();ctx.arc(x,y,R*(1.8+i*.65+Math.sin(t*1.2+i)*.12),0,TAU);ctx.stroke();
-    }
-    ctx.restore();
-  }
+
+  // 텍스처를 얹을 것이면 본체를 그리지 않는다. 그려 두면 텍스처가 덮지
+  // 못한 가장자리에서 아래 원반이 밝은 호로 삐져나온다.
+  if(extra.noBody) return;
 
   // 본체
   const g=ctx.createRadialGradient(x-R*.16,y-R*.18,R*.05,x,y,R*1.05);
   g.addColorStop(0,blaze>.5?'#ffffff':lighten(c,.45));
   g.addColorStop(.35,lighten(c,.30*blaze+.05));
   g.addColorStop(.82,c);
-  g.addColorStop(1,shade(c,.62));
+  g.addColorStop(1,c);            // 가장자리를 어둡게 하면 아웃라인처럼 보인다
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();
 
   // 표면 요동
@@ -2105,43 +2101,26 @@ function resize(){
   ctx.setTransform(DPR,0,0,DPR,0,0);
   buildBg();
 }
+/* 배경은 순수한 검정이다. 사진도, 절차적 성운·별도 쓰지 않는다 —
+   항성계 자체가 주인공이라 배경에 무엇이든 깔면 시선을 나눠 가져간다. */
 function buildBg(){
   bg.width=W*DPR;bg.height=H*DPR;
   bgx.setTransform(DPR,0,0,DPR,0,0);
   bgx.fillStyle='#04050b';bgx.fillRect(0,0,W,H);
-  const r=mulberry(20260814);
-  // 성운
-  for(let i=0;i<5;i++){
-    const x=r()*W,y=r()*H,rad=(180+r()*340)*Math.max(1,Math.min(W,H)/700);
-    const cols=['#3a2a6e','#1e3a6e','#5c2a55','#1f4f5e','#402a6b'];
-    const g=bgx.createRadialGradient(x,y,0,x,y,rad);
-    g.addColorStop(0,rgba(cols[i%cols.length],.16));
-    g.addColorStop(.5,rgba(cols[i%cols.length],.06));
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    bgx.fillStyle=g;bgx.beginPath();bgx.arc(x,y,rad,0,TAU);bgx.fill();
-  }
-  // 별
-  const n=Math.round(W*H/1900);
-  for(let i=0;i<n;i++){
-    const x=r()*W,y=r()*H,s=r();
-    const rad=s>.985?1.7:s>.9?1.15:.65;
-    const a=.18+r()*.62;
-    const tint=s>.93?'#cfe0ff':s>.86?'#ffe6c8':'#ffffff';
-    bgx.globalAlpha=a;bgx.fillStyle=tint;
-    bgx.beginPath();bgx.arc(x,y,rad,0,TAU);bgx.fill();
-    if(rad>1.4){
-      bgx.globalAlpha=a*.35;
-      bgx.beginPath();bgx.arc(x,y,rad*3.2,0,TAU);bgx.fill();
-    }
-  }
-  bgx.globalAlpha=1;
+}
+
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=window.innerWidth;H=window.innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  buildBg();
 }
 window.addEventListener('resize',resize);
 
 let phase=0;                    // 기준 궤도 기준 누적 회전수
 let reveal={on:false,t:0};
 let blaze=1;                    // 중심별 밝기 0~1
-const twinkleStars=[];
 
 /* ---- 카메라 ----
    tilt 0 = face-on(궤도면을 수직으로 내려다봄), PI/2 = edge-on(궤도면을 옆에서 봄).
@@ -2218,6 +2197,56 @@ function toScreen(p,g){
 }
 
 /** 배치된 행성 중 가장 바깥 슬롯 index (없으면 -1) */
+/* ==========================================================================
+   카이퍼 벨트 — 항성계 최외곽의 얼음 소천체 띠.
+   배치된 가장 바깥 궤도를 기준으로 그 바깥에 깔리므로, 행성이 늘어나면
+   벨트도 함께 밀려난다. 레이더 연출이 이걸 대상으로 삼는다.
+   ========================================================================== */
+const KB_N=1150, KB_MID=1.30, KB_TUBE=0.105;
+const KB_OUT=KB_MID+KB_TUBE;
+let _kb=null;
+function kbelt(){
+  if(_kb) return _kb;
+  const r=mulberry(fnv('kuiper#2'));
+  _kb=[];
+  for(let i=0;i<KB_N;i++){
+    // 도넛 단면에 균등하게 뿌린다. 관 각도 th, 관 반지름 rt.
+    // sqrt 를 쓰는 이유는 원 면적이 반지름 제곱에 비례하기 때문이다 —
+    // 그냥 균등하게 뽑으면 중심축 쪽만 빽빽해진다.
+    const th=r()*TAU, rt=KB_TUBE*Math.sqrt(r());
+    const k=KB_MID+rt*Math.cos(th);
+    const zAmp=rt*Math.sin(th);
+    _kb.push({
+      k, e:0.004+r()*0.028,               // 띠가 뭉개지지 않게 이심률을 눌렀다
+      inc:Math.atan2(zAmp,k),             // 궤도 경사가 곧 관의 세로 두께다
+      node:r()*TAU, peri:r()*TAU, M0:r()*TAU,
+      // 크기는 멱법칙에 가깝게 — 대부분 작은 소행성이고 왜소행성은 드물다
+      sz:0.30+2.0*Math.pow(r(),2.6),
+      br:0.55+r()*0.45,
+      rot:r()*TAU,
+      ice:r()<0.42?1:0,                   // 얼음질 / 암석질
+      // 고정된 불규칙 윤곽. 구가 아니라 깨진 돌덩이로 보여야 한다.
+      shape:[0,0,0,0,0,0,0].map(()=>0.58+r()*0.62),
+      id:'KB-'+String(1000+Math.floor(r()*8999))
+    });
+  }
+  // 표적으로 쓸 후보를 초기 평균경도 순으로 정렬해 둔다. 그냥 인덱스로
+  // 고르면 화면 한쪽에 뭉쳐 프레임과 좌표가 겹쳐 읽을 수 없다.
+  _kb.pick=_kb.map((o,i)=>({i,L:(o.node+o.peri+o.M0)%TAU}))
+            .sort((a,b)=>a.L-b.L).map(x=>x.i);
+  return _kb;
+}
+/** 벨트가 깔리는 기준 반지름 (배치된 가장 바깥 궤도, 없으면 기본값) */
+function beltRef(){ const o=outerSlot(); return o>=0?orbitEl(o).a:0.34; }
+const _kel={a:0,e:0,inc:0,node:0,peri:0,M0:0};
+/** i번 소천체의 현재 3D 위치 */
+function kbPos(o){
+  const aRef=beltRef();
+  _kel.a=aRef*o.k; _kel.e=o.e; _kel.inc=o.inc;
+  _kel.node=o.node; _kel.peri=o.peri; _kel.M0=o.M0;
+  return orbitPos(_kel, phase*Math.pow(aRef/_kel.a,1.5));
+}
+
 function outerSlot(){
   let o=-1;for(let i=0;i<MAX_PLANET;i++) if(S.sys.slots[i].p) o=i;
   return o;
@@ -2226,7 +2255,8 @@ function outerSlot(){
     기울기에 따라 세로 폭이 달라지므로 현재 tilt를 반영한다 (요구사항 10) */
 function fitZoom(){
   const os=outerSlot();
-  const aMax=(os>=0?orbitEl(os).a*(1+orbitEl(os).e):0.34)+0.06;
+  // 벨트가 화면 밖으로 나가면 레이더 대상이 안 보인다
+  const aMax=(os>=0?orbitEl(os).a*(1+orbitEl(os).e):0.34)*KB_OUT+0.06;
   const g=geom(), narrow=W<760;
   const c=Math.max(0.30,Math.cos(VIEW.tiltTo));
   // 촬영 틀이 켜져 있으면 그 안에 들어가야 한다
@@ -2241,10 +2271,14 @@ function isFocusDark(){
   const T=S.timer;
   return T.phase==='focus' && (T.running||T.remain>0) && !reveal.on;
 }
+/* 집중 중 행성·위성의 밝기. 예전에는 0(완전한 검은 구체)이었는데
+   흐림·모눈이 깔리면서 아예 안 보였다. 색과 표면이 보이되 완료 시
+   리빌이 여전히 밝아지도록 중간값을 쓴다. */
+const FOCUS_LIT=0.62;
 /** 장반경 a(단위)에 있는 천체의 밝기. 중심별은 항상 밝다(요구사항 12) */
 function litAt(a){
-  if(reveal.on) return clamp((reveal.t*1.6-a)/0.18,0,1);
-  return isFocusDark()?0:1;
+  if(reveal.on) return clamp(FOCUS_LIT+(1-FOCUS_LIT)*clamp((reveal.t*1.6-a)/0.18,0,1),0,1);
+  return isFocusDark()?FOCUS_LIT:1;
 }
 
 /* ---- 항성 질량중심 (요구사항 17) ----
@@ -2306,6 +2340,71 @@ function starPositions(){
   }
   return out;
 }
+/* 카이퍼 벨트를 그린다.
+   소천체 하나하나에 중심별 기준 위상(초승달~보름)을 준다. 카메라 방향과
+   별 방향의 사이각으로 밝은 면이 얼마나 보이는지 정해지므로, 별 너머쪽은
+   환하고 이쪽 편은 어둡다 — 그래야 띠가 평면이 아니라 입체로 읽힌다.
+   760개에 그라디언트를 쓰면 프레임이 무너지므로 밝기 버킷으로 묶어
+   몇 번의 칠하기로 끝낸다. */
+const KB_BK=4;
+const KB_TONE=['#8d8177','#a8b6c6'];      // 암석질 / 얼음질
+/** 고정된 불규칙 윤곽을 현재 경로에 더한다 */
+function kbShape(x,y,r,o){
+  const sh=o.shape, n=sh.length;
+  for(let i=0;i<n;i++){
+    const a=o.rot+i/n*TAU, rr=r*sh[i];
+    const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr;
+    i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+  }
+  ctx.closePath();
+}
+function drawBelt(g){
+  const kb=kbelt();
+  // 카메라 방향 단위벡터 — project() 의 depth 가 이 벡터와의 내적이다
+  const st=Math.sin(VIEW.tilt), ct=Math.cos(VIEW.tilt);
+  const sa=Math.sin(VIEW.az),  ca=Math.cos(VIEW.az);
+  const Vx=sa*st, Vy=ca*st, Vz=ct;
+  const rad=Math.max(0.6,g.R*VIEW.zoom*0.0042);
+
+  // [재질][밝기] 버킷. 한 번의 칠하기에 수백 개를 몰아넣는다.
+  const bin=[[],[]];
+  for(let t=0;t<2;t++) for(let b=0;b<KB_BK;b++) bin[t].push([]);
+
+  for(let i=0;i<kb.length;i++){
+    const o=kb[i], p=kbPos(o), sc=toScreen(p,g);
+    if(sc.x<-10||sc.x>W+10||sc.y<-10||sc.y>H+10)continue;
+    const rr=Math.hypot(p.x,p.y,p.z)||1e-6;
+    // 별을 향한 방향과 카메라 방향의 사이각 → 보이는 밝은 면의 비율.
+    // 개별 명암 대신 이 값으로 밝기를 정한다 — 작은 점에 밝은 원을 덧그리면
+    // 비눗방울처럼 보인다.
+    const cosPh=-(p.x*Vx+p.y*Vy+p.z*Vz)/rr;
+    const f=clamp((1+cosPh)*0.5,0,1);
+    const bk=Math.min(KB_BK-1,Math.floor(f*KB_BK));
+    bin[o.ice][bk].push(sc.x,sc.y,Math.max(0.45,rad*o.sz),i);
+  }
+
+  ctx.save();
+  for(let t=0;t<2;t++){
+    ctx.fillStyle=KB_TONE[t];
+    for(let b=0;b<KB_BK;b++){
+      const arr=bin[t][b];
+      if(!arr.length)continue;
+      const f=(b+0.5)/KB_BK;
+      ctx.globalAlpha=(0.10+0.42*f*f)*(t?1:0.86);   // 암석질은 조금 더 어둡다
+      ctx.beginPath();
+      for(let i=0;i<arr.length;i+=4){
+        const o=kb[arr[i+3]];
+        if(arr[i+2]<1.1){                            // 아주 작으면 윤곽이 안 보인다
+          ctx.moveTo(arr[i]+arr[i+2],arr[i+1]);
+          ctx.arc(arr[i],arr[i+1],arr[i+2],0,TAU);
+        } else kbShape(arr[i],arr[i+1],arr[i+2],o);
+      }
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 /** 질량중심 궤도 원 하나를 그린다. center 를 중심으로 반경 r, 경사 zk */
 function strokeStarRing(g,center,r,zk,alpha){
   if(r<=0.0005)return;
@@ -2385,14 +2484,6 @@ function render(t){
   ctx.clearRect(0,0,W,H);
   ctx.drawImage(bg,0,0,W,H);
 
-  ctx.save();
-  for(const s of twinkleStars){
-    const a=.25+Math.sin(t*s.sp+s.ph)*.25;
-    if(a<=0)continue;
-    ctx.globalAlpha=a;ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,TAU);ctx.fill();
-  }
-  ctx.restore();
 
   if(!S.created) return;
   const g=geom();
@@ -2429,6 +2520,9 @@ function render(t){
   ctx.restore();
   }
 
+  // ---- 카이퍼 벨트 ----
+  drawBelt(g);
+
   // ---- 진행 궤적 (기준 궤도) ----
   if(showOrbits && os>=0 && T.phase==='focus' && T.total>0){
     const el=orbitEl(os);
@@ -2441,22 +2535,19 @@ function render(t){
     ctx.restore();
   }
 
-  // ---- 천체별 짧은 꼬리 ----
-  ctx.save();
-  ctx.lineCap='round';
-  bodies.forEach(o=>{
-    if(!showOrbits)return;
-    if(o.kind!=='planet'&&o.kind!=='moon')return;
-    const span=o.kind==='planet'?0.055:0.10;
-    const grd=o.lit>.5?'rgba(170,200,255,':'rgba(90,110,160,';
-    for(let s2=0;s2<4;s2++){
-      const f0=o.revs-span*(4-s2)/4, f1=o.revs-span*(3-s2)/4;
-      ctx.strokeStyle=grd+(0.05+s2*0.055)+')';
-      ctx.lineWidth=Math.max(.7,o.r*.20);
-      strokeOrbit(o.el,g,f0,f1,4,o.kind==='moon'?o.parent:null,o.mScale);
-    }
-  });
-  ctx.restore();
+  // ---- 위성 궤도 ----
+  // 행성 궤도와 같은 방식의 실선. 예전에는 짧은 꼬리만 그렸는데 궤도가
+  // 어디인지 읽히지 않았다.
+  if(showOrbits){
+    ctx.save();
+    ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(150,180,255,.13)';
+    bodies.forEach(o=>{
+      if(o.kind!=='moon')return;
+      strokeOrbit(o.el,g,0,1,44,o.parent,o.mScale);
+    });
+    ctx.restore();
+  }
 
   // ---- 리빌 웨이브 ----
   if(reveal.on){
@@ -2481,19 +2572,20 @@ function render(t){
   bodies.slice().sort((a,b)=>a.scr.depth-b.scr.depth).forEach(o=>{
     if(o.kind==='star'){
       const lk=starLook();
-      drawStar(ctx,o.scr.x,o.scr.y,o.r,lk.color,Math.min(1,blaze),t,
-               Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},lk.feat));
-      // 스킨이 있으면 그 항성을, 없으면 고른 색으로 만든 표면을 입힌다
+      // 스킨이 있으면 그 항성을, 없으면 고른 색으로 만든 표면을 입힌다.
+      // 텍스처 준비 여부를 먼저 알아야 본체를 그릴지 정할 수 있다.
       const sb=centralStarBody(lk);
-      if(sb&&!(sb.f&&(sb.f.acc||sb.f.beam))){
-        const tx=readyTexture(sb,Math.min(256,o.r*2));
-        if(tx){
-          const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
-          const sc=scratchFor(need);
-          drawGlobe(sc,tx,phase*2.2,Math.PI/2-VIEW.tilt,hx(sb.c1),{emis:true});
-          ctx.save();ctx.globalAlpha=Math.min(1,blaze);
-          ctx.drawImage(sc,o.scr.x-o.r,o.scr.y-o.r,o.r*2,o.r*2);ctx.restore();
-        }
+      const skin=sb&&!(sb.f&&(sb.f.acc||sb.f.beam));
+      const tx=skin?readyTexture(sb,Math.min(256,o.r*2)):null;
+      drawStar(ctx,o.scr.x,o.scr.y,o.r,lk.color,Math.min(1,blaze),t,
+               Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt)),noBody:!!tx},lk.feat));
+      if(tx){
+        const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
+        const sc=scratchFor(need);
+        drawGlobe(sc,tx,phase*2.2,Math.PI/2-VIEW.tilt,hx(sb.c1),{emis:true});
+        ctx.save();ctx.globalAlpha=Math.min(1,blaze);
+        const k=o.r*globeFit(need);
+        ctx.drawImage(sc,o.scr.x-k,o.scr.y-k,k*2,k*2);ctx.restore();
       }
       drawStarName(o);
       return;
@@ -2503,18 +2595,17 @@ function render(t){
       if(o.lit<.02){ drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,0); }
       else{
         const cf=o.body.f||{};
-        drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,
-                 Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt))},cf));
         // 중심별과 마찬가지로 실제 표면을 얹는다. 안 그러면 뭉갠 얼룩만 보인다.
-        if(!cf.acc&&!cf.beam){
-          const tx=readyTexture(o.body,Math.min(256,o.r*2));
-          if(tx){
-            const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
-            const sc=scratchFor(need);
-            drawGlobe(sc,tx,phase*2.2,Math.PI/2-VIEW.tilt,hx(o.body.c1),{emis:true});
-            ctx.save();ctx.globalAlpha=o.lit;
-            ctx.drawImage(sc,o.scr.x-o.r,o.scr.y-o.r,o.r*2,o.r*2);ctx.restore();
-          }
+        const tx=(!cf.acc&&!cf.beam)?readyTexture(o.body,Math.min(256,o.r*2)):null;
+        drawStar(ctx,o.scr.x,o.scr.y,o.r,o.body.c1,o.lit,t,
+                 Object.assign({diskSquash:Math.abs(Math.cos(VIEW.tilt)),noBody:!!tx},cf));
+        if(tx){
+          const need=Math.min(256,Math.max(16,Math.ceil(o.r*2)));
+          const sc=scratchFor(need);
+          drawGlobe(sc,tx,phase*2.2,Math.PI/2-VIEW.tilt,hx(o.body.c1),{emis:true});
+          ctx.save();ctx.globalAlpha=o.lit;
+          const k=o.r*globeFit(need);
+          ctx.drawImage(sc,o.scr.x-k,o.scr.y-k,k*2,k*2);ctx.restore();
         }
       }
     }else{
@@ -2523,7 +2614,7 @@ function render(t){
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
 
-  drawStartFx(ctx,performance.now());
+  drawFocusFx(ctx,performance.now());
 
   // 구도 가이드는 천체 위에 얹혀야 잘릴 부분이 보인다
   if(document.body.classList.contains('capture')){
@@ -2533,139 +2624,233 @@ function render(t){
 }
 
 /* ==========================================================================
-   시작 연출 — 세션을 시작할 때 잠깐 재생하고 사라진다.
-   별도 루프를 돌리지 않고 render() 맨 끝에 얹는다. 타이머는 연출과 무관하게
-   이미 시작돼 있다(절대 시각 기준이라 연출 길이가 정확도에 영향을 주지 않는다).
+   집중 연출 — 세션이 흐르는 내내 지속된다.
+   render() 맨 끝에 얹는다. 별도 rAF 를 돌리면 기존 루프와 겹쳐 어긋난다.
    ========================================================================== */
-const FX_DUR={scope:2400, comet:2600};
+const APPROACH_MS=2200;          // 시작 직후 카메라가 다가오는 시간
 let startFx=null;
+const easeIO=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+
 function beginStartFx(kind){
   if(!kind||kind==='none'){startFx=null;return false;}
-  if(!FX_DUR[kind])return false;
   if(!VIEW.zoomTo) VIEW.zoomTo=fitZoom();
-  const z0=VIEW.zoomTo*(kind==='scope'?0.16:0.42);
-  startFx={kind,t0:performance.now(),z0,az0:VIEW.azTo-(kind==='comet'?0.6:0.22)};
-  VIEW.zoom=z0; VIEW.az=startFx.az0;
+  startFx={t0:performance.now(), z0:VIEW.zoomTo*0.30, az0:VIEW.azTo-0.22};
+  VIEW.zoom=startFx.z0; VIEW.az=startFx.az0;
   document.body.classList.add('fx');
   return true;
 }
 function endStartFx(){
+  if(!startFx)return;
   startFx=null;
   document.body.classList.remove('fx');
   VIEW.zoom=VIEW.zoomTo; VIEW.az=VIEW.azTo;
 }
-/** 매 프레임 시점을 연출 진행도에 맞춰 직접 몬다 (기본 보간보다 느리게) */
+/** 다가오는 동안 시점을 직접 몬다. 기본 보간은 0.5초면 붙어버린다. */
 function stepStartFx(){
   if(!startFx)return;
-  const p=clamp((performance.now()-startFx.t0)/FX_DUR[startFx.kind],0,1);
+  const p=clamp((performance.now()-startFx.t0)/APPROACH_MS,0,1);
   const e=easeIO(p);
   VIEW.zoom=startFx.z0+(VIEW.zoomTo-startFx.z0)*e;
   VIEW.az  =startFx.az0+(VIEW.azTo  -startFx.az0)*e;
   if(p>=1) endStartFx();
 }
-const easeIO=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
 
-function drawStartFx(ctx,now){
-  if(!startFx)return;
-  const p=clamp((now-startFx.t0)/FX_DUR[startFx.kind],0,1);
-  if(startFx.kind==='scope') fxScope(ctx,p); else fxComet(ctx,p);
+/** 집중 중에만, 그리고 세션 내내 켜져 있다 */
+function focusFxMode(){
+  const T=S.timer;
+  if(!T.running||T.phase!=='focus'||!T.total)return null;
+  const m=S.intro||'scope';
+  return m==='none'?null:m;
+}
+function drawFocusFx(ctx,now){
+  const m=focusFxMode(); if(!m)return;
+  const prog=clamp(1-remainMs()/S.timer.total,0,1);
+  if(m==='scope') fxRadar(ctx,prog,now); else fxComet(ctx,prog,now);
 }
 
-/* 망원경으로 훑다가 자기 항성계를 붙잡아 들어가는 연출 */
-function fxScope(ctx,p){
-  const cx=W/2, cy=H/2, hold=0.52;
-  const q=p<hold?0:(p-hold)/(1-hold);
-  const R=Math.min(W,H)*0.30 + (Math.hypot(W,H)*0.56-Math.min(W,H)*0.30)*easeIO(q);
-  const fade=p>0.9?1-(p-0.9)/0.1:1;             // 끝에서 통째로 사라진다
+/* ---- 레이더 탐사 ----
+   카이퍼 벨트를 훑으며 소천체를 사진 프레임으로 포착한다. 처음에는 여러 개를
+   잡고 있다가 시간이 갈수록 하나씩 놓아, 끝날 무렵엔 하나만 남는다.
+   그래서 남은 표적 수가 곧 남은 시간이다. */
+/* 표적 수는 세션마다 7~13 사이에서 정해진다. 늘 같으면 지루하다.
+   세션 시작 시각을 씨앗으로 삼아 그 세션 안에서는 변하지 않는다. */
+const RADAR_MIN=7, RADAR_TOP=13;
+let _radarMax=RADAR_MIN;
+function rollRadarMax(){
+  const seed=(S.timer&&S.timer.endAt)||0;
+  _radarMax=RADAR_MIN+Math.floor(mulberry(fnv('radar#'+seed))()*(RADAR_TOP-RADAR_MIN+1));
+  return _radarMax;
+}
+function radarTargets(prog){
+  const n=Math.max(1,Math.round(1+(_radarMax-1)*(1-prog)));
+  const b=kbelt(), out=[];
+  // 경도로 정렬된 후보에서 균등 간격으로 뽑아 화면 곳곳에 흩어지게 한다.
+  // 항상 같은 순서라 시간이 지나면 뒤쪽부터 하나씩 빠진다.
+  const step=b.pick.length/_radarMax;
+  for(let i=0;i<n;i++) out.push(b[b.pick[Math.floor(i*step)]]);
+  return out;
+}
+/** 지금 화면에 잡혀 있는 표적들의 화면 좌표. 흐림 처리와 브래킷이 같이 쓴다. */
+const RADAR_HALF=14;
+function radarSpots(prog){
+  const g=geom(), out=[];
+  radarTargets(prog).forEach((o,i)=>{
+    const w=kbPos(o), sc=toScreen(w,g);
+    if(sc.x<-60||sc.x>W+60||sc.y<-60||sc.y>H+60)return;
+    out.push({o,w,sc,i});
+  });
+  return out;
+}
+
+/* 관측 장비 화면처럼 만든다 — 브래킷 안쪽만 선명하고 나머지는 흐리며,
+   그 위에 모눈이 깔린다. 캔버스에는 영역별 흐림이 없으므로 지금까지 그린
+   장면을 통째로 복사해 두고, 흐리게 한 번 깔고 표적 창만 선명하게 되살린다. */
+let _optCv=null;
+function optBuf(){
+  if(!_optCv) _optCv=document.createElement('canvas');
+  if(_optCv.width!==cv.width||_optCv.height!==cv.height){
+    _optCv.width=cv.width; _optCv.height=cv.height;
+  }
+  return _optCv;
+}
+function applyScopeOptics(spots){
+  const buf=optBuf(), bx=buf.getContext('2d');
+  bx.setTransform(1,0,0,1,0,0);
+  bx.clearRect(0,0,buf.width,buf.height);
+  bx.drawImage(cv,0,0);
+
   ctx.save();
-  ctx.globalAlpha=fade;
-
-  // 조리개 바깥을 덮는다 (짝수-홀수 규칙으로 원만큼 구멍을 낸다)
-  ctx.beginPath();
-  ctx.rect(0,0,W,H);
-  ctx.arc(cx,cy,R,0,TAU);
-  ctx.fillStyle='rgba(2,3,8,.94)';
-  ctx.fill('evenodd');
-
-  // 조리개 테두리
-  ctx.strokeStyle='rgba(138,180,255,'+(0.5*fade)+')';
-  ctx.lineWidth=1.5;
-  ctx.beginPath();ctx.arc(cx,cy,R,0,TAU);ctx.stroke();
-
-  // 레티클 — 조리개가 열리기 시작하면 걷힌다
-  const ra=clamp(1-q*2.2,0,1);
-  if(ra>0.01){
-    ctx.globalAlpha=fade*ra;
-    ctx.strokeStyle='rgba(170,200,255,.75)';
-    ctx.lineWidth=1;
-    const r0=Math.min(W,H)*0.30;
+  ctx.setTransform(1,0,0,1,0,0);        // 픽셀 단위로 다룬다
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.filter='blur('+(2.4*DPR).toFixed(1)+'px)';
+  ctx.drawImage(buf,0,0);
+  ctx.filter='none';
+  if(spots.length){
     ctx.beginPath();
-    ctx.moveTo(cx-r0,cy);ctx.lineTo(cx-r0*0.28,cy);
-    ctx.moveTo(cx+r0*0.28,cy);ctx.lineTo(cx+r0,cy);
-    ctx.moveTo(cx,cy-r0);ctx.lineTo(cx,cy-r0*0.28);
-    ctx.moveTo(cx,cy+r0*0.28);ctx.lineTo(cx,cy+r0);
-    ctx.stroke();
-    // 눈금
-    for(let i=0;i<48;i++){
-      const a=i/48*TAU, len=(i%4===0)?11:5;
-      const c1=Math.cos(a),s1=Math.sin(a);
-      ctx.beginPath();
-      ctx.moveTo(cx+c1*(r0-len),cy+s1*(r0-len));
-      ctx.lineTo(cx+c1*r0,cy+s1*r0);
-      ctx.stroke();
-    }
-    // 포착 표시 — 중심별을 감싸는 사각 브래킷
-    const lock=clamp((p-0.30)/0.20,0,1);
-    if(lock>0){
-      const br=Math.min(W,H)*(0.16-0.06*lock);
-      ctx.strokeStyle='rgba(255,217,122,'+(0.9*lock)+')';
-      ctx.lineWidth=2;
-      [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
-        ctx.beginPath();
-        ctx.moveTo(cx+sx*br, cy+sy*br-sy*br*0.42);
-        ctx.lineTo(cx+sx*br, cy+sy*br);
-        ctx.lineTo(cx+sx*br-sx*br*0.42, cy+sy*br);
-        ctx.stroke();
-      });
-    }
-    // 안내 문구
-    ctx.font='600 12px Pretendard,system-ui,sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='alphabetic';
-    ctx.fillStyle='rgba(200,215,245,.85)';
-    ctx.fillText(p<0.34?'항성계 탐색 중…':(S.star.name||'')+' 포착',
-                 cx, cy+Math.min(W,H)*0.30+26);
+    const h=RADAR_HALF*DPR;
+    spots.forEach(s=>ctx.rect(s.sc.x*DPR-h,s.sc.y*DPR-h,h*2,h*2));
+    ctx.clip();
+    ctx.drawImage(buf,0,0);             // 표적 창만 선명하게 되살린다
   }
   ctx.restore();
 }
-
-/* 혜성이 계 안으로 들어오는 연출 */
-function fxComet(ctx,p){
-  const fade=p<0.08?p/0.08:(p>0.82?1-(p-0.82)/0.18:1);
-  const e=easeIO(clamp(p/0.86,0,1));
-  // 화면 밖 왼쪽 위에서 중심 부근을 스쳐 오른쪽 아래로
-  const x=W*(-0.18+1.30*e), y=H*(0.12+0.52*e*e);
+/** 상태 문구를 Face-on 버튼 바로 위에 오른쪽 맞춤으로 놓는다.
+    HUD 위치가 화면 폭에 따라 달라지므로 좌표를 직접 읽어 맞춘다. */
+function drawScopeReadout(text){
+  const el=$('#vbFace');
+  let x=W-24, y=H-120;
+  if(el){
+    const r=el.getBoundingClientRect();
+    if(r.width){ x=r.right; y=r.top-10; }
+  }
   ctx.save();
-  ctx.globalAlpha=fade;
-  // 꼬리 — 진행 반대 방향으로 늘어난다
-  const tl=Math.min(W,H)*0.40;
-  const g=ctx.createLinearGradient(x,y,x-tl*0.92,y-tl*0.42);
-  g.addColorStop(0,'rgba(200,225,255,.85)');
-  g.addColorStop(.35,'rgba(150,190,255,.28)');
-  g.addColorStop(1,'rgba(120,160,255,0)');
-  ctx.strokeStyle=g;
-  ctx.lineCap='round';
-  ctx.lineWidth=Math.max(2.5,Math.min(W,H)*0.012);
-  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-tl*0.92,y-tl*0.42);ctx.stroke();
-  // 핵
-  const hr=Math.max(2.5,Math.min(W,H)*0.008);
-  const hg=ctx.createRadialGradient(x,y,0,x,y,hr*5);
+  ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle='rgba(150,175,220,.6)';
+  ctx.fillText(text,x,y);
+  ctx.restore();
+}
+
+/** 화면 전체에 깔리는 모눈 */
+function drawScopeGrid(ctx){
+  const step=Math.max(44,Math.round(Math.min(W,H)/14));
+  ctx.save();
+  ctx.strokeStyle='rgba(138,180,255,.055)';
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let x=step/2;x<W;x+=step){ctx.moveTo(Math.round(x)+.5,0);ctx.lineTo(Math.round(x)+.5,H);}
+  for(let y=step/2;y<H;y+=step){ctx.moveTo(0,Math.round(y)+.5);ctx.lineTo(W,Math.round(y)+.5);}
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fxRadar(ctx,prog,now){
+  const g=geom();
+  const spots=radarSpots(prog);
+  applyScopeOptics(spots);
+  drawScopeGrid(ctx);
+  const tg=radarTargets(prog);
+  ctx.save();
+  ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.textBaseline='alphabetic';
+
+  spots.forEach(sp=>{
+    const o=sp.o, w=sp.w, sc=sp.sc, i=sp.i;
+    // 최근에 잡힌 표적일수록(=마지막 남는 쪽) 또렷하다
+    // 브래킷은 맥동하지 않는다 — 가만히 잡고 있어야 '포착'으로 읽힌다
+    const fresh=1-i/Math.max(1,tg.length);
+    const al=0.42+0.5*fresh;
+    const half=RADAR_HALF;
+
+    // 사진 프레임 — 네 모서리 브래킷
+    ctx.strokeStyle='rgba(138,180,255,'+al.toFixed(3)+')';
+    ctx.lineWidth=1.4; ctx.lineCap='butt';
+    const arm=half*0.42;
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
+      const cx=sc.x+sx*half, cy=sc.y+sy*half;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy-sy*arm);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx-sx*arm, cy);
+      ctx.stroke();
+    });
+
+    // 좌표 — 황경/황위와 거리
+    const rr=Math.hypot(w.x,w.y,w.z)||1e-6;
+    const lon=((Math.atan2(w.y,w.x)*180/Math.PI)+360)%360;
+    const lat=Math.asin(clamp(w.z/rr,-1,1))*180/Math.PI;
+    ctx.fillStyle='rgba(190,212,250,'+(al*0.95).toFixed(3)+')';
+    const coord='λ'+lon.toFixed(1)+'° β'+(lat>=0?'+':'')+lat.toFixed(1)+'°';
+    // 오른쪽에 자리가 없으면 왼쪽에 붙인다. 안 그러면 폰에서 잘린다.
+    const wNeed=Math.max(ctx.measureText(o.id).width,ctx.measureText(coord).width)+10;
+    const right=sc.x+half+wNeed<W-6;
+    ctx.textAlign=right?'left':'right';
+    const tx=right?sc.x+half+6:sc.x-half-6;
+    ctx.fillText(o.id, tx, sc.y-3);
+    ctx.fillText(coord, tx, sc.y+9);
+    ctx.strokeStyle='rgba(138,180,255,'+(al*0.5).toFixed(3)+')';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(sc.x+(right?half:-half),sc.y);
+    ctx.lineTo(tx+(right?-3:3),sc.y);
+    ctx.stroke();
+  });
+
+  // 남은 표적 수 — 진행도를 대신 읽는 장치
+  drawScopeReadout('SCANNING KUIPER BELT   ·   표적 '+tg.length+' / '+_radarMax);
+  ctx.restore();
+}
+
+/* ---- 혜성 접근 ----
+   세션 내내 아주 천천히 다가와, 끝날 무렵 중심에 닿는다. */
+function fxComet(ctx,prog,now){
+  const g=geom();
+  const e=easeIO(prog);
+  const ang=-0.7+prog*0.5;
+  const d=(1-e)*2.4+0.06;                       // 기준 궤도 단위 거리
+  const aRef=beltRef();
+  const w={x:Math.cos(ang)*d*aRef*2.2, y:Math.sin(ang)*d*aRef*2.2, z:d*aRef*0.55};
+  const sc=toScreen(w,g);
+  const o0=toScreen({x:0,y:0,z:0},g);
+  const dx=o0.x-sc.x, dy=o0.y-sc.y, dl=Math.hypot(dx,dy)||1;
+  const tl=Math.min(W,H)*(0.16+0.24*(1-prog));  // 멀수록 꼬리가 길어 보인다
+  ctx.save();
+  const gr=ctx.createLinearGradient(sc.x,sc.y,sc.x-dx/dl*tl,sc.y-dy/dl*tl);
+  gr.addColorStop(0,'rgba(205,228,255,.8)');
+  gr.addColorStop(.4,'rgba(150,190,255,.22)');
+  gr.addColorStop(1,'rgba(120,160,255,0)');
+  ctx.strokeStyle=gr; ctx.lineCap='round';
+  ctx.lineWidth=Math.max(2,Math.min(W,H)*0.009);
+  ctx.beginPath();ctx.moveTo(sc.x,sc.y);ctx.lineTo(sc.x-dx/dl*tl,sc.y-dy/dl*tl);ctx.stroke();
+  const hr=Math.max(2,Math.min(W,H)*0.006);
+  const hg=ctx.createRadialGradient(sc.x,sc.y,0,sc.x,sc.y,hr*5);
   hg.addColorStop(0,'rgba(255,255,255,.95)');
-  hg.addColorStop(.35,'rgba(190,220,255,.5)');
+  hg.addColorStop(.35,'rgba(190,220,255,.45)');
   hg.addColorStop(1,'rgba(150,190,255,0)');
-  ctx.fillStyle=hg;
-  ctx.beginPath();ctx.arc(x,y,hr*5,0,TAU);ctx.fill();
-  ctx.fillStyle='#fff';
-  ctx.beginPath();ctx.arc(x,y,hr,0,TAU);ctx.fill();
+  ctx.fillStyle=hg;ctx.beginPath();ctx.arc(sc.x,sc.y,hr*5,0,TAU);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sc.x,sc.y,hr,0,TAU);ctx.fill();
+  ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+  drawScopeReadout('APPROACHING   ·   '+(d*10).toFixed(2)+' AU');
   ctx.restore();
 }
 
@@ -2792,6 +2977,9 @@ function endDrag(e){
   if(!quick||!S.created)return;
   // 촬영 중에는 탭으로 추적을 걸지 않는다. 확대·이동이 따라와 잡아둔 구도가 날아간다
   if(document.body.classList.contains('capture'))return;
+  // 집중 중에도 막는다. 관측 화면이 표적을 따라가야 하는데 천체를 물면
+  // 시점이 통째로 끌려간다. 확대·회전은 그대로 열어 둔다.
+  if(isLocked()){ toast('집중 중에는 천체 추적이 잠깁니다'); return; }
   const hit=pickAt(e.clientX,e.clientY);
   followBody(hit&&hit.key!=='star'?hit.key:null);
 }
@@ -2943,6 +3131,7 @@ function startPhase(kind){
     // 요구사항 10 — 시작하면 항성계로 다가간다
     VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom()*1.12;
   }
+  if(kind==='focus') rollRadarMax();      // 이번 세션의 표적 수를 정한다
   save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
 }
@@ -3551,7 +3740,7 @@ $('#btnPull10').onclick=()=>pullMany(10);
     밖으로 넘쳐 네모로 잘려 보이기 때문이다. 표면이 없는 블랙홀·펄서만
     자기 연출을 쓰되, 전체가 캔버스 안에 들어오도록 반지름을 맞춘다. */
 function thumbFitRadius(w,F){
-  const ext=F.acc?3.4:F.beam?7.4:F.wind?3.2:2.8;   // 연출이 뻗는 최대 배율
+  const ext=F.acc?3.4:F.beam?7.4:2.8;   // 연출이 뻗는 최대 배율
   return w*0.5/ext*0.95;
 }
 function paintThumb(cvEl,b,bn){
@@ -4271,6 +4460,10 @@ function bakeSlice(){
 }
 /* 궤도 화면용 스크래치 캔버스 — 크기별로 하나씩 재사용한다 */
 const _scratch={};
+/** drawGlobe 가 그린 구가 화면 반지름 r 에 정확히 맞도록 하는 배율.
+    캔버스 안쪽 2px 을 비우고 그리므로 그만큼 키워야 가장자리에 아래
+    원반이 링(아웃라인)으로 남지 않는다. 작은 천체일수록 티가 크다. */
+function globeFit(need){ return (need/2)/Math.max(1,need/2-2); }
 function scratchFor(px){
   const n=px<=32?32:px<=64?64:px<=128?128:256;
   let c=_scratch[n];
@@ -4845,15 +5038,15 @@ function renderSettings(){
     +`<div class="pickerHint" style="margin-top:14px">
         드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
         화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>
-      <div class="setSep">시작 연출</div>
+      <div class="setSep">집중 연출</div>
       <div class="capRow" id="introPick" style="grid-template-columns:repeat(3,1fr)">
         <button class="capBtn" data-fx="none">없음</button>
-        <button class="capBtn" data-fx="scope">망원경 탐사</button>
+        <button class="capBtn" data-fx="scope">벨트 탐사</button>
         <button class="capBtn" data-fx="comet">혜성 접근</button>
       </div>
       <div class="pickerHint" style="margin-top:7px">
-        집중을 시작할 때 잠깐 재생됩니다. 화면을 누르면 건너뜁니다.
-        <span id="introTry" style="color:var(--txt-2);text-decoration:underline;cursor:pointer">지금 보기</span>
+        집중하는 동안 계속 재생됩니다. <b>벨트 탐사</b>는 카이퍼 벨트의 소천체를
+        여러 개 포착했다가 시간이 갈수록 하나씩 놓아, 끝날 무렵 하나만 남습니다.
       </div>
       <div class="setSep">알림과 설치</div>
       <div id="pwaRows"></div>
@@ -4876,13 +5069,8 @@ function renderSettings(){
     b.classList.toggle('on',(S.intro||'scope')===b.dataset.fx));
   $$('#introPick button').forEach(b=>b.onclick=()=>{
     S.intro=b.dataset.fx; save(); syncIntro();
-    if(S.intro!=='none'){ close('mSettings'); beginStartFx(S.intro); }
   });
   syncIntro();
-  $('#introTry').onclick=()=>{
-    if((S.intro||'scope')==='none') return toast('연출을 먼저 고르세요');
-    close('mSettings'); beginStartFx(S.intro);
-  };
 
   renderPwaRows();          // 알림 행 핸들러는 이 뒤에 걸어야 살아남는다
 }
@@ -5476,7 +5664,6 @@ function boot(){
   load();
   paintAccount();
   resize();
-  for(let i=0;i<70;i++)twinkleStars.push({x:Math.random(),y:Math.random(),r:.5+Math.random()*1.1,sp:.6+Math.random()*2.2,ph:Math.random()*TAU});
 
   // 타이머 입력값 반영
   const T=S.timer;
@@ -5515,7 +5702,7 @@ function boot(){
   }
   cloudSyncOnBoot();
   registerSW();
-  if(T.running) armNotify();          // 새로고침해도 예약이 살아 있게
+  if(T.running){ armNotify(); rollRadarMax(); }   // 새로고침해도 이어지게
   requestAnimationFrame(frame);
 }
 
