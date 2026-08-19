@@ -1631,7 +1631,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.18-e';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.18-f';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2866,18 +2866,26 @@ function onPhaseDone(){
 /* 시스템 알림 (요구사항 8).
    홈 화면에 추가한 PWA, 특히 iOS 에서는 페이지의 new Notification() 이
    동작하지 않는다. 서비스워커 등록본의 showNotification 만 통한다. */
-function showNotif(title,opt){
-  try{
-    if(!('Notification' in window)||Notification.permission!=='granted')return;
-    const o=Object.assign({icon:'icons/icon-192.png',badge:'icons/icon-192.png'},opt);
-    if(navigator.serviceWorker&&navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready
-        .then(r=>r.showNotification(title,o))
-        .catch(()=>{try{new Notification(title,o);}catch(_){}});
-      return;
-    }
-    new Notification(title,o);
-  }catch(e){}
+/* navigator.serviceWorker.ready 는 Promise 라 항상 참이다. 그걸 조건으로
+   쓰면 서비스워커가 등록되지 않은 환경에서 이 약속이 영영 안 풀려
+   알림이 오류도 없이 사라진다. 반드시 시간 제한을 둔다. */
+function swReg(){
+  if(!('serviceWorker' in navigator))return Promise.resolve(null);
+  return Promise.race([
+    navigator.serviceWorker.ready.catch(()=>null),
+    new Promise(r=>setTimeout(()=>r(null),1500))
+  ]).catch(()=>null);
+}
+async function showNotif(title,opt){
+  if(!('Notification' in window))return 'unsupported';
+  if(Notification.permission!=='granted')return 'denied';
+  const o=Object.assign({icon:'icons/icon-192.png',badge:'icons/icon-192.png'},opt);
+  const reg=await swReg();
+  if(reg&&reg.showNotification){
+    try{ await reg.showNotification(title,o); return 'sw'; }catch(e){}
+  }
+  try{ new Notification(title,o); return 'page'; }catch(e){}
+  return 'fail';
 }
 function notifyDone(gain,bonus){
   showNotif('집중 완료 ✦',{
@@ -4694,7 +4702,8 @@ function renderSettings(){
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
         버전 ${APP_VER} · 뒤로가기 ${trapArmed()?'준비됨':'미설정'} (${history.length})
-        · ${isNative()?'앱':isStandalone()?'홈화면':'브라우저'} · ${osName()}</div>`;
+        · ${isNative()?'앱':isStandalone()?'홈화면':'브라우저'} · ${osName()}
+        · SW ${_swState}</div>`;
   // data-k 가 있는 행만 잡는다. 알림 행(#rowNotif)도 .setRow 라서
   // 그냥 훑으면 renderPwaRows 가 건 핸들러를 덮어쓴다 — 권한 요청은
   // 일어나지 않고 S[undefined] 만 토글되어, 켠 것처럼 보였다가 되돌아갔다.
@@ -4745,6 +4754,15 @@ function renderPwaRows(){
         : ios
           ? `<div class="pickerHint">아이폰은 사파리 공유 버튼 → <b>홈 화면에 추가</b>를 눌러야 알림을 쓸 수 있습니다. 브라우저 탭으로 열어둔 상태에서는 iOS가 알림을 막습니다.</div>`
           : `<div class="pickerHint">브라우저 메뉴의 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>로 설치하면 알림이 잠금화면까지 옵니다.</div>`)
+    +(perm==='granted'
+      ? `<div class="capRow" style="margin-top:8px">
+           <button class="capBtn" id="btnNotifNow">지금 알림 테스트</button>
+           <button class="capBtn" id="btnNotifLater">10초 뒤 알림</button>
+         </div>
+         <div class="pickerHint" style="margin-top:6px">
+           <b>10초 뒤 알림</b>을 누르고 <b>화면을 끄거나 다른 앱으로</b> 넘어가 보세요.
+           이게 오면 집중 완료 알림도 옵니다.</div>`
+      : ``)
     +(isNative()
       ? `<div class="pickerHint" style="margin-top:8px">
            안드로이드 앱으로 실행 중입니다. 알림을 <b>OS가 예약</b>하므로 앱을
@@ -4763,6 +4781,17 @@ function renderPwaRows(){
       if(r==='granted'){ showNotif('알림이 켜졌습니다 ✦',{body:'집중이 끝나면 이렇게 알려드립니다',tag:'sf-test'}); }
       else warn('알림 권한을 받지 못했습니다');
     }catch(e){warn('알림 권한 요청에 실패했습니다');}
+  };
+  const nowB=$('#btnNotifNow');
+  if(nowB) nowB.onclick=async()=>{
+    const how=await showNotif('테스트 알림 ✦',{body:'이게 보이면 알림 자체는 정상입니다',tag:'sf-test'});
+    toast(how==='sw'?'서비스워커로 보냄':how==='page'?'페이지 알림으로 보냄':'실패: '+how);
+  };
+  const laterB=$('#btnNotifLater');
+  if(laterB) laterB.onclick=()=>{
+    toast('10초 뒤에 보냅니다 · 화면을 꺼보세요');
+    setTimeout(()=>{ showNotif('10초 뒤 알림 ✦',
+      {body:'백그라운드에서도 알림이 도착했습니다',tag:'sf-test10'}); },10000);
   };
   const ib=$('#btnInstall');
   if(ib) ib.onclick=async()=>{
@@ -5321,9 +5350,10 @@ function boot(){
 
 /* 서비스워커 — 오프라인 캐시와 알림 통로.
    file:// 로 열면 등록이 안 되는데(보안 제약) 그건 정상이고 앱은 그대로 돈다. */
+let _swState='확인중';
 function registerSW(){
-  if(!('serviceWorker' in navigator))return;
-  if(location.protocol==='file:')return;
+  if(!('serviceWorker' in navigator)){_swState='미지원';return;}
+  if(location.protocol==='file:'){_swState='file://';return;}
   navigator.serviceWorker.register('sw.js',{scope:'./'})
     .then(reg=>{
       // 새 버전이 대기 중이면 바로 넘긴다. 단일 파일 앱이라 갈아끼워도 안전하다.
@@ -5336,7 +5366,8 @@ function registerSW(){
         });
       });
     })
-    .catch(()=>{});
+    .catch(()=>{_swState='등록실패';});
+  swReg().then(r=>{_swState=r?'활성':'없음';});
 }
 boot();
 </script>
