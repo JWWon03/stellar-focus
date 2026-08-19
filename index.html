@@ -137,17 +137,17 @@ body.admin #tokenCount{color:var(--gold)}
 .admGrid .mini b{display:block;font-size:10px;font-weight:600;opacity:.7;font-variant-numeric:tabular-nums}
 
 /* 우상단 주 메뉴 스택 */
+/* 메뉴 스택과 가로 폭을 맞춘 납작한 알약. 접혀 있으면 아래쪽(펼치기),
+   펼치면 위쪽(접기)을 가리킨다. */
 .menuToggle{
-  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  width:40px;height:22px;display:flex;align-items:center;justify-content:center;
   background:var(--panel);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
   border:1px solid var(--line);border-radius:11px;cursor:pointer;color:var(--txt-2);
-  box-shadow:0 8px 26px rgba(0,0,0,.45);transition:.16s
+  box-shadow:0 8px 26px rgba(0,0,0,.45);transition:.16s;padding:0
 }
-.menuToggle svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
-  transition:transform .22s}
+.menuToggle svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;
+  transition:transform .22s;transform:rotate(90deg)}
 .menuToggle:hover{border-color:var(--line-2);color:var(--txt)}
-/* 접혀 있을 때는 아래쪽(펼치기), 펼치면 위쪽(접기)을 가리킨다 */
-.menuToggle svg{transform:rotate(90deg)}
 body.menuOpen .menuToggle svg{transform:rotate(-90deg)}
 
 /* 세로로 접힌다 — 펼치면 아이콘이 주르륵, 접으면 화살표만 */
@@ -174,18 +174,20 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 
 /* 우하단 시점 버튼 */
 .vBtn{
-  min-width:118px;padding:9px 14px;text-align:center;
+  min-width:86px;padding:6px 10px;text-align:center;
   background:var(--panel);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
   border:1px solid var(--line);border-radius:12px;cursor:pointer;transition:.16s;
-  font-size:12px;font-weight:600;color:var(--txt-2);box-shadow:0 8px 26px rgba(0,0,0,.45)
+  font-size:11px;font-weight:600;color:var(--txt-2);box-shadow:0 8px 26px rgba(0,0,0,.45)
 }
 .vBtn:hover{border-color:var(--line-2);color:var(--txt)}
 .vBtn.on{background:rgba(58,90,180,.42);border-color:rgba(138,180,255,.6);color:#fff}
-.zoomBar{display:flex;gap:3px;padding:4px 5px}
+.zoomBar{display:flex;gap:2px;padding:3px 4px}
 .zoomBar button{
-  width:34px;height:30px;background:transparent;border:1px solid transparent;border-radius:8px;
-  color:var(--txt-2);font-size:15px;cursor:pointer;transition:.15s;line-height:1
+  width:27px;height:24px;background:transparent;border:1px solid transparent;border-radius:7px;
+  color:var(--txt-2);font-size:13px;cursor:pointer;transition:.15s;line-height:1;
+  display:flex;align-items:center;justify-content:center
 }
+.zoomBar button svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.9}
 .zoomBar button:hover{background:rgba(255,255,255,.08);color:var(--txt)}
 
 .followChip{display:none;align-items:center;gap:8px;padding:7px 8px 7px 13px;font-size:12px;font-weight:600}
@@ -271,8 +273,13 @@ body.capture #hint{display:none}
 
 /* ---------- 타이머 위젯 ---------- */
 #timerPanel{width:288px;padding:14px 16px 16px;transition:.25s}
-#timerPanel.mini{width:auto;padding:10px 14px}
-#timerPanel.mini .tBody{display:none}
+/* 접었을 때는 남은 시간과 펼치기 버튼만 남는다 */
+#timerPanel.mini{width:auto;padding:8px 10px 8px 16px}
+#timerPanel.mini .tBody,#timerPanel.mini .tTabs{display:none}
+.tMini{display:none;align-items:center;gap:14px}
+#timerPanel.mini .tMini{display:flex}
+.tMini b{font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--txt);
+  font-variant-numeric:tabular-nums;line-height:1}
 .tHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .tHead .ttl{font-size:12px;font-weight:700;letter-spacing:.09em;color:var(--txt-2);flex:1}
 .tHead .ico{
@@ -799,7 +806,16 @@ body.locked #timerPanel input{cursor:not-allowed}
       <button class="tTab" id="mdPomo">포모도로</button>
       <div class="tSpacer"></div>
       <button class="tIco" id="btnSound" title="완료 사운드">♪</button>
-      <button class="tIco" id="btnMini" title="접기/펼치기">—</button>
+      <button class="tIco" id="btnMini" title="접기">—</button>
+    </div>
+    <div class="tMini">
+      <b id="miniTime">25:00</b>
+      <button class="tIco" id="btnMiniOpen" title="펼치기">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+             stroke-width="1.8" aria-hidden="true">
+          <rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M3.5 9h17"/>
+        </svg>
+      </button>
     </div>
     <div class="tBody">
       <div id="cfgCount">
@@ -858,7 +874,11 @@ body.locked #timerPanel input{cursor:not-allowed}
   <div class="zoomBar panel">
     <button id="vbOut" title="축소">−</button>
     <button id="vbIn" title="확대">+</button>
-    <button id="vbFit" title="전체 보기">⤢</button>
+    <button id="vbFit" title="전체 보기">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
   <div class="capPanel panel" id="capPanel">
     <div class="capSec">비율</div>
@@ -1635,7 +1655,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.19-g';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.19-h';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3471,6 +3491,7 @@ function updateTimerUI(){
   const T=S.timer;
   const rem=T.phase==='idle'?currentFocusMin()*60000:remainMs();
   $('#bigTime').textContent=mmss(rem);
+  $('#miniTime').textContent=mmss(rem);      // 접힌 상태에도 남은 시간을 보인다
   const prog=T.total>0&&T.phase!=='idle'?clamp(1-rem/T.total,0,1):0;
   $('#ring').setAttribute('stroke-dashoffset',(326.7*(1-prog)).toFixed(1));
   let st=phaseLabel();
@@ -5179,10 +5200,13 @@ $('#btnReset').onclick=async()=>{
   if(S.timer.phase!=='idle'&&!await ask('세션을 초기화할까요?','진행 중인 세션이 사라지고 토큰은 지급되지 않습니다.','초기화',true))return;
   resetTimer();
 };
-$('#btnMini').onclick=()=>{
-  S.mini=!S.mini;$('#timerPanel').classList.toggle('mini',S.mini);
-  $('#btnMini').textContent=S.mini?'▢':'—';save();
-};
+function setMini(v){
+  S.mini=v;
+  $('#timerPanel').classList.toggle('mini',v);
+  save();
+}
+$('#btnMini').onclick=()=>setMini(true);
+$('#btnMiniOpen').onclick=()=>setMini(false);
 $('#btnSound').onclick=()=>{
   S.sound=!S.sound;$('#btnSound').classList.toggle('off',!S.sound);
   save();toast(S.sound?'완료 사운드 켜짐':'완료 사운드 꺼짐');
@@ -5845,8 +5869,7 @@ function boot(){
   $('#cfgCount').style.display=T.mode==='count'?'':'none';
   $('#cfgPomo').style.display=T.mode==='pomo'?'':'none';
   syncPresets();syncLongUI();updateLockUI();syncAdminUI();
-  $('#timerPanel').classList.toggle('mini',S.mini);
-  $('#btnMini').textContent=S.mini?'▢':'—';
+  $('#timerPanel').classList.toggle('mini',!!S.mini);
   $('#btnSound').classList.toggle('off',!S.sound);
   document.body.classList.toggle('menuOpen',!!S.menuOpen);
 
