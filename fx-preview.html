@@ -125,7 +125,10 @@ function posFromM(el,M){
   const cw=Math.cos(el.peri),sw=Math.sin(el.peri);
   return {x:x0*cw-y0*sw, y:x0*sw+y0*cw};
 }
-const TILT=0.28;                       // 살짝 눕혀 원반처럼 보이게 한다
+/* 시점은 연출마다 다르다. 식(엄폐)은 궤도면을 옆에서 봐야 천체가 별 앞을
+   가로지르는 것이 보인다 — 위에서 내려다보면 겹치는 일이 없다. */
+let TILT=0.28;
+const TILT_OF={comet:0.28, transit:1.44, probe:0.28};
 function geom(){ return {cx:W/2, cy:H*0.44, R:Math.min(W,H)*0.34}; }
 function toScreen(p,g){ return {x:g.cx+p.x*g.R, y:g.cy+p.y*g.R*Math.cos(TILT)}; }
 
@@ -302,36 +305,90 @@ function fxComet(prog,t){
   arc(nuNow,0,'rgba(150,180,255,.28)',1,[4,6]);                     // 남은 길
   arc(nu0,nuNow,'rgba(168,208,255,.5)',1.4);                        // 지나온 길
 
-  // 꼬리 — 언제나 중심별 반대편. 가까울수록 길고 진하다.
-  const dx=s.x-star.x, dy=s.y-star.y, dl=Math.hypot(dx,dy)||1;
+  // ---- 꼬리 ----
+  // 실제 혜성은 꼬리가 둘이고 생김새가 다르다.
+  //  이온 꼬리: 태양풍에 곧장 밀려 별 반대편으로 곧게 뻗고, 매듭이 바깥으로
+  //             흘러가며 가닥이 갈라진다. 푸르다.
+  //  먼지 꼬리: 무거워서 곧바로 밀리지 못하고 제 궤도에 뒤처지므로 휘어진
+  //             부채꼴이 된다. 노르스름하다.
   const near=clamp((r0-r)/(r0-COMET.rPeri),0,1);
-  const tl=Math.min(W,H)*(0.05+0.40*Math.pow(near,1.6));
-  const ta=0.20+0.62*Math.pow(near,1.4);
-  const gx=ctx.createLinearGradient(s.x,s.y,s.x+dx/dl*tl,s.y+dy/dl*tl);
-  gx.addColorStop(0,'rgba(206,230,255,'+ta.toFixed(3)+')');
-  gx.addColorStop(.35,'rgba(150,196,255,'+(ta*0.32).toFixed(3)+')');
-  gx.addColorStop(1,'rgba(130,170,255,0)');
+  const act=Math.pow(near,1.6);                  // 활동도 — 가까울수록 격해진다
+  const dx=s.x-star.x, dy=s.y-star.y, dl=Math.hypot(dx,dy)||1;
+  const ux=dx/dl, uy=dy/dl;                      // 별 반대 방향 (반태양 방향)
+  const px=-uy, py=ux;                           // 그 수직 방향
+  const ionL=Math.min(W,H)*(0.06+0.44*act);
+
   ctx.save();
-  ctx.strokeStyle=gx;ctx.lineCap='round';
-  ctx.lineWidth=Math.max(2,Math.min(W,H)*0.010*(0.5+near));
-  ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+dx/dl*tl,s.y+dy/dl*tl);ctx.stroke();
-  // 먼지 꼬리 — 살짝 휘어 두 갈래로 보인다
-  const bend=0.28*near;
-  const bx=(dx/dl)*Math.cos(bend)-(dy/dl)*Math.sin(bend);
-  const by=(dx/dl)*Math.sin(bend)+(dy/dl)*Math.cos(bend);
-  const g2=ctx.createLinearGradient(s.x,s.y,s.x+bx*tl*0.7,s.y+by*tl*0.7);
-  g2.addColorStop(0,'rgba(255,240,215,'+(ta*0.45).toFixed(3)+')');
-  g2.addColorStop(1,'rgba(255,220,180,0)');
-  ctx.strokeStyle=g2;ctx.lineWidth=Math.max(1.5,Math.min(W,H)*0.008*(0.4+near));
-  ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+bx*tl*0.7,s.y+by*tl*0.7);ctx.stroke();
+  ctx.lineCap='round';
+
+  // 먼지 꼬리 — 지나온 궤도 위에서 뿌려진 먼지가 뒤처지며 휘어진다.
+  // 과거 위치에서 반태양 방향으로 밀어낸 점들을 이어 부채꼴을 만든다.
+  const dustL=ionL*0.60;
+  const lanes=5;
+  for(let L=0;L<lanes;L++){
+    const w=(L/(lanes-1))*2-1;                   // -1..1 부채 폭
+    ctx.beginPath();
+    for(let k=0;k<=22;k++){
+      const age=k/22;                            // 0=지금 뿌린 것, 1=오래된 것
+      const rp=r+(r0-r)*age*0.085;               // 그때는 조금 더 멀리 있었다
+      const q=cometPos(rp), sp=toScreen(q,g);
+      const bx=sp.x-star.x, by=sp.y-star.y, bl=Math.hypot(bx,by)||1;
+      const push=dustL*Math.pow(age,0.85);
+      const spread=push*0.11*w;
+      const X=sp.x+bx/bl*push+(-by/bl)*spread;
+      const Y=sp.y+by/bl*push+( bx/bl)*spread;
+      k?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
+    }
+    const fade=1-Math.abs(w)*0.55;
+    ctx.strokeStyle='rgba(255,226,178,'+(0.16*act*fade).toFixed(3)+')';
+    ctx.lineWidth=Math.max(2,Math.min(W,H)*0.016*(0.4+act))*fade;
+    ctx.stroke();
+  }
+
+  // 이온 꼬리 — 곧게 뻗은 가닥 여럿. 옆으로 미세하게 흔들리고 매듭이 흐른다.
+  const strands=4;
+  for(let i=0;i<strands;i++){
+    const off=(i-(strands-1)/2)/strands;
+    ctx.beginPath();
+    for(let k=0;k<=26;k++){
+      const q=k/26;
+      const wob=Math.sin(t*1.1+i*2.1+q*5.5)*ionL*0.035*q;   // 태양풍에 흔들린다
+      const X=s.x+ux*ionL*q+px*(off*ionL*0.10*q+wob);
+      const Y=s.y+uy*ionL*q+py*(off*ionL*0.10*q+wob);
+      k?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
+    }
+    const gi=ctx.createLinearGradient(s.x,s.y,s.x+ux*ionL,s.y+uy*ionL);
+    const a0=(0.30+0.45*act)*(1-Math.abs(off)*1.1);
+    gi.addColorStop(0,'rgba(214,236,255,'+a0.toFixed(3)+')');
+    gi.addColorStop(.45,'rgba(150,196,255,'+(a0*0.34).toFixed(3)+')');
+    gi.addColorStop(1,'rgba(120,170,255,0)');
+    ctx.strokeStyle=gi;
+    ctx.lineWidth=Math.max(1,Math.min(W,H)*0.004*(0.5+act));
+    ctx.stroke();
+  }
+
+  // 매듭 — 이온 꼬리를 따라 바깥으로 흘러간다
+  ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<7;i++){
+    const q=((t*0.16+i/7)%1);
+    const wob=Math.sin(t*1.1+i*2.1+q*5.5)*ionL*0.03*q;
+    const X=s.x+ux*ionL*q+px*wob, Y=s.y+uy*ionL*q+py*wob;
+    const rad=Math.min(W,H)*0.006*(1-q*0.6);
+    const kg=ctx.createRadialGradient(X,Y,0,X,Y,rad);
+    kg.addColorStop(0,'rgba(190,225,255,'+(0.30*act*(1-q)).toFixed(3)+')');
+    kg.addColorStop(1,'rgba(150,200,255,0)');
+    ctx.fillStyle=kg;ctx.beginPath();ctx.arc(X,Y,rad,0,TAU);ctx.fill();
+  }
   ctx.restore();
 
-  // 코마와 핵 — 위성처럼 작은 점 하나
+  // 코마 — 핵을 감싼 대기. 가까울수록 부풀고 옅게 흔들린다.
   const hr=Math.max(1.6,Math.min(W,H)*0.0034);
-  const cg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,hr*(4+7*near));
-  cg.addColorStop(0,'rgba(255,255,255,'+(0.5+0.45*near).toFixed(3)+')');
-  cg.addColorStop(1,'rgba(190,225,255,0)');
-  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(s.x,s.y,hr*(4+7*near),0,TAU);ctx.fill();
+  const comaR=hr*(3.5+9*act)*(1+0.06*Math.sin(t*2.3));
+  const cg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,comaR);
+  cg.addColorStop(0,'rgba(255,255,255,'+(0.55+0.4*act).toFixed(3)+')');
+  cg.addColorStop(.35,'rgba(205,235,255,'+(0.22*act+0.06).toFixed(3)+')');
+  cg.addColorStop(1,'rgba(170,215,255,0)');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(s.x,s.y,comaR,0,TAU);ctx.fill();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,hr,0,TAU);ctx.fill();
 
   // 표적 표시
@@ -368,58 +425,94 @@ function lensArea(d,r1,r2){            // 두 원이 겹친 넓이
   const a2=Math.acos((d*d+r2*r2-r1*r1)/(2*d*r2));
   return r1*r1*(a1-Math.sin(2*a1)/2)+r2*r2*(a2-Math.sin(2*a2)/2);
 }
-function transitOffset(prog){ return (1-prog)*2.6; }   // 별 반지름 단위
+/* 통과 기하 — 세션이 시작할 때는 아직 별 앞에 오기 전이고, 끝날 때는 이미
+   빠져나가 밝기가 회복된 뒤다. 그래야 광도 곡선이 온전한 U 자로 완성되고
+   거기서 수치를 뽑을 수 있다. */
+const TR={k:0.115, b:0.28};              // 반지름비 Rp/Rs, 충돌 매개변수
+TR.x0=(1+TR.k)*1.55;                     // 시작 위치 (별 반지름 단위)
+function transitX(prog){ return -TR.x0+2*TR.x0*prog; }
+/** 진행도에서의 상대 밝기 */
+function transitFlux(prog){
+  const d=Math.hypot(transitX(prog),TR.b);
+  return 1-lensArea(d,1,TR.k)/Math.PI;
+}
+/** 접촉 시각 — 밝기가 처음 떨어지는 때와 완전히 회복되는 때 */
+const TR_C={};
+{
+  let lo=0,hi=0.5;                              // 밝기가 처음 떨어지는 지점
+  for(let i=0;i<40;i++){
+    const m=(lo+hi)/2;
+    if(transitFlux(m)<0.99999) hi=m; else lo=m;
+  }
+  TR_C.c1=(lo+hi)/2; TR_C.c4=1-TR_C.c1;         // 대칭이다
+}
 function fxTransit(prog,t){
   const {g,star,R}=drawScene(t);
   drawGrid();
 
-  const pr=R*0.26;                     // 가리는 천체
-  const off=transitOffset(prog)*R;
-  const px=star.x+off, py=star.y-R*0.22;
+  const pr=R*TR.k*3.4;                   // 눈에 보이게 조금 키운다
+  const px=star.x+transitX(prog)*R, py=star.y+TR.b*R*0.35;
 
   // 지나갈 길
   ctx.save();
-  ctx.setLineDash([3,7]);ctx.strokeStyle='rgba(150,180,255,.22)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(star.x+2.6*R,py);ctx.lineTo(star.x-0.4*R,py);ctx.stroke();
+  ctx.setLineDash([3,8]);ctx.strokeStyle='rgba(150,180,255,.20)';ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(star.x-TR.x0*R,py);ctx.lineTo(star.x+TR.x0*R,py);ctx.stroke();
   ctx.restore();
 
-  ctx.fillStyle='#20242e';
+  ctx.fillStyle='#161a24';
   ctx.beginPath();ctx.arc(px,py,pr,0,TAU);ctx.fill();
-  ctx.strokeStyle='rgba(170,190,225,.5)';ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(180,200,232,.55)';ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(px,py,pr,0,TAU);ctx.stroke();
 
-  // 광도 곡선
-  const d=Math.hypot(px-star.x,py-star.y);
-  const dip=lensArea(d,R,pr)/(Math.PI*R*R);
-  const gw=Math.min(210,W-48), gh=52, gx0=20, gy0=52;   // 아래는 조작판이 덮는다
+  // ---- 광도 곡선 ----
+  const flux=transitFlux(prog), depth=1-transitFlux(0.5);
+  const gw=Math.min(228,W-44), gh=58, gx0=20, gy0=54;
   ctx.save();
-  ctx.fillStyle='rgba(10,14,24,.55)';
-  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+  ctx.fillStyle='rgba(10,14,24,.6)';
+  ctx.strokeStyle='rgba(255,255,255,.09)';ctx.lineWidth=1;
   ctx.beginPath();ctx.rect(gx0,gy0,gw,gh);ctx.fill();ctx.stroke();
-  ctx.strokeStyle='rgba(138,180,255,.75)';ctx.lineWidth=1.4;
+  const lo=1-depth*1.5, span=depth*1.9||1e-6;
+  const yOf=v=>gy0+gh-5-(v-lo)/span*(gh-12);
+  // 관측된 구간만 그린다 — 아직 오지 않은 미래를 미리 보여주면 안 된다
+  ctx.strokeStyle='rgba(138,180,255,.85)';ctx.lineWidth=1.4;
   ctx.beginPath();
-  for(let k=0;k<=100;k++){
-    const q=k/100;
-    const dd=Math.hypot(transitOffset(q)*R,R*0.22);
-    const v=1-lensArea(dd,R,pr)/(Math.PI*R*R);
-    const X=gx0+gw*q, Y=gy0+gh-4-(v-0.9)/0.11*(gh-10);
-    k?ctx.lineTo(X,clamp(Y,gy0+3,gy0+gh-3)):ctx.moveTo(X,clamp(Y,gy0+3,gy0+gh-3));
+  const N=Math.max(2,Math.round(120*prog));
+  for(let k=0;k<=N;k++){
+    const q=prog*k/N;
+    const X=gx0+gw*q, Y=clamp(yOf(transitFlux(q)),gy0+3,gy0+gh-3);
+    k?ctx.lineTo(X,Y):ctx.moveTo(X,Y);
   }
   ctx.stroke();
-  const cx0=gx0+gw*prog;
-  ctx.strokeStyle='rgba(255,196,64,.8)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(cx0,gy0+2);ctx.lineTo(cx0,gy0+gh-2);ctx.stroke();
+  // 기준선
+  ctx.setLineDash([2,4]);ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(gx0,yOf(1));ctx.lineTo(gx0+gw,yOf(1));ctx.stroke();
+  ctx.setLineDash([]);
   ctx.font='500 9px ui-monospace,SFMono-Regular,Menlo,monospace';
-  ctx.fillStyle='rgba(150,175,220,.7)';ctx.textAlign='left';
-  ctx.fillText('RELATIVE FLUX',gx0+2,gy0-6);
+  ctx.textAlign='left';ctx.fillStyle='rgba(150,175,220,.72)';
+  ctx.fillText('RELATIVE FLUX  '+flux.toFixed(5),gx0+2,gy0-6);
   ctx.restore();
 
-  drawScan();
-  readout([
+  // ---- 관측에서 수치를 뽑아 가는 과정 ----
+  // 통과가 진행될수록 알 수 있는 것이 늘어난다. 실제 외계행성 관측이 그렇다.
+  const phase=prog<TR_C.c1?0:prog<0.5?1:prog<TR_C.c4?2:3;
+  const durH=6.4;                                        // 관측된 통과 시간(시간)
+  const rpRs=Math.sqrt(depth);
+  const lines=[
     'TRANSIT  SF-114 b',
-    'DEPTH  '+(dip*100).toFixed(2)+' %',
-    'MID-TRANSIT  T-'+((1-prog)*100).toFixed(0)+'%'
-  ]);
+    'STAR  G2V   m_V 11.42'
+  ];
+  if(phase===0) lines.push('BASELINE  —  AWAITING INGRESS');
+  if(phase>=1) lines.push('INGRESS  T+'+(TR_C.c1*100).toFixed(0)+'%   DEPTH '+(depth*100).toFixed(2)+' %');
+  if(phase>=2) lines.push('Rp/Rs  '+rpRs.toFixed(3)+'   →  Rp  '+(rpRs*109.2).toFixed(2)+' R⊕');
+  if(phase>=3){
+    lines.push('EGRESS  DURATION '+durH.toFixed(1)+' h');
+    lines.push('a  0.048 AU   P  4.12 d');
+    lines.push('M_V  +4.85   d  '+(Math.pow(10,(11.42-4.85+5)/5)/1).toFixed(0)+' pc');
+  }
+  readout(lines);
+
+  drawScan();
 }
 
 /* ==========================================================================
@@ -488,25 +581,39 @@ function fxProbe(prog,t){
   });
   ctx.restore();
 
+  // 관측 수치 — 벨트 탐사와 같은 결로 맞춘다
+  const au=p.r*AU_REF;
+  // 항해는 실제로 수십 년짜리다. 세션 길이를 그대로 쓰면 광속을 넘는 값이 나온다.
+  const MISSION_Y=18;                          // 이 항해에 걸리는 햇수
+  const prev=probePos(Math.max(0,prog-0.005));
+  const dAU=Math.abs(p.r-prev.r)*AU_REF;
+  const v=dAU*1.496e8/(0.005*MISSION_Y*3.156e7);   // km/s
+  const lag=au*499.0;                          // 빛이 닿는 시간(초). 1 AU = 499초
+  const hh=Math.floor(lag/3600), mm=Math.floor(lag%3600/60);
   drawScan();
   readout([
     'PROBE  SF-VOYAGER',
-    (p.r*AU_REF).toFixed(2)+' AU   '+(prog*100).toFixed(0)+'% TRAVELLED',
-    'ARRIVAL  T-'+((1-prog)*100).toFixed(0)+'%'
+    'TARGET  KUIPER BELT  '+(PROBE.rEnd*AU_REF).toFixed(0)+' AU',
+    'RANGE  '+au.toFixed(2)+' AU   v '+v.toFixed(1)+' km/s',
+    'ELAPSED  '+(prog*MISSION_Y).toFixed(1)+' y',
+    'SIGNAL DELAY  '+hh+'h '+String(mm).padStart(2,'0')+'m',
+    'TRAVELLED  '+(prog*100).toFixed(0)+' %   ARRIVAL T-'+((1-prog)*100).toFixed(0)+'%'
   ]);
 }
 
 /* ---- 조작 ---- */
 const NOTES={
-  comet:'이심률 0.86 의 긴 타원을 <b>실선으로</b> 그립니다. 혜성은 점 하나이고 꼬리는 '+
-        '<b>언제나 중심별 반대편</b>을 향합니다 — 실제 혜성 꼬리가 태양풍에 밀리는 방향입니다. '+
-        '가까워질수록 길고 진해지며, 옆으로 살짝 휜 먼지 꼬리가 한 갈래 더 붙습니다. '+
-        '평균근점이각을 진행도에 비례해 옮기므로 <b>세션이 끝나는 순간 근일점</b>에 닿습니다.',
-  transit:'행성이 중심별 앞을 가로지르고 세션이 끝날 때 가장 많이 가립니다. 왼쪽 위 '+
-        '<b>광도 곡선</b>은 두 원이 겹친 넓이로 계산한 실제 밝기 변화입니다 — 외계행성을 '+
-        '찾아내는 방법이 이것입니다.',
+  comet:'꼬리가 둘입니다. <b>이온 꼬리</b>는 태양풍에 밀려 별 반대편으로 곧게 뻗고 '+
+        '매듭이 바깥으로 흘러가며 흔들립니다. <b>먼지 꼬리</b>는 무거워 곧바로 밀리지 못하고 '+
+        '제 궤도에 뒤처져 <b>휘어진 부채꼴</b>이 됩니다 — 실제 혜성이 이렇게 생겼습니다. '+
+        '가까워질수록 코마가 부풀고 꼬리가 격해지며, <b>끝나는 순간 근일점</b>에 닿습니다.',
+  transit:'<b>옆에서 본 시점</b>입니다 — 식은 궤도면을 옆에서 봐야 보입니다. 통과가 시작되기 '+
+        '전부터 <b>밝기가 완전히 회복될 때까지</b> 이어지고, 광도 곡선은 관측된 구간만 그려집니다. '+
+        '진행에 따라 깊이에서 반지름비를, 통과 시간에서 궤도 거리와 주기를, 끝에는 절대 광도와 '+
+        '거리까지 <b>차례로 계산해 나갑니다</b>.',
   probe:'중심별에서 출발해 카이퍼 벨트로 나아갑니다. <b>지나온 경로는 실선, 남은 경로는 '+
-        '점선</b>으로 남아 진행도가 한눈에 보입니다. 도착이 곧 완료입니다.'
+        '점선</b>입니다. 거리·속도·<b>전파 지연</b>이 함께 표시됩니다 — 멀어질수록 신호가 '+
+        '늦게 닿습니다.'
 };
 let fx='comet', prog=0, playing=false, playT=0;
 const $=s=>document.querySelector(s);
@@ -545,6 +652,7 @@ let last=performance.now();
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#04050b';ctx.fillRect(0,0,W,H);
   const t=now/1000;
+  TILT=TILT_OF[fx];                    // 식은 옆에서 봐야 보인다
   if(fx==='comet')fxComet(prog,t);
   else if(fx==='transit')fxTransit(prog,t);
   else fxProbe(prog,t);
