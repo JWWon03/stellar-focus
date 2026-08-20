@@ -157,11 +157,12 @@ const BELT=[];
 }
 const AU_REF=30;                       // 기준 궤도를 30 AU 로 본다 (본편과 같은 척도)
 
-function drawScene(t){
+function drawScene(t,dim){
   const g=geom();
+  const k=dim===undefined?1:dim;      // 주변 천체를 물러나게 하는 배율
   // 궤도선
   ctx.save();
-  ctx.strokeStyle='rgba(150,180,255,.14)';ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(150,180,255,'+(0.14*k).toFixed(3)+')';ctx.lineWidth=1;
   PLANETS.forEach(p=>{
     ctx.beginPath();
     for(let k=0;k<=90;k++){
@@ -180,7 +181,7 @@ function drawScene(t){
     const depth=(p.y*Math.sin(TILT)+o.z*Math.cos(TILT));
     const rr=Math.hypot(p.x,p.y,o.z)||1e-6;
     const f=clamp((1-depth/rr)*0.5,0,1);
-    ctx.globalAlpha=(0.10+0.34*f*f)*o.br;
+    ctx.globalAlpha=(0.10+0.34*f*f)*o.br*k;
     ctx.fillStyle='#a8b6c6';
     const rad=Math.max(0.5,o.sz*g.R*0.0042);
     ctx.beginPath();ctx.arc(s.x,s.y+o.z*g.R*Math.cos(TILT)*0.6,rad,0,TAU);ctx.fill();
@@ -188,11 +189,14 @@ function drawScene(t){
   ctx.restore();
 
   // 행성
+  ctx.save();
+  ctx.globalAlpha=k;
   PLANETS.forEach(p=>{
     const s=toScreen(posFromM(p.el,p.M0+t*p.sp*0.05),g);
     ctx.fillStyle=p.c;
     ctx.beginPath();ctx.arc(s.x,s.y,p.sz,0,TAU);ctx.fill();
   });
+  ctx.restore();
 
   // 중심별 — 집중 중 모습(코로나를 줄이고 경계가 뚜렷한 원)
   const sc=toScreen({x:0,y:0},g), R=Math.max(7,g.R*0.055);
@@ -209,10 +213,10 @@ function drawScene(t){
 }
 
 /* ---- 화면 질감: 모눈 + 스캔라인 ---- */
-function drawGrid(){
+function drawGrid(col){
   const step=Math.max(44,Math.round(Math.min(W,H)/14));
   ctx.save();
-  ctx.strokeStyle='rgba(138,180,255,.055)';ctx.lineWidth=1;
+  ctx.strokeStyle=col||'rgba(138,180,255,.055)';ctx.lineWidth=1;
   ctx.beginPath();
   for(let x=step/2;x<W;x+=step){ctx.moveTo((x|0)+.5,0);ctx.lineTo((x|0)+.5,H);}
   for(let y=step/2;y<H;y+=step){ctx.moveTo(0,(y|0)+.5);ctx.lineTo(W,(y|0)+.5);}
@@ -391,10 +395,25 @@ function fxComet(prog,t){
   ctx.fillStyle=cg;ctx.beginPath();ctx.arc(s.x,s.y,comaR,0,TAU);ctx.fill();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,hr,0,TAU);ctx.fill();
 
-  // 표적 표시
+  // 표적 표시 — 수치를 브래킷 옆에 붙인다 (벨트 탐사와 같은 결)
+  // 속도는 비스-비바 식 그대로다: v = 29.78 * sqrt(2/r - 1/a)  [AU, km/s]
+  const auR=r*AU_REF, auA=COMET.a*AU_REF;
+  const vel=29.78*Math.sqrt(Math.max(0,2/auR-1/auA));
+  drawTargetBox(s,'255,196,64',[
+    'C/2026 SF1',
+    auR.toFixed(2)+' AU   v '+vel.toFixed(1)+' km/s',
+    'TAIL '+(ionL/Math.min(W,H)*100|0)+' %   ACT '+(act*100|0)+' %',
+    'PERIHELION  T-'+((1-prog)*100).toFixed(0)+'%'
+  ]);
+  drawScan();
+}
+
+/** 네 모서리 브래킷 + 그 옆의 수치. 오른쪽에 자리가 없으면 왼쪽에 붙인다. */
+function drawTargetBox(s,col,lines){
+  const C=a=>'rgba('+col+','+a+')';
+  const half=14, arm=6;
   ctx.save();
-  ctx.strokeStyle='rgba(255,196,64,.75)';ctx.lineWidth=1.3;
-  const half=13,arm=5.5;
+  ctx.strokeStyle=C(.8);ctx.lineWidth=1.3;ctx.lineCap='butt';
   [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
     ctx.beginPath();
     ctx.moveTo(s.x+sx*half, s.y+sy*half-sy*arm);
@@ -402,14 +421,17 @@ function fxComet(prog,t){
     ctx.lineTo(s.x+sx*half-sx*arm, s.y+sy*half);
     ctx.stroke();
   });
+  ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+  let bw=0;lines.forEach(t=>{bw=Math.max(bw,ctx.measureText(t).width);});
+  const right=s.x+half+bw+10<W-6;
+  ctx.textAlign=right?'left':'right';
+  const tx=right?s.x+half+7:s.x-half-7;
+  const ty=s.y-(lines.length-1)*6-1;
+  lines.forEach((t,i)=>{
+    ctx.fillStyle=i===0?C(.95):'rgba(198,216,248,.82)';
+    ctx.fillText(t,tx,ty+i*12);
+  });
   ctx.restore();
-
-  drawScan();
-  readout([
-    'COMET  C/2026 SF1',
-    (r*AU_REF).toFixed(2)+' AU',
-    'PERIHELION  T-'+((1-prog)*100).toFixed(0)+'%'
-  ]);
 }
 
 /* ==========================================================================
@@ -447,9 +469,11 @@ const TR_C={};
   TR_C.c1=(lo+hi)/2; TR_C.c4=1-TR_C.c1;         // 대칭이다
 }
 function fxTransit(prog,t){
-  const {g,star,R}=drawScene(t);
-  drawGrid();
+  // 관측 대상은 중심별과 미지의 천체뿐이다. 나머지는 물러나게 둔다.
+  const {g,star,R}=drawScene(t,0.22);
+  drawGrid('rgba(96,220,140,.075)');            // 레이더처럼 초록 모눈
 
+  const flux0=transitFlux(prog);
   const pr=R*TR.k*3.4;                   // 눈에 보이게 조금 키운다
   const px=star.x+transitX(prog)*R, py=star.y+TR.b*R*0.35;
 
@@ -460,13 +484,18 @@ function fxTransit(prog,t){
   ctx.moveTo(star.x-TR.x0*R,py);ctx.lineTo(star.x+TR.x0*R,py);ctx.stroke();
   ctx.restore();
 
-  ctx.fillStyle='#161a24';
+  ctx.fillStyle='#12161f';
   ctx.beginPath();ctx.arc(px,py,pr,0,TAU);ctx.fill();
-  ctx.strokeStyle='rgba(180,200,232,.55)';ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(120,235,170,.75)';ctx.lineWidth=1.2;
   ctx.beginPath();ctx.arc(px,py,pr,0,TAU);ctx.stroke();
+  // 미지의 천체에 표식을 붙인다
+  drawTargetBox({x:px,y:py},'96,220,140',[
+    'UNKNOWN BODY',
+    'FLUX '+flux0.toFixed(5)
+  ]);
 
-  // ---- 광도 곡선 ----
   const flux=transitFlux(prog), depth=1-transitFlux(0.5);
+  // ---- 광도 곡선 ----
   const gw=Math.min(228,W-44), gh=58, gx0=20, gy0=54;
   ctx.save();
   ctx.fillStyle='rgba(10,14,24,.6)';
@@ -475,7 +504,7 @@ function fxTransit(prog,t){
   const lo=1-depth*1.5, span=depth*1.9||1e-6;
   const yOf=v=>gy0+gh-5-(v-lo)/span*(gh-12);
   // 관측된 구간만 그린다 — 아직 오지 않은 미래를 미리 보여주면 안 된다
-  ctx.strokeStyle='rgba(138,180,255,.85)';ctx.lineWidth=1.4;
+  ctx.strokeStyle='rgba(120,235,170,.9)';ctx.lineWidth=1.4;
   ctx.beginPath();
   const N=Math.max(2,Math.round(120*prog));
   for(let k=0;k<=N;k++){
@@ -520,11 +549,35 @@ function fxTransit(prog,t){
    중심별에서 출발해 카이퍼 벨트를 향해 나아가고, 도착이 곧 완료다.
    지나온 경로는 실선, 남은 경로는 점선으로 남는다.
    ========================================================================== */
-const PROBE={ang0:-2.5, turn:1.35, rEnd:1.30};
+/* 스윙바이 항해.
+   실제 외행성 탐사선은 곧장 가지 않는다. 도중에 행성 곁을 스쳐 그 중력으로
+   방향을 틀고 속도를 얻는다(중력도움). 그래서 경로가 한 번 꺾이고, 꺾인
+   뒤가 더 빠르다.
+     다리 1  발사 → 중력도움 천체 (느리게, 크게 돌아서)
+     다리 2  스윙바이 → 카이퍼 벨트 (빠르게, 바깥으로) */
+const SWING={
+  rLaunch:0.10, rA:0.60, rEnd:1.34,   // 발사·중력도움·목표 반지름
+  a0:-2.35, aA:-0.30, aEnd:0.62,      // 각 구간의 각도
+  qA:0.52                             // 스윙바이가 일어나는 진행도
+};
 function probePos(q){
-  const r=0.10+(PROBE.rEnd-0.10)*ease(q);
-  const a=PROBE.ang0+PROBE.turn*q;
-  return {x:Math.cos(a)*r, y:Math.sin(a)*r, r};
+  let r,a;
+  if(q<SWING.qA){
+    const u=ease(q/SWING.qA);
+    r=SWING.rLaunch+(SWING.rA-SWING.rLaunch)*u;
+    a=SWING.a0+(SWING.aA-SWING.a0)*u;
+  }else{
+    const u=(q-SWING.qA)/(1-SWING.qA);
+    // 스윙바이 직후가 가장 빠르다 — 뒤로 갈수록 완만해진다
+    const e=1-Math.pow(1-u,1.7);
+    r=SWING.rA+(SWING.rEnd-SWING.rA)*e;
+    a=SWING.aA+(SWING.aEnd-SWING.aA)*e;
+  }
+  return {x:Math.cos(a)*r, y:Math.sin(a)*r, r, a};
+}
+/** 중력도움 천체의 자리 */
+function assistPos(){
+  return {x:Math.cos(SWING.aA)*SWING.rA, y:Math.sin(SWING.aA)*SWING.rA};
 }
 function fxProbe(prog,t){
   const {g,star,R}=drawScene(t);
@@ -535,7 +588,7 @@ function fxProbe(prog,t){
     if(dash)ctx.setLineDash(dash);
     ctx.strokeStyle=style;ctx.lineWidth=wd;
     ctx.beginPath();
-    const N=90;
+    const N=110;
     for(let k=0;k<=N;k++){
       const s=toScreen(probePos(q0+(q1-q0)*k/N),g);
       k?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);
@@ -545,8 +598,23 @@ function fxProbe(prog,t){
   path(prog,1,'rgba(150,180,255,.22)',1,[4,6]);
   path(0,prog,'rgba(168,208,255,.5)',1.4);
 
+  // 중력도움 천체와 스쳐 지나는 자리
+  const ap=toScreen(assistPos(),g);
+  ctx.save();
+  ctx.strokeStyle=prog>=SWING.qA?'rgba(168,208,255,.35)':'rgba(255,196,64,.45)';
+  ctx.setLineDash([2,4]);ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(ap.x,ap.y,16,0,TAU);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#cbb89a';
+  ctx.beginPath();ctx.arc(ap.x,ap.y,4.6,0,TAU);ctx.fill();
+  ctx.font='500 9px ui-monospace,SFMono-Regular,Menlo,monospace';
+  ctx.textAlign='center';
+  ctx.fillStyle=prog>=SWING.qA?'rgba(150,175,220,.5)':'rgba(255,196,64,.75)';
+  ctx.fillText('GRAVITY ASSIST',ap.x,ap.y+42);
+  ctx.restore();
+
   const p=probePos(prog), s=toScreen(p,g);
-  const ahead=probePos(Math.min(1,prog+0.01)), sa=toScreen(ahead,g);
+  const ahead=probePos(Math.min(1,prog+0.006)), sa=toScreen(ahead,g);
   const ang=Math.atan2(sa.y-s.y,sa.x-s.x);
 
   // 추진 불꽃 — 진행 반대 방향
@@ -568,37 +636,21 @@ function fxProbe(prog,t){
   ctx.beginPath();ctx.moveTo(-1,-3.2);ctx.lineTo(-1,-7);ctx.moveTo(-1,3.2);ctx.lineTo(-1,7);ctx.stroke();
   ctx.restore();
 
-  // 표적 표시
-  ctx.save();
-  ctx.strokeStyle='rgba(96,214,255,.75)';ctx.lineWidth=1.3;
-  const half=13,arm=5.5;
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
-    ctx.beginPath();
-    ctx.moveTo(s.x+sx*half, s.y+sy*half-sy*arm);
-    ctx.lineTo(s.x+sx*half, s.y+sy*half);
-    ctx.lineTo(s.x+sx*half-sx*arm, s.y+sy*half);
-    ctx.stroke();
-  });
-  ctx.restore();
-
-  // 관측 수치 — 벨트 탐사와 같은 결로 맞춘다
-  const au=p.r*AU_REF;
-  // 항해는 실제로 수십 년짜리다. 세션 길이를 그대로 쓰면 광속을 넘는 값이 나온다.
+  // ---- 관측 수치 ----
   const MISSION_Y=18;                          // 이 항해에 걸리는 햇수
+  const au=p.r*AU_REF;
   const prev=probePos(Math.max(0,prog-0.005));
-  const dAU=Math.abs(p.r-prev.r)*AU_REF;
-  const v=dAU*1.496e8/(0.005*MISSION_Y*3.156e7);   // km/s
+  const v=Math.abs(p.r-prev.r)*AU_REF*1.496e8/(0.005*MISSION_Y*3.156e7);
   const lag=au*499.0;                          // 빛이 닿는 시간(초). 1 AU = 499초
   const hh=Math.floor(lag/3600), mm=Math.floor(lag%3600/60);
-  drawScan();
-  readout([
-    'PROBE  SF-VOYAGER',
-    'TARGET  KUIPER BELT  '+(PROBE.rEnd*AU_REF).toFixed(0)+' AU',
-    'RANGE  '+au.toFixed(2)+' AU   v '+v.toFixed(1)+' km/s',
-    'ELAPSED  '+(prog*MISSION_Y).toFixed(1)+' y',
-    'SIGNAL DELAY  '+hh+'h '+String(mm).padStart(2,'0')+'m',
-    'TRAVELLED  '+(prog*100).toFixed(0)+' %   ARRIVAL T-'+((1-prog)*100).toFixed(0)+'%'
+  drawTargetBox(s,'96,214,255',[
+    'SF-VOYAGER',
+    au.toFixed(2)+' AU   v '+v.toFixed(1)+' km/s',
+    'DELAY '+hh+'h'+String(mm).padStart(2,'0')+'m   T+'+(prog*MISSION_Y).toFixed(1)+' y',
+    prog<SWING.qA?'CRUISE → ASSIST T-'+((SWING.qA-prog)*100).toFixed(0)+'%'
+                 :'POST-ASSIST → BELT T-'+((1-prog)*100).toFixed(0)+'%'
   ]);
+  drawScan();
 }
 
 /* ---- 조작 ---- */
@@ -607,13 +659,13 @@ const NOTES={
         '매듭이 바깥으로 흘러가며 흔들립니다. <b>먼지 꼬리</b>는 무거워 곧바로 밀리지 못하고 '+
         '제 궤도에 뒤처져 <b>휘어진 부채꼴</b>이 됩니다 — 실제 혜성이 이렇게 생겼습니다. '+
         '가까워질수록 코마가 부풀고 꼬리가 격해지며, <b>끝나는 순간 근일점</b>에 닿습니다.',
-  transit:'<b>옆에서 본 시점</b>입니다 — 식은 궤도면을 옆에서 봐야 보입니다. 통과가 시작되기 '+
+  transit:'<b>옆에서 본 시점</b>이고, 관측 대상인 <b>중심별과 미지의 천체만</b> 또렷합니다. 통과가 시작되기 '+
         '전부터 <b>밝기가 완전히 회복될 때까지</b> 이어지고, 광도 곡선은 관측된 구간만 그려집니다. '+
         '진행에 따라 깊이에서 반지름비를, 통과 시간에서 궤도 거리와 주기를, 끝에는 절대 광도와 '+
         '거리까지 <b>차례로 계산해 나갑니다</b>.',
-  probe:'중심별에서 출발해 카이퍼 벨트로 나아갑니다. <b>지나온 경로는 실선, 남은 경로는 '+
-        '점선</b>입니다. 거리·속도·<b>전파 지연</b>이 함께 표시됩니다 — 멀어질수록 신호가 '+
-        '늦게 닿습니다.'
+  probe:'<b>스윙바이 궤도</b>입니다. 실제 외행성 탐사선은 곧장 가지 않고 도중에 행성 곁을 '+
+        '스쳐 그 중력으로 방향을 틀고 속도를 얻습니다. 그래서 경로가 한 번 꺾이고 <b>꺾인 뒤가 '+
+        '더 빠릅니다</b>. 거리·속도·<b>전파 지연</b>이 함께 표시됩니다.'
 };
 let fx='comet', prog=0, playing=false, playT=0;
 const $=s=>document.querySelector(s);
