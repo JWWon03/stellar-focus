@@ -162,12 +162,18 @@ const AU_REF=30;                       // 기준 궤도를 30 AU 로 본다 (본
    랑데부(탐사선과 행성이 같은 자리에서 만나는 것)가 성립한다. */
 const A_REF=0.90;
 function revOf(a,prog){ return prog*TAU*Math.pow(A_REF/a,1.5); }
-function drawScene(prog,t,dim){
+/* 연출마다 무엇을 앞세울지가 다르다.
+     o.planets  행성과 궤도선 배율
+     o.belt     카이퍼 벨트 배율 (1 보다 크면 더 또렷해진다)
+     o.skip     장면에서 뺄 행성 번호 (연출 쪽에서 직접 그릴 것) */
+function drawScene(prog,t,o){
+  o=o||{};
+  const kp=o.planets===undefined?1:o.planets;
+  const kb=o.belt===undefined?1:o.belt;
   const g=geom();
-  const k=dim===undefined?1:dim;      // 주변 천체를 물러나게 하는 배율
   // 궤도선
   ctx.save();
-  ctx.strokeStyle='rgba(150,180,255,'+(0.14*k).toFixed(3)+')';ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(150,180,255,'+(0.14*kp).toFixed(3)+')';ctx.lineWidth=1;
   PLANETS.forEach(p=>{
     ctx.beginPath();
     for(let k=0;k<=90;k++){
@@ -180,23 +186,24 @@ function drawScene(prog,t,dim){
 
   // 카이퍼 벨트 — 별 반대편이 밝고 이쪽 편이 어둡다 (본편과 같은 위상 처리)
   ctx.save();
-  BELT.forEach(o=>{
-    const p=posFromM(o.el,o.M0+revOf(o.el.a,prog));
+  BELT.forEach(b=>{
+    const p=posFromM(b.el,b.M0+revOf(b.el.a,prog));
     const s=toScreen(p,g);
-    const depth=(p.y*Math.sin(TILT)+o.z*Math.cos(TILT));
-    const rr=Math.hypot(p.x,p.y,o.z)||1e-6;
+    const depth=(p.y*Math.sin(TILT)+b.z*Math.cos(TILT));
+    const rr=Math.hypot(p.x,p.y,b.z)||1e-6;
     const f=clamp((1-depth/rr)*0.5,0,1);
-    ctx.globalAlpha=(0.10+0.34*f*f)*o.br*k;
-    ctx.fillStyle='#a8b6c6';
-    const rad=Math.max(0.5,o.sz*g.R*0.0042);
-    ctx.beginPath();ctx.arc(s.x,s.y+o.z*g.R*Math.cos(TILT)*0.6,rad,0,TAU);ctx.fill();
+    ctx.globalAlpha=Math.min(1,(0.10+0.34*f*f)*b.br*kb);
+    ctx.fillStyle='#b8c6d8';
+    const rad=Math.max(0.5,b.sz*g.R*0.0042*(kb>1?1.15:1));
+    ctx.beginPath();ctx.arc(s.x,s.y+b.z*g.R*Math.cos(TILT)*0.6,rad,0,TAU);ctx.fill();
   });
   ctx.restore();
 
   // 행성
   ctx.save();
-  ctx.globalAlpha=k;
-  PLANETS.forEach(p=>{
+  ctx.globalAlpha=kp;
+  PLANETS.forEach((p,i)=>{
+    if(o.skip===i)return;              // 연출 쪽에서 직접 그린다
     const s=toScreen(posFromM(p.el,p.M0+revOf(p.el.a,prog)),g);
     ctx.fillStyle=p.c;
     ctx.beginPath();ctx.arc(s.x,s.y,p.sz,0,TAU);ctx.fill();
@@ -477,7 +484,7 @@ const TR_C={};
 }
 function fxTransit(prog,t){
   // 관측 대상은 중심별과 미지의 천체뿐이다. 나머지는 물러나게 둔다.
-  const {g,star,R}=drawScene(prog,t,0.22);
+  const {g,star,R}=drawScene(prog,t,{planets:0.22,belt:0.22});
   drawGrid('rgba(96,220,140,.075)');            // 레이더처럼 초록 모눈
 
   const flux0=transitFlux(prog);
@@ -616,7 +623,9 @@ function probeSpeed(q){
 }
 
 function fxProbe(prog,t){
-  const {g,star,R}=drawScene(prog,t);
+  // 목적지인 벨트는 또렷하게, 중력도움 천체는 연출 쪽에서 직접 그린다.
+  // 나머지 행성은 물러나 있어도 된다.
+  const {g,star,R}=drawScene(prog,t,{planets:0.30,belt:1.55,skip:ASSIST_I});
   drawGrid();
 
   const path=(q0,q1,style,wd,dash)=>{
@@ -634,7 +643,17 @@ function fxProbe(prog,t){
   path(prog,1,'rgba(150,180,255,.22)',1,[4,6]);
   path(0,prog,'rgba(168,208,255,.5)',1.4);
 
-  // 중력도움 천체 — 실제로 공전하므로 '지금 자리'와 '만날 자리'가 다르다
+  // 중력도움 천체 — 실제로 공전하므로 '지금 자리'와 '만날 자리'가 다르다.
+  // 이 행성만 또렷하므로 제 궤도선도 다시 그려 준다.
+  ctx.save();
+  ctx.strokeStyle='rgba(203,184,154,.28)';ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let k=0;k<=100;k++){
+    const sp=toScreen(posFromM(PLANETS[ASSIST_I].el,k/100*TAU),g);
+    k?ctx.lineTo(sp.x,sp.y):ctx.moveTo(sp.x,sp.y);
+  }
+  ctx.closePath();ctx.stroke();
+  ctx.restore();
   const now=toScreen(assistAt(prog),g);
   const rv=rendezvous(), rvs=toScreen(rv,g);
   const before=prog<SWING.qA;
