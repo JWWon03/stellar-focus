@@ -157,7 +157,12 @@ const BELT=[];
 }
 const AU_REF=30;                       // 기준 궤도를 30 AU 로 본다 (본편과 같은 척도)
 
-function drawScene(t,dim){
+/* 본편과 같은 규칙: 가장 바깥 궤도가 세션 한 번에 정확히 한 바퀴 돈다.
+   안쪽은 케플러 제3법칙으로 더 빠르다. 벽시계가 아니라 진행도에 묶어야
+   랑데부(탐사선과 행성이 같은 자리에서 만나는 것)가 성립한다. */
+const A_REF=0.90;
+function revOf(a,prog){ return prog*TAU*Math.pow(A_REF/a,1.5); }
+function drawScene(prog,t,dim){
   const g=geom();
   const k=dim===undefined?1:dim;      // 주변 천체를 물러나게 하는 배율
   // 궤도선
@@ -176,7 +181,7 @@ function drawScene(t,dim){
   // 카이퍼 벨트 — 별 반대편이 밝고 이쪽 편이 어둡다 (본편과 같은 위상 처리)
   ctx.save();
   BELT.forEach(o=>{
-    const p=posFromM(o.el,o.M0+t*0.05);
+    const p=posFromM(o.el,o.M0+revOf(o.el.a,prog));
     const s=toScreen(p,g);
     const depth=(p.y*Math.sin(TILT)+o.z*Math.cos(TILT));
     const rr=Math.hypot(p.x,p.y,o.z)||1e-6;
@@ -192,7 +197,7 @@ function drawScene(t,dim){
   ctx.save();
   ctx.globalAlpha=k;
   PLANETS.forEach(p=>{
-    const s=toScreen(posFromM(p.el,p.M0+t*p.sp*0.05),g);
+    const s=toScreen(posFromM(p.el,p.M0+revOf(p.el.a,prog)),g);
     ctx.fillStyle=p.c;
     ctx.beginPath();ctx.arc(s.x,s.y,p.sz,0,TAU);ctx.fill();
   });
@@ -279,7 +284,7 @@ function cometStartR(g){
   return lo*1.03;
 }
 function fxComet(prog,t){
-  const {g,star,R}=drawScene(t);
+  const {g,star,R}=drawScene(prog,t);
   drawGrid();
 
   const r0=cometStartR(g);
@@ -472,7 +477,7 @@ const TR_C={};
 }
 function fxTransit(prog,t){
   // 관측 대상은 중심별과 미지의 천체뿐이다. 나머지는 물러나게 둔다.
-  const {g,star,R}=drawScene(t,0.22);
+  const {g,star,R}=drawScene(prog,t,0.22);
   drawGrid('rgba(96,220,140,.075)');            // 레이더처럼 초록 모눈
 
   const flux0=transitFlux(prog);
@@ -557,45 +562,61 @@ function fxTransit(prog,t){
    뒤가 더 빠르다.
      다리 1  발사 → 중력도움 천체 (느리게, 크게 돌아서)
      다리 2  스윙바이 → 카이퍼 벨트 (빠르게, 바깥으로) */
+/* 스윙바이 항해.
+   중력도움에 쓰는 천체는 장식이 아니라 실제로 공전하는 행성이다. 그래서
+   탐사선은 행성이 지금 있는 자리가 아니라 **도착할 자리**를 겨냥해 날아간다 —
+   실제 항행 계획이 그렇다. 만나는 순간의 좌표를 먼저 구하고, 그 점을 지나도록
+   두 다리를 잇는다.
+
+   행성 입장에서 보면 탐사선은 방향만 꺾일 뿐 속력은 그대로다. 이득이 생기는
+   것은 행성 자신이 궤도를 돌고 있어 그 공전 운동량을 조금 빌려오기 때문이다. */
+const ASSIST_I=3;                    // 중력도움에 쓸 행성 (a=0.75)
 const SWING={
-  rLaunch:0.10, rA:0.60, rEnd:1.34,   // 발사·중력도움·목표 반지름
-  a0:-2.35, aA:-0.30, aEnd:0.62,      // 각 구간의 각도
-  qA:0.52,                            // 스윙바이가 일어나는 진행도
-  // 각 다리의 장반경(AU). 다리 1 은 발사점을 근일점, 중력도움 천체를
-  // 원일점으로 하는 전이 타원이다. 스윙바이로 에너지를 얻어 다리 2 는
-  // 훨씬 큰 궤도가 된다 — 그래야 벨트까지 나간다.
-  a1AU:(0.10+0.60)/2*AU_REF,
-  a2AU:60
+  rLaunch:0.10, rEnd:1.34,
+  a0:-2.35, sweep2:0.95,
+  qA:0.52,                           // 랑데부가 일어나는 진행도
+  a2AU:60                            // 스윙바이 뒤 궤도의 장반경
 };
-/* 구간 끝에서 변화율이 0 이 되는 보간을 쓰면 탐사선이 실제로 멈춰 선다.
-   지수를 1 미만으로 두어 끝에서도 계속 움직이게 한다. */
+/** 진행도에서의 중력도움 천체 위치 */
+function assistAt(prog){
+  const p=PLANETS[ASSIST_I];
+  const q=posFromM(p.el,p.M0+revOf(p.el.a,prog));
+  return {x:q.x, y:q.y, r:Math.hypot(q.x,q.y), a:Math.atan2(q.y,q.x)};
+}
+/** 만나는 순간의 좌표 — 이 점을 지나도록 경로를 잡는다 */
+function rendezvous(){ return assistAt(SWING.qA); }
+SWING.a1AU=0;                        // 아래에서 랑데부 반지름으로 채운다
+
 function probePos(q){
+  const rv=rendezvous();
   let r,a;
   if(q<SWING.qA){
+    // 다리 1 — 발사점을 근일점, 랑데부 지점을 원일점으로 하는 전이 타원.
+    // 구간 끝에서 변화율이 0 이 되는 보간을 쓰면 탐사선이 멈춰 서므로
+    // 지수를 1 미만으로 둔다.
     const u=q/SWING.qA;
-    r=SWING.rLaunch+(SWING.rA-SWING.rLaunch)*Math.pow(u,0.72);
-    a=SWING.a0+(SWING.aA-SWING.a0)*Math.pow(u,0.86);
+    r=SWING.rLaunch+(rv.r-SWING.rLaunch)*Math.pow(u,0.72);
+    a=SWING.a0+(rv.a-SWING.a0)*Math.pow(u,0.86);
   }else{
     const u=(q-SWING.qA)/(1-SWING.qA);
-    const e=1-Math.pow(1-u,1.7);      // 스윙바이 직후가 가장 빠르다
-    r=SWING.rA+(SWING.rEnd-SWING.rA)*e;
-    a=SWING.aA+(SWING.aEnd-SWING.aA)*e;
+    const e=1-Math.pow(1-u,1.7);     // 스윙바이 직후가 가장 빠르다
+    r=rv.r+(SWING.rEnd-rv.r)*e;
+    a=rv.a+SWING.sweep2*e;
   }
   return {x:Math.cos(a)*r, y:Math.sin(a)*r, r, a};
 }
 /** 태양중심 속도. 반지름 변화만 보면 원일점에서 0 이 나온다 —
     접선 방향 성분이 빠지기 때문이다. 비스-비바 식으로 제대로 구한다. */
 function probeSpeed(q){
+  const rv=rendezvous();
+  const a1AU=(SWING.rLaunch+rv.r)/2*AU_REF;   // 전이 타원의 장반경
   const r=probePos(q).r*AU_REF;
-  const aAU=q<SWING.qA?SWING.a1AU:SWING.a2AU;
+  const aAU=q<SWING.qA?a1AU:SWING.a2AU;
   return 29.78*Math.sqrt(Math.max(0.0001,2/r-1/aAU));
 }
-/** 중력도움 천체의 자리 */
-function assistPos(){
-  return {x:Math.cos(SWING.aA)*SWING.rA, y:Math.sin(SWING.aA)*SWING.rA};
-}
+
 function fxProbe(prog,t){
-  const {g,star,R}=drawScene(t);
+  const {g,star,R}=drawScene(prog,t);
   drawGrid();
 
   const path=(q0,q1,style,wd,dash)=>{
@@ -613,19 +634,46 @@ function fxProbe(prog,t){
   path(prog,1,'rgba(150,180,255,.22)',1,[4,6]);
   path(0,prog,'rgba(168,208,255,.5)',1.4);
 
-  // 중력도움 천체와 스쳐 지나는 자리
-  const ap=toScreen(assistPos(),g);
+  // 중력도움 천체 — 실제로 공전하므로 '지금 자리'와 '만날 자리'가 다르다
+  const now=toScreen(assistAt(prog),g);
+  const rv=rendezvous(), rvs=toScreen(rv,g);
+  const before=prog<SWING.qA;
   ctx.save();
-  ctx.strokeStyle=prog>=SWING.qA?'rgba(168,208,255,.35)':'rgba(255,196,64,.45)';
-  ctx.setLineDash([2,4]);ctx.lineWidth=1;
-  ctx.beginPath();ctx.arc(ap.x,ap.y,16,0,TAU);ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle='#cbb89a';
-  ctx.beginPath();ctx.arc(ap.x,ap.y,4.6,0,TAU);ctx.fill();
   ctx.font='500 9px ui-monospace,SFMono-Regular,Menlo,monospace';
   ctx.textAlign='center';
-  ctx.fillStyle=prog>=SWING.qA?'rgba(150,175,220,.5)':'rgba(255,196,64,.75)';
-  ctx.fillText('GRAVITY ASSIST',ap.x,ap.y+42);
+  if(before){
+    // 아직 만나기 전 — 행성이 도착할 자리를 겨냥하고 있다는 것을 보인다
+    ctx.setLineDash([2,4]);ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(255,196,64,.30)';
+    ctx.beginPath();ctx.arc(rvs.x,rvs.y,15,0,TAU);ctx.stroke();
+    // 행성이 앞으로 지나갈 길
+    ctx.strokeStyle='rgba(255,196,64,.22)';
+    ctx.beginPath();
+    for(let k=0;k<=40;k++){
+      const q=prog+(SWING.qA-prog)*k/40;
+      const sp=toScreen(assistAt(q),g);
+      k?ctx.lineTo(sp.x,sp.y):ctx.moveTo(sp.x,sp.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 만날 자리 표식 — 작은 십자
+    ctx.strokeStyle='rgba(255,196,64,.6)';ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(rvs.x-6,rvs.y);ctx.lineTo(rvs.x+6,rvs.y);
+    ctx.moveTo(rvs.x,rvs.y-6);ctx.lineTo(rvs.x,rvs.y+6);
+    ctx.stroke();
+    // 탐사선 수치 상자와 겹치면 글자는 생략한다
+    const ps=toScreen(probePos(prog),g);
+    if(Math.hypot(ps.x-rvs.x,ps.y-rvs.y)>110){
+      ctx.fillStyle='rgba(255,196,64,.7)';
+      ctx.fillText('RENDEZVOUS',rvs.x,rvs.y-24);
+    }
+  }
+  // 행성 본체 (지금 자리)
+  ctx.fillStyle='#cbb89a';
+  ctx.beginPath();ctx.arc(now.x,now.y,5.2,0,TAU);ctx.fill();
+  ctx.fillStyle=before?'rgba(203,184,154,.75)':'rgba(150,175,220,.5)';
+  ctx.fillText(before?'ASSIST BODY':'GRAVITY ASSIST ✓',now.x,now.y+22);
   ctx.restore();
 
   const p=probePos(prog), s=toScreen(p,g);
