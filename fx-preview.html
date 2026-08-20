@@ -268,7 +268,7 @@ function cometPos(r){
     화면 대각선으로 어림잡으면 들어오는 방향에 따라 한참 뒤에야 보인다.
     실제로 화면을 벗어나는 지점을 찾아 그 조금 바깥에서 출발한다. */
 function cometStartR(g){
-  const m=Math.min(W,H)*0.12;                      // 여유
+  const m=8;                                       // 화면 가장자리 바로 바깥
   const inFrame=r=>{
     const s=toScreen(cometPos(r),g);
     return s.x>-m&&s.x<W+m&&s.y>-m&&s.y<H+m;
@@ -276,7 +276,7 @@ function cometStartR(g){
   let lo=COMET.rPeri, hi=Math.min(COMET.a*(1+COMET.e)*0.98,6);
   if(inFrame(hi)) return hi;
   for(let i=0;i<24;i++){const mid=(lo+hi)/2;if(inFrame(mid))lo=mid;else hi=mid;}
-  return lo*1.06;
+  return lo*1.03;
 }
 function fxComet(prog,t){
   const {g,star,R}=drawScene(t);
@@ -399,7 +399,9 @@ function fxComet(prog,t){
   // 속도는 비스-비바 식 그대로다: v = 29.78 * sqrt(2/r - 1/a)  [AU, km/s]
   const auR=r*AU_REF, auA=COMET.a*AU_REF;
   const vel=29.78*Math.sqrt(Math.max(0,2/auR-1/auA));
-  drawTargetBox(s,'255,196,64',[
+  // 화면 밖에 있으면 표식도 수치도 띄우지 않는다 — 없는 것을 가리킬 수는 없다
+  const onScreen=s.x>6&&s.x<W-6&&s.y>6&&s.y<H-6;
+  if(onScreen) drawTargetBox(s,'255,196,64',[
     'C/2026 SF1',
     auR.toFixed(2)+' AU   v '+vel.toFixed(1)+' km/s',
     'TAIL '+(ionL/Math.min(W,H)*100|0)+' %   ACT '+(act*100|0)+' %',
@@ -558,22 +560,35 @@ function fxTransit(prog,t){
 const SWING={
   rLaunch:0.10, rA:0.60, rEnd:1.34,   // 발사·중력도움·목표 반지름
   a0:-2.35, aA:-0.30, aEnd:0.62,      // 각 구간의 각도
-  qA:0.52                             // 스윙바이가 일어나는 진행도
+  qA:0.52,                            // 스윙바이가 일어나는 진행도
+  // 각 다리의 장반경(AU). 다리 1 은 발사점을 근일점, 중력도움 천체를
+  // 원일점으로 하는 전이 타원이다. 스윙바이로 에너지를 얻어 다리 2 는
+  // 훨씬 큰 궤도가 된다 — 그래야 벨트까지 나간다.
+  a1AU:(0.10+0.60)/2*AU_REF,
+  a2AU:60
 };
+/* 구간 끝에서 변화율이 0 이 되는 보간을 쓰면 탐사선이 실제로 멈춰 선다.
+   지수를 1 미만으로 두어 끝에서도 계속 움직이게 한다. */
 function probePos(q){
   let r,a;
   if(q<SWING.qA){
-    const u=ease(q/SWING.qA);
-    r=SWING.rLaunch+(SWING.rA-SWING.rLaunch)*u;
-    a=SWING.a0+(SWING.aA-SWING.a0)*u;
+    const u=q/SWING.qA;
+    r=SWING.rLaunch+(SWING.rA-SWING.rLaunch)*Math.pow(u,0.72);
+    a=SWING.a0+(SWING.aA-SWING.a0)*Math.pow(u,0.86);
   }else{
     const u=(q-SWING.qA)/(1-SWING.qA);
-    // 스윙바이 직후가 가장 빠르다 — 뒤로 갈수록 완만해진다
-    const e=1-Math.pow(1-u,1.7);
+    const e=1-Math.pow(1-u,1.7);      // 스윙바이 직후가 가장 빠르다
     r=SWING.rA+(SWING.rEnd-SWING.rA)*e;
     a=SWING.aA+(SWING.aEnd-SWING.aA)*e;
   }
   return {x:Math.cos(a)*r, y:Math.sin(a)*r, r, a};
+}
+/** 태양중심 속도. 반지름 변화만 보면 원일점에서 0 이 나온다 —
+    접선 방향 성분이 빠지기 때문이다. 비스-비바 식으로 제대로 구한다. */
+function probeSpeed(q){
+  const r=probePos(q).r*AU_REF;
+  const aAU=q<SWING.qA?SWING.a1AU:SWING.a2AU;
+  return 29.78*Math.sqrt(Math.max(0.0001,2/r-1/aAU));
 }
 /** 중력도움 천체의 자리 */
 function assistPos(){
@@ -639,8 +654,7 @@ function fxProbe(prog,t){
   // ---- 관측 수치 ----
   const MISSION_Y=18;                          // 이 항해에 걸리는 햇수
   const au=p.r*AU_REF;
-  const prev=probePos(Math.max(0,prog-0.005));
-  const v=Math.abs(p.r-prev.r)*AU_REF*1.496e8/(0.005*MISSION_Y*3.156e7);
+  const v=probeSpeed(prog);
   const lag=au*499.0;                          // 빛이 닿는 시간(초). 1 AU = 499초
   const hh=Math.floor(lag/3600), mm=Math.floor(lag%3600/60);
   drawTargetBox(s,'96,214,255',[
@@ -663,9 +677,10 @@ const NOTES={
         '전부터 <b>밝기가 완전히 회복될 때까지</b> 이어지고, 광도 곡선은 관측된 구간만 그려집니다. '+
         '진행에 따라 깊이에서 반지름비를, 통과 시간에서 궤도 거리와 주기를, 끝에는 절대 광도와 '+
         '거리까지 <b>차례로 계산해 나갑니다</b>.',
-  probe:'<b>스윙바이 궤도</b>입니다. 실제 외행성 탐사선은 곧장 가지 않고 도중에 행성 곁을 '+
-        '스쳐 그 중력으로 방향을 틀고 속도를 얻습니다. 그래서 경로가 한 번 꺾이고 <b>꺾인 뒤가 '+
-        '더 빠릅니다</b>. 거리·속도·<b>전파 지연</b>이 함께 표시됩니다.'
+  probe:'<b>스윙바이 궤도</b>입니다. 행성 곁을 스치며 그 <b>공전 운동에서 운동량을 빌려</b> '+
+        '속도를 얻습니다 — 행성 입장에서 보면 방향만 꺾일 뿐 속력은 그대로이고, 이득은 행성이 '+
+        '자기 궤도를 돌고 있기 때문에 생깁니다. 속도는 비스-비바 식으로 구합니다. 별에서 멀어질수록 '+
+        '느려지다가 <b>스윙바이에서 뛰어오르고</b>, 다시 완만히 줄어듭니다.'
 };
 let fx='comet', prog=0, playing=false, playT=0;
 const $=s=>document.querySelector(s);
