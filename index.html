@@ -1675,7 +1675,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.20-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.20-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3457,22 +3457,36 @@ function fxProbe(ctx,prog,now){
   ctx.restore();
 
   // ---- 탐사 목적지 ----
+  // 목적지는 벨트의 작은 소천체다. 큰 원이나 브래킷으로 감싸면 실제보다
+  // 훨씬 커 보인다. 회색 점 하나에 십자 표식만 얹는다.
   const reached=prog>=PB.qT;
   const tCol=reached?'96,214,255':'120,235,170';
   ctx.save();
-  ctx.strokeStyle='rgba('+tCol+',.5)';ctx.lineWidth=1;
-  ctx.setLineDash(reached?[]:[3,5]);
-  ctx.beginPath();ctx.arc(tS.x,tS.y,15,0,TAU);ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle='#d8e4f2';
-  ctx.beginPath();ctx.arc(tS.x,tS.y,2.6,0,TAU);ctx.fill();
-  ctx.restore();
-  // 탐사 중에는 탐사선이 목적지에 붙어 있어 두 상자가 겹친다. 그때는 생략한다.
+  ctx.strokeStyle='rgba('+tCol+',.75)';ctx.lineWidth=1.1;
+  const arm=9, gap=3.5;
+  ctx.beginPath();
+  ctx.moveTo(tS.x-arm,tS.y);ctx.lineTo(tS.x-gap,tS.y);
+  ctx.moveTo(tS.x+gap,tS.y);ctx.lineTo(tS.x+arm,tS.y);
+  ctx.moveTo(tS.x,tS.y-arm);ctx.lineTo(tS.x,tS.y-gap);
+  ctx.moveTo(tS.x,tS.y+gap);ctx.lineTo(tS.x,tS.y+arm);
+  ctx.stroke();
+  ctx.fillStyle='#9aa6b8';
+  ctx.beginPath();ctx.arc(tS.x,tS.y,1.6,0,TAU);ctx.fill();
+  // 라벨 — 탐사선이 붙어 있으면 겹치므로 생략한다
   const near=Math.hypot(s.x-tS.x,s.y-tS.y)<70;
-  if(!near) drawTargetBox(tS,tCol,[
-    'SURVEY TARGET  '+pbTargetObj().id,
-    (nowT.r*auPerUnit()).toFixed(1)+' AU'+(reached?'   ✓ REACHED':'')
-  ],20);
+  if(!near){
+    ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.textBaseline='alphabetic';
+    const lines=['SURVEY TARGET  '+pbTargetObj().id,
+                 (nowT.r*auPerUnit()).toFixed(1)+' AU'+(reached?'   ✓ REACHED':'')];
+    let bw=0;lines.forEach(t=>{bw=Math.max(bw,ctx.measureText(t).width);});
+    const right=tS.x+arm+bw+10<W-6;
+    ctx.textAlign=right?'left':'right';
+    const tx=right?tS.x+arm+7:tS.x-arm-7;
+    ctx.fillStyle='rgba('+tCol+',.9)';  ctx.fillText(lines[0],tx,tS.y-2);
+    ctx.fillStyle='rgba(198,216,248,.8)';ctx.fillText(lines[1],tx,tS.y+10);
+  }
+  ctx.restore();
 
   // ---- 탐사선 ----
   const ah=toScreen(pbPos(Math.min(1,prog+0.004)),g);
@@ -3789,6 +3803,8 @@ function startPhase(kind){
     // 식(엄폐)은 궤도면을 옆에서 봐야 천체가 별 앞을 지나는 것이 보인다.
     // 나머지는 관측 장비 화면답게 정면에서 내려다본다.
     VIEW.tiltTo=(S.intro==='transit')?TILT_EDGE:TILT_FACE; VIEW.azTo=0;
+    // 보간으로 기울어 들어오면 처음 1초가 edge-on 이 아니다. 즉시 맞춘다.
+    VIEW.tilt=VIEW.tiltTo;
   }
   save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
