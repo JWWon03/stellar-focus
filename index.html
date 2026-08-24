@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.25-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.26-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2262,12 +2262,16 @@ function toScreen(p,g){
 /* 띠를 넓히면 **같은 개수로는 오히려 성글어진다.** 화면에 비치는 고리의
    면적이 대략 `KB_MID × 2·KB_TUBE` 에 비례하므로, 두께를 0.105 → 0.19 로
    넓히면(면적 1.82배) 밀도를 1.34배로 올리는 데 2800개가 필요하다.
-   36~42 AU 에서 34~45 AU 가 되어 실제 카이퍼 벨트(30~50 AU)에 가까워졌다.
 
    더 넓히고 더 채우고 싶은 유혹이 있지만 비용이 가파르다 — 재어 보니
    3500개·두께 0.24 는 벨트 비용을 지금의 3배로 만든다. 2800·0.19 가
-   눈에 띄게 촘촘해지면서 비용은 DPR 2 기준 +1.5ms 남짓인 지점이다. */
-const KB_N=2800, KB_MID=1.31, KB_TUBE=0.19;
+   눈에 띄게 촘촘해지면서 비용은 DPR 2 기준 +1.5ms 남짓인 지점이다.
+
+   **마지막 행성과의 틈은 장반경 기준 0.24 다**(안쪽 가장자리 1.24). 예전
+   1.31 중심일 때는 0.12 였는데, 궤도가 타원이라 원일점까지 보면 0.034 밖에
+   안 남아 거의 붙어 있었다. 두 배로 벌린 값이다. 37~49 AU 가 되어 실제
+   카이퍼 벨트의 밀집 구간(42~48 AU)과도 더 맞는다. */
+const KB_N=2800, KB_MID=1.43, KB_TUBE=0.19;
 const KB_OUT=KB_MID+KB_TUBE;
 let _kb=null;
 function kbelt(){
