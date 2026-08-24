@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.25-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.25-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2420,8 +2420,11 @@ const KB_CAP=90, KB_HB=64;                // 자갈로 칠할 최대 개수 / �
 const KB_TONE=['#8d8177','#a8b6c6'];      // 암석질 / 얼음질
 /* 큰 소천체에만 쓰는 자갈 색 — [밝은 면, 중간, 그늘]. 실제 카이퍼 벨트
    천체는 반사율이 0.05 언저리로 아주 어둡다. 밝기가 아니라 명암 차이로
-   입체감을 낸다. */
-const KB_PEB=[['#d9c9ae','#8a7d6f','#221d18'],['#e4f0fa','#9fb0c0','#242b34']];
+   입체감을 낸다.
+
+   중간 색을 축으로 양끝을 1.18 배 벌려 대비를 조금 올린 값이다. 더 벌리면
+   (1.26 이상) 그늘이 거의 검정이 되어 윤곽이 배경에 묻힌다. */
+const KB_PEB=[['#e7d7b9','#8a7d6f','#0f0c08'],['#f0fcff','#9fb0c0','#0e131b']];
 /** 고정된 불규칙 윤곽을 현재 경로에 더한다 */
 /* 소천체 윤곽. 꼭짓점 일곱 개는 개체마다 고정이고(`o.shape`), **모서리는
    곡선으로 잇는다.** 직선으로 이으면 각진 결정처럼 보이는데 실제 소천체는
