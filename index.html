@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.24-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.24-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2259,7 +2259,15 @@ function toScreen(p,g){
    배치된 가장 바깥 궤도를 기준으로 그 바깥에 깔리므로, 행성이 늘어나면
    벨트도 함께 밀려난다. 레이더 연출이 이걸 대상으로 삼는다.
    ========================================================================== */
-const KB_N=1150, KB_MID=1.30, KB_TUBE=0.105;
+/* 띠를 넓히면 **같은 개수로는 오히려 성글어진다.** 화면에 비치는 고리의
+   면적이 대략 `KB_MID × 2·KB_TUBE` 에 비례하므로, 두께를 0.105 → 0.19 로
+   넓히면(면적 1.82배) 밀도를 1.34배로 올리는 데 2800개가 필요하다.
+   36~42 AU 에서 34~45 AU 가 되어 실제 카이퍼 벨트(30~50 AU)에 가까워졌다.
+
+   더 넓히고 더 채우고 싶은 유혹이 있지만 비용이 가파르다 — 재어 보니
+   3500개·두께 0.24 는 벨트 비용을 지금의 3배로 만든다. 2800·0.19 가
+   눈에 띄게 촘촘해지면서 비용은 DPR 2 기준 +1.5ms 남짓인 지점이다. */
+const KB_N=2800, KB_MID=1.31, KB_TUBE=0.19;
 const KB_OUT=KB_MID+KB_TUBE;
 let _kb=null;
 function kbelt(){
@@ -2408,6 +2416,7 @@ function starPositions(){
    몇 번의 칠하기로 끝낸다. */
 const KB_BK=4;
 const KB_TILE=4;                          // 칠하기 경계상자를 줄이는 화면 분할
+const KB_CAP=90, KB_HB=64;                // 자갈로 칠할 최대 개수 / 크기 히스토그램 칸
 const KB_TONE=['#8d8177','#a8b6c6'];      // 암석질 / 얼음질
 /* 큰 소천체에만 쓰는 자갈 색 — [밝은 면, 중간, 그늘]. 실제 카이퍼 벨트
    천체는 반사율이 0.05 언저리로 아주 어둡다. 밝기가 아니라 명암 차이로
@@ -2447,6 +2456,7 @@ function drawBelt(g){
      6 픽셀뿐이다 — 반올림 수준이다. */
   const NT=KB_TILE*KB_TILE, tw=W/KB_TILE, th=H/KB_TILE;
   const bin=new Array(2*KB_BK*NT).fill(null);
+  const hist=new Int32Array(KB_HB);          // o.sz(0.30~2.30) 분포
 
   for(let i=0;i<kb.length;i++){
     const o=kb[i], p=kbPos(o), sc=toScreen(p,g);
@@ -2461,6 +2471,7 @@ function drawBelt(g){
     const tx=Math.min(KB_TILE-1,Math.max(0,(sc.x/tw)|0));
     const ty=Math.min(KB_TILE-1,Math.max(0,(sc.y/th)|0));
     const key=((o.ice*KB_BK+bk)*NT)+ty*KB_TILE+tx;
+    hist[Math.min(KB_HB-1,Math.max(0,((o.sz-0.30)/2.0*KB_HB)|0))]++;
     (bin[key]||(bin[key]=[])).push(sc.x,sc.y,Math.max(0.45,rad*o.sz),i);
   }
 
@@ -2477,7 +2488,14 @@ function drawBelt(g){
      타일 경로 한 겹이다. 태블릿 크기(14.4M 픽셀)에서 +0.7ms 였다.
 
      빛은 원점(질량중심) 쪽에서 온다 — 밝기 `f` 를 구할 때 쓴 기준과 같다. */
-  const SOLID=Math.max(2.0,rad*1.9);
+  /* 그라디언트를 몇 개까지 칠할지는 **개수로 묶는다.** 크기 문턱을
+     고정하면(2.0px 처럼) 큰 화면에서 383 개가 걸려 프레임이 멈추고,
+     기준 반지름에 비례시키면 소천체 수를 늘릴 때 같이 늘어난다.
+     크기 분포(`o.sz`) 히스토그램을 큰 쪽부터 훑어 `KB_CAP` 을 넘지 않는
+     문턱을 찾으면, 배율·화면 크기·소천체 수와 무관하게 늘 90 개 안팎이다. */
+  let acc=0, cut=KB_HB;
+  for(let h=KB_HB-1;h>=0;h--){ if(acc+hist[h]>KB_CAP){cut=h+1;break;} acc+=hist[h]; cut=h; }
+  const SOLID=Math.max(2.0, rad*(0.30+cut/KB_HB*2.0));
   const sun=toScreen({x:0,y:0,z:0},g), big=[];
 
   ctx.save();
