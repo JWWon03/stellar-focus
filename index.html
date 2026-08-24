@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.25-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.25-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2425,6 +2425,28 @@ const KB_TONE=['#8d8177','#a8b6c6'];      // 암석질 / 얼음질
    중간 색을 축으로 양끝을 1.18 배 벌려 대비를 조금 올린 값이다. 더 벌리면
    (1.26 이상) 그늘이 거의 검정이 되어 윤곽이 배경에 묻힌다. */
 const KB_PEB=[['#e7d7b9','#8a7d6f','#0f0c08'],['#f0fcff','#9fb0c0','#0e131b']];
+
+/* **밝기를 알파가 아니라 색에 녹인다.**
+
+   예전에는 `globalAlpha` 로 밝기를 냈다. 검은 배경 위에서는 결과가 같지만
+   보이는 인상이 다르다 — 반투명한 그림처럼 배경에 스며들어 알갱이의
+   윤곽이 녹아 버린다. 사용자가 "모래알이 아니라 반투명한 그림 같다"고 한
+   것이 이것이다. 불투명하게 칠하면 같은 밝기라도 단단한 알갱이로 읽힌다.
+
+   `FLOOR` 는 가장 어두운 위상의 알갱이도 배경에서 뜨게 하는 바닥값이고,
+   `LIFT` 는 그라디언트의 그늘 끝을 중간색 쪽으로 끌어올려 **가장자리가
+   배경에 녹지 않게** 한다. `GAIN` 이 전체 밝기 손잡이인데, 1.25 를 넘기면
+   얼음질의 밝은 면이 흰색으로 뭉갠다(확인하고 1.10 으로 정했다).
+
+   버킷이 고정이라 표는 한 번만 만든다. */
+const KB_FLOOR=0.52, KB_GAIN=1.10, KB_LIFT=0.35;
+const _kbFlat=[], _kbGrad=[];
+for(let t=0;t<2;t++) for(let b=0;b<KB_BK;b++){
+  const f=(b+0.5)/KB_BK, k=(KB_FLOOR+(1-KB_FLOOR)*f*f)*KB_GAIN;
+  _kbFlat[t*KB_BK+b]=shade(KB_TONE[t], k*(t?1:0.9));   // 암석질은 조금 더 어둡다
+  _kbGrad[t*KB_BK+b]=[shade(KB_PEB[t][0],k), shade(KB_PEB[t][1],k),
+                      shade(mix(KB_PEB[t][2],KB_PEB[t][1],KB_LIFT),k)];
+}
 /** 고정된 불규칙 윤곽을 현재 경로에 더한다 */
 /* 소천체 윤곽. 꼭짓점 일곱 개는 개체마다 고정이고(`o.shape`), **모서리는
    곡선으로 잇는다.** 직선으로 이으면 각진 결정처럼 보이는데 실제 소천체는
@@ -2518,11 +2540,10 @@ function drawBelt(g){
   const sun=toScreen({x:0,y:0,z:0},g), big=[];
 
   ctx.save();
+  ctx.globalAlpha=1;                               // 알파를 쓰지 않는다 — 위 주석 참고
   for(let t=0;t<2;t++){
-    ctx.fillStyle=KB_TONE[t];
     for(let b=0;b<KB_BK;b++){
-      const f=(b+0.5)/KB_BK;
-      ctx.globalAlpha=(0.10+0.42*f*f)*(t?1:0.86);   // 암석질은 조금 더 어둡다
+      ctx.fillStyle=_kbFlat[t*KB_BK+b];
       for(let q=0;q<NT;q++){
         const arr=bin[(t*KB_BK+b)*NT+q];
         if(!arr)continue;
@@ -2530,7 +2551,7 @@ function drawBelt(g){
         let any=false;
         for(let i=0;i<arr.length;i+=4){
           const r=arr[i+2];
-          if(r>=SOLID){ big.push(arr[i],arr[i+1],r,arr[i+3],t,f); continue; }
+          if(r>=SOLID){ big.push(arr[i],arr[i+1],r,arr[i+3],t,b); continue; }
           any=true;
           const o=kb[arr[i+3]];
           if(r<1.1){                                 // 아주 작으면 윤곽이 안 보인다
@@ -2543,14 +2564,13 @@ function drawBelt(g){
     }
   }
   for(let i=0;i<big.length;i+=6){
-    const x=big[i], y=big[i+1], r=big[i+2], o=kb[big[i+3]], t=big[i+4], f=big[i+5];
+    const x=big[i], y=big[i+1], r=big[i+2], o=kb[big[i+3]], t=big[i+4], b2=big[i+5];
     const dx=sun.x-x, dy=sun.y-y, L=Math.hypot(dx,dy)||1, lx=dx/L, ly=dy/L;
     // 중심을 빛 쪽으로 밀어 낸 방사 그라디언트 — 부드러운 종결선이 생긴다
     const gr=ctx.createRadialGradient(x+lx*r*0.70, y+ly*r*0.70, r*0.05,
                                       x+lx*r*0.05, y+ly*r*0.05, r*1.18);
-    const C=KB_PEB[t];
+    const C=_kbGrad[t*KB_BK+b2];                   // 밝기가 이미 녹아 있는 색
     gr.addColorStop(0,C[0]); gr.addColorStop(0.34,C[1]); gr.addColorStop(1,C[2]);
-    ctx.globalAlpha=(0.16+0.66*f*f)*(t?1:0.88);
     ctx.fillStyle=gr;
     ctx.beginPath(); kbShape(x,y,r,o); ctx.fill();
   }
