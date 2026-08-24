@@ -1273,7 +1273,7 @@ function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
 /* ==========================================================================
    1. 천체 데이터 풀  (가챠 3종 · 중복 없음)
    ========================================================================== */
-/* ===== 실존 항성 28종 =====
+/* ===== 실존 항성 29종 =====
    m = 질량(태양질량) 실측값. 색은 분광형에 대응하는 실제 색. */
 const STAR_POOL=[
   {id:'st_sun',n:'태양',en:'Sun',cls:'G형 주계열성',ax:7.25,t:3,sz:.75,m:1.00,c1:'#ffe08a',c2:'#e08e2a',f:{glow:1},
@@ -1644,7 +1644,7 @@ const MOON_POOL=[
 const POOLS={star:STAR_POOL,planet:PLANET_POOL,moon:MOON_POOL};
 const BY_ID={};[...STAR_POOL,...PLANET_POOL,...MOON_POOL].forEach(b=>BY_ID[b.id]=b);
 const BANNER_META={
-  star:  {name:'항성 배너',  sub:'태양·시리우스·베텔게우스 등 실존 항성 28종',      g1:'#2b1b4a',g2:'#0a1030',accent:'#c9a6ff'},
+  star:  {name:'항성 배너',  sub:'태양·시리우스·베텔게우스 등 실존 항성 29종',      g1:'#2b1b4a',g2:'#0a1030',accent:'#c9a6ff'},
   planet:{name:'행성 배너',  sub:'태양계 행성과 실제로 발견된 외계행성 30종',        g1:'#123a4d',g2:'#08132a',accent:'#7fd3e8'},
   moon:  {name:'위성 배너',  sub:'달·유로파·타이탄 등 태양계 실제 위성 28종',       g1:'#3d2a18',g2:'#120d20',accent:'#ffc65c'},
 };
