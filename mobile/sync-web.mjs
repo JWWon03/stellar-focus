@@ -31,14 +31,20 @@ for (const d of DIRS) {
 // 서비스워커 등록을 끈다. 위 주석의 이유.
 const idx = join(WWW, 'index.html');
 let html = await readFile(idx, 'utf8');
-const before = html;
-html = html.replace(
-  "function registerSW(){\n  if(!('serviceWorker' in navigator))return;",
-  "function registerSW(){\n  return;   // 네이티브 래퍼에서는 서비스워커를 쓰지 않는다\n  if(!('serviceWorker' in navigator))return;"
-);
-if (html === before) {
-  console.warn('! registerSW 를 찾지 못했습니다. index.html 이 바뀌었는지 확인하세요.');
+
+/* **함수 본문이 아니라 여는 줄만 붙잡는다.** 예전에는 첫 두 줄을 통째로
+   맞췄는데, index.html 쪽에 진단용 한 줄이 늘자 조용히 어긋났다. 경고만
+   찍고 넘어가는 바람에 서비스워커가 살아 있는 APK 가 나올 뻔했다.
+   못 찾으면 빌드를 세운다 — 조용히 잘못된 앱을 뽑는 것보다 낫다. */
+const OPEN = 'function registerSW(){';
+if (!html.includes(OPEN)) {
+  console.error('! ' + OPEN + ' 를 찾지 못했습니다. index.html 에서 이름이 바뀌었는지 확인하세요.');
+  console.error('  그대로 두면 네이티브 WebView 에 서비스워커가 등록되어,');
+  console.error('  앱을 새로 깔아도 낡은 화면이 남습니다. sync-web.mjs 의 OPEN 을 맞춰 주세요.');
+  process.exit(1);
 }
+html = html.replace(OPEN, `${OPEN}
+  return;   // 네이티브 래퍼에서는 서비스워커를 쓰지 않는다`);
 await writeFile(idx, html, 'utf8');
 
 console.log('www/ 준비 완료 —', FILES.concat(DIRS).join(', '));
