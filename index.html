@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.23-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.23-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5063,7 +5063,16 @@ function loadTexture(id){
     im.onload=()=>{
       const c=document.createElement('canvas');
       c.width=im.naturalWidth;c.height=im.naturalHeight;
-      const x=c.getContext('2d');x.drawImage(im,0,0);
+      const x=c.getContext('2d');
+      /* **세로로 뒤집어 규칙을 맞춘다.**
+         실제 정거원통도법 사진은 북극이 0행이지만, 이 프로젝트의 절차적
+         텍스처(`procRow`)는 0행을 **남극**으로 굽고 `drawGlobe` 도 마지막 행을
+         화면 위로 보낸다. 그대로 쓰면 사진을 입힌 천체만 위아래가 뒤집힌다 —
+         지구가 거꾸로 서 있다는 보고가 그것이었다. 두 규칙을 굳이 통일하기보다
+         들어오는 자리에서 한 번 맞춰 주는 편이 안전하다. 여기만 거치면
+         도감·궤도·썸네일이 모두 같은 그림을 쓴다. */
+      x.translate(0,c.height); x.scale(1,-1);
+      x.drawImage(im,0,0);
       _texCache[id]={w:c.width,h:c.height,data:x.getImageData(0,0,c.width,c.height).data};
       if(typeof invalidateSprites==='function') invalidateSprites(id);
       res(_texCache[id]);
