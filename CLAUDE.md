@@ -48,6 +48,32 @@ $r = Invoke-WebRequest "https://jwwon03.github.io/stellar-focus/" -UseBasicParsi
 
 전역 `S`(상태)와 `startPhase` / `pull` / `renderSystem` / `renderGacha` / `sceneBodies` 등이 window에 노출돼 있어, 콘솔에서 상태를 심어 특정 화면을 바로 띄울 수 있다. 수동 테스트 시 유용하다. 단 **가짜 토큰으로 `AUTH`를 심으면 안 된다** — 클라우드 푸시가 인증 실패를 받아 자동 로그아웃되면서 상태가 초기화된다. 클라우드를 건드리지 않으려면 `cloudPush`를 빈 함수로 덮어쓸 것.
 
+**특정 상황을 바로 띄우는 조리법.** 눈으로 확인해야 하는 변경(연출·궤도·연출 중 UI)은 25분을 기다릴 수 없다. 콘솔에 붙여넣으면 항성계가 채워진 채 집중 세션 한가운데로 들어간다. 진행도만 바꿔 가며 어느 대목이든 볼 수 있다.
+
+```js
+cloudPush = () => {};                      // 클라우드를 건드리지 않는다
+S.created = true;
+S.star = {name:'베텔기우스', color:'#ffd97a', skin:'st_betel', namePos:null};
+const P = ['pl_mercury','pl_venus','pl_earth','pl_mars','pl_jupiter'];
+for (let i=0;i<7;i++) S.sys.slots[i].p = P[i] || null;
+S.owned = {star:['st_betel'], planet:P, moon:[]};
+S.intro = 'probe';                         // none | scope | comet | transit | probe
+save();
+document.querySelectorAll('.mask.on').forEach(m => m.classList.remove('on'));
+resetTimer();
+setTimeout(() => {
+  startPhase('focus');
+  VIEW.tilt=VIEW.tiltTo; VIEW.az=VIEW.azTo; VIEW.zoom=VIEW.zoomTo;
+  endStartFx();                            // 2.2초 접근 연출을 건너뛴다
+  window.setq = q => S.timer.endAt = Date.now() + S.timer.total*(1-q);
+  setq(0.35);                              // 진행도 35% 로 점프
+}, 150);
+```
+
+빠뜨리기 쉬운 것 셋. **`cloudPush` 를 막지 않으면** 로그인 상태에서 이 가짜 상태가 서버로 올라간다. **`endStartFx()` 를 안 부르면** 처음 2.2초 동안 카메라를 `stepStartFx()` 가 몰아 좌표가 계속 변한다. **보간을 즉시 끝내지 않으면** 첫 1초의 시점이 목표값이 아니다 — 좌표를 재는 검증이 어긋난다.
+
+측정으로 확인할 것. 스크린샷 눈대중은 이 프로젝트에서 여러 번 틀렸다. 프레임 간격 히스토그램(중앙값이 아니라 33ms 넘는 프레임 수), 좌표 단언, 구간별 비율 같은 것을 쓴다.
+
 RPC를 직접 두드려 서버만 확인할 수도 있다:
 
 ```powershell
@@ -73,6 +99,123 @@ CDN 스크립트와 웹폰트를 **일절 추가하지 않는다.** 궤도 화�
 (13이 12보다 앞에 있다. 부팅이 마지막에 오도록 나중에 끼워 넣은 결과다.)
 
 번호가 붙지 않은 큰 덩어리도 있다. 4와 5 사이에 **카이퍼 벨트**와 **집중 연출**(혜성 근일점 · 엄폐(식) 관측 · 탐사선 항해가 각각 따로 표시돼 있다)이, 8 안에 **절차적 천체 텍스처**와 **도감 구체 뷰어**가 들어 있다.
+
+## 한 판의 흐름
+
+이 앱이 무엇을 하는 물건인지부터. **집중 세션을 완주하면 가챠 토큰이 나오고, 뽑은 실존 천체를 궤도에 배치해 자기 항성계를 키운다.** 궤도 화면은 늘 배경에 떠 있고 모든 기능은 그 위의 모달로 뜬다.
+
+1. **부팅** `boot()` → `load()`가 localStorage 에서 `S` 를 복원한다. 중심별이 없으면(`!S.created`) `mIntro` 를 띄워 이름과 색부터 받는다. 마지막에 `cloudSyncOnBoot()`.
+2. **집중 시작** `startPhase('focus')` → `endAt = Date.now() + 분*60000` 을 못박고, 시점을 연출에 맞춰 잠그고(`TILT_FACE`, 엄폐만 `TILT_EDGE`), `rollRadarMax()`로 이번 세션의 표적 수를 뽑고, `armNotify()`로 알림을 예약한다.
+3. **흐르는 동안** `frame(now)`가 매 프레임 → `tickTimer()`(만료 검사) → 전역 `phase` 갱신 → 카메라 지수 보간 → `stepStartFx()` → `render(clock)`. 별도 루프는 없다. 집중 연출도 `render()` 맨 끝에 얹힌다.
+4. **완주** `onPhaseDone()` → `S.stats` 누적, `S.tokens += 1`(포모도로 보너스면 2), `reveal` 웨이브 시작, `chime()`, `notifyDone()`, `showTokenPopup()`. 포모도로면 이어서 휴식 단계로 넘어가고, 그 휴식이 끝나면 `mDone` 이 다음 회차를 권한다.
+5. **가챠** `pull()` / `pullMany(n)` → `drawOne(banner)`이 **미보유 풀에서만** 뽑아 `S.owned[kind]` 에 넣는다.
+6. **배치** `mSystem`(항성계 설정)에서 `S.sys.slots[i].p` 와 `.m[k]`, `S.sys.comp[]` 를 채운다.
+7. 다음 프레임부터 그 천체가 실제로 궤도를 돈다. 배치된 가장 바깥 행성이 **기준 궤도**가 되어 카이퍼 벨트 위치와 AU 환산까지 따라 움직인다.
+
+## 상태 `S` — 저장되는 전부
+
+키 하나(`stellarFocus.v1`, 로그인하면 `stellarFocus.v1.<아이디>`)에 통째로 들어간다. `freshState()`가 기준 모양이고 `load()`가 방어적으로 복구한다.
+
+```
+S = {
+  created   : 중심별을 만들었는가. false 면 mIntro 가 뜬다
+  intro     : 집중 연출  'none'|'scope'|'comet'|'transit'|'probe'
+  star      : {name, color, skin, namePos}   skin=STAR_POOL id 또는 null
+                                             namePos=촬영용 이름표 자유 배치(화면 비율)
+  tokens    : 가챠 토큰
+  owned     : {star:[id…], planet:[id…], moon:[id…]}   보유 도감
+  pity      : {star:{p4,p5}, planet:…, moon:…}         배너별 천장 카운터
+  sys : {
+    comp  : [id|null, id|null]                          동반성 최대 2
+    slots : [{p:id|null, m:[id|null,id|null]} × 7]      행성 7 · 행성당 위성 2
+  }
+  timer : {
+    mode  : 'count'|'pomo'
+    phase : 'idle'|'focus'|'break'|'longbreak'
+    running, endAt, remain, total                       endAt 이 진실, remain 은 일시정지용
+    count, focus, brk, long, every, round, useLong      설정값
+    _startPhase                                         세션 시작 시점의 전역 phase. 진행률→공전 변환의 기준
+  }
+  stats     : {sessions, focusMs, day, dayMs}
+  sound, showName, mini, invX, invY, menuOpen           환경설정
+  updatedAt : writeLocal() 이 매번 찍는다. 클라우드 비교의 근거
+}
+```
+
+`save()`는 180ms 디바운스, `saveNow()`는 즉시. 둘 다 `writeLocal()`로 모이고 거기서 `updatedAt` 을 찍은 뒤 로그인 상태면 `cloudPush()` 까지 부른다. **마지막 동기화 시각(`syncedAt`)만은 `S` 밖의 별도 LS 키에 둔다** — `S` 안에 두면 그 값 자체가 계속 달라져 비교가 망가진다.
+
+## 좌표계와 단위
+
+궤도 코드를 읽으려면 이것부터 알아야 한다. 세 층이 있다.
+
+**① 월드 (임의 단위).** 슬롯 `i` 의 장반경은 `orbitEl(i).a = 0.30 + i*0.11667` 이다. 실제 거리와 무관한 자체 단위다. `orbitPos(el, revs)` 가 케플러 방정식을 풀어 `{x,y,z}` 를 낸다. `revs` 는 **누적 회전수**(1이면 한 바퀴)다.
+
+**② 투영.** `project(p)` → `{sx, sy, depth}`. `VIEW.az` 로 z축 둘레를 먼저 돌린 뒤 `VIEW.tilt` 로 눕힌다. **그리기 순서는 화면 y 가 아니라 `depth` 로 정렬한다** — depth 가 클수록 카메라에 가깝다.
+
+**③ 화면 px.** `toScreen(p, g)` → `{x, y, depth}`. `g = geom()` 이 `{cx, cy, R}` 을 주고 배율은 `g.R * VIEW.zoom`, 추적 오프셋 `VIEW.ox/oy` 를 뺀다.
+
+거리를 사람이 읽는 값으로 바꿀 때는 **기준 궤도 = 30 AU** 로 놓는다.
+
+| 이름 | 뜻 |
+|---|---|
+| `outerSlot()` | 행성이 배치된 가장 바깥 슬롯 번호 (없으면 -1) |
+| `beltRef()` | 그 슬롯의 장반경 = **기준 궤도**. 비어 있으면 0.34 |
+| `AU_REF` = 30 | 기준 궤도를 30 AU 로 본다 |
+| `auPerUnit()` | `30 / beltRef()`. 월드 단위 → AU |
+| 전역 `phase` | **기준 궤도의 누적 회전수.** 집중 중에는 `_startPhase + 진행률`, 대기 중에는 240초에 한 바퀴 |
+
+그래서 카이퍼 벨트(`KB_MID` 1.30 기준)가 약 36~42 AU 로 나오고, 실제 카이퍼 벨트(30~50 AU)와 맞는다. **행성이 늘어 기준 궤도가 바깥으로 밀리면 벨트도 연출도 함께 밀린다.**
+
+`sceneBodies(g)` 가 이번 프레임에 그릴 것을 한 배열로 만든다. 각 원소는 `{key, kind:'star'|'comp'|'planet'|'moon', body, world, scr, r, lit, el, revs, …}` 이고, 클릭 판정·추적·연출이 모두 이 배열을 쓴다. `bodies[0]` 은 항상 중심별이다.
+
+## 천체 데이터
+
+`STAR_POOL`(29) · `PLANET_POOL`(30) · `MOON_POOL`(28) 세 배열. 한 항목의 모양은
+
+```
+{ id, n:한글명, en:영문/기호, cls:분류, t:등급(3|4|5), sz:상대 크기,
+  ax:자전축 기울기(도), m:질량(항성만 — 질량중심 계산에 직접 쓰인다),
+  c1,c2:주/보조 색, f:{플래그}, d:가챠 한 줄, dd:도감 4~5줄, st:[[항목,값]…] }
+```
+
+`f` 가 그리기를 정한다 — `ring` 고리 · `atmos` 대기 · `glow` 자체 발광 · `bands` 가스 줄무늬 · `crat` 크레이터 · `dune` 사구 · `ocean`/`lava`/`ice`/`cryst` 표면 종류 · `acc` 강착원반(블랙홀) · `beam` 펄서 빔 · `puls` 맥동. 절차적 텍스처(`procGeneric`)도 같은 플래그를 읽는다.
+
+**id 는 저장 데이터의 열쇠다.** 바꾸거나 지우면 기존 사용자의 `owned` 와 `sys` 가 깨진다.
+
+## 화면
+
+궤도 캔버스가 배경이고 나머지는 전부 `.mask` 모달이다. `open(id)` / `close(id)` 로 여닫는다.
+
+| id | 무엇 | 어디서 |
+|---|---|---|
+| `mIntro` | 중심별 만들기 (이름·색) | 첫 부팅 자동 |
+| `mGacha` | 가챠 배너·뽑기 | 우상단 메뉴 |
+| `mPull` / `mMulti` | 뽑기 결과 (단발 연출 / 연속 요약) | `pull()` / `pullMany()` |
+| `mSystem` | 항성계 설정 — 슬롯에 천체 배치 | 우상단 메뉴 |
+| `mPick` | 보관함에서 천체 고르기 | `mSystem` 안 |
+| `mDex` | 도감 (최상위 메뉴다. 가챠 안에 숨기지 말 것) | 우상단 메뉴 |
+| `mDetail` | 천체 상세 + 구체 뷰어 | 도감·결과 카드 |
+| `mSettings` | 설정 · 집중 연출 선택 · 알림/설치 | 우상단 메뉴 |
+| `mAccount` | 로그인/가입/로그아웃 | 좌상단 위젯 |
+| `mStarEdit` / `mWheel` | 중심별 수정 / 색상환 | `mSystem` |
+| `mShot` | 촬영 결과 이미지 | 촬영 모드 |
+| `mDone` | **범용 결과/선택 틀.** 휴식 종료 안내와 클라우드 동기화 선택이 이 하나를 나눠 쓴다 | `onPhaseDone()` · `adoptCloud()` |
+| `mAsk` | 확인 다이얼로그 (`await ask(…)`) | 어디서나 |
+
+## 무엇을 고치려면 어디를 보나
+
+| 하려는 일 | 볼 곳 |
+|---|---|
+| 천체 추가·수정 | 섹션 1 의 세 POOL. `id` 는 건드리지 말 것 |
+| 궤도 모양·간격 | `orbitEl(i)` 하나만. 경로·연출이 전부 여기를 샘플링한다 |
+| 천체가 그려지는 모습 | `drawBody` / `drawStar`(궤도 화면) · `drawGlobe`(도감 구체) · `makeProcTexture`(절차적 지도) |
+| 카메라·시점 | `VIEW` + `project` + `frame()` 의 보간 |
+| 집중 연출 | `focusFxMode()`가 켤지 정하고 `drawFocusFx()`가 갈라 부른다 — `fxRadar`(벨트 탐사) · `fxComet` · `fxTransit` · `fxProbe` |
+| 타이머 규칙 | `startPhase` / `tickTimer` / `onPhaseDone` |
+| 확률·천장 | `RATE`, `PITY4/5`, `drawOne()` |
+| 저장 스키마 | `freshState()` 와 `load()` 를 **함께** 고친다 |
+| 클라우드 | `cloudPush` / `cloudSyncOnBoot` / `adoptCloud` + `supabase/schema.sql` |
+| HUD·설정 UI | 섹션 11, 그리고 `renderSettings()` |
 
 ## 알아야 할 불변조건
 
