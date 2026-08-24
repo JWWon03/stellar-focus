@@ -1675,7 +1675,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.21-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.21-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1701,7 +1701,7 @@ function freshState(){
       useLong:true
     },
     stats:{sessions:0,focusMs:0,day:'',dayMs:0},
-    sound:true, mini:false, invX:false, invY:false, menuOpen:false
+    sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false
   };
 }
 let S=freshState();
@@ -2335,7 +2335,10 @@ const SEP_IN=0.165, SEP_OUT=0.30, ZK_IN=0.06, ZK_OUT=0.09;
 
 /* 촬영 모드 상태. 조작부는 아래 '촬영 모드' 절에 있지만 sceneBodies/render 가
    먼저 읽으므로 선언은 여기 있어야 한다 (let 은 위로 끌어올려지지 않는다). */
+/* showLabels 는 촬영 중에만 쓰는 임시 토글이다. 평소 화면의 이름표는
+   설정값(S.showName)이 정한다 — 촬영용 토글이 밖으로 새면 안 된다. */
 let showLabels=true, showOrbits=true, capRatio='full', capAlign=false, _hideGuide=false;
+function inCapture(){ return document.body.classList.contains('capture'); }
 
 /* 일렬 정렬 — 모든 천체를 같은 황경 ALIGN_LON 에 놓는다.
    케플러 방정식을 거꾸로 풀어(진근점이각 → 이심근점이각 → 평균근점이각)
@@ -3619,13 +3622,20 @@ function fxProbe(ctx,prog,now){
 }
 
 
-/* 중심별 이름표. namePos 가 있으면 화면 비율 좌표에 자유 배치하고,
-   없으면 예전처럼 별 아래에 붙인다. 히트박스는 드래그용으로 남긴다. */
+/* 중심별 이름표.
+
+   자유 배치(`namePos`)는 **사진 캡션이라 촬영 중에만 유효하다.** 평소
+   화면까지 따라가면 촬영 창을 나가도 이름이 엉뚱한 자리에 남는다 —
+   실제로 그 보고를 받았다. 밖에서는 늘 별 아래에 붙는다.
+
+   보일지 말지도 두 갈래다. 촬영 중에는 촬영 패널의 토글이, 평소에는
+   설정의 `중심별 이름 표시`가 정한다. 히트박스는 드래그용으로 남긴다. */
 let _nameBox=null;
 function drawStarName(o){
-  if(!showLabels||!S.star.name){_nameBox=null;return;}
+  const cap=inCapture();
+  if(!(cap?showLabels:S.showName!==false)||!S.star.name){_nameBox=null;return;}
   const np=S.star.namePos;
-  const free=!!np;
+  const free=cap&&!!np;
   const x=free?np.x*W:o.scr.x, y=free?np.y*H:o.scr.y+o.r+10;
   ctx.save();
   ctx.font=(free?'600 15px ':'600 12px ')+'Pretendard,system-ui,sans-serif';
@@ -5471,11 +5481,11 @@ function drawCaptureGuide(ctx){
 
 function setCapture(on){
   document.body.classList.toggle('capture',on);
-  if(on){VIEW.follow=null;updateViewUI();}
+  if(on){VIEW.follow=null;showLabels=S.showName!==false;updateViewUI();}
   else {
     // 촬영용 토글이 평소 화면까지 따라가면 궤도선이 사라진 채로 남는다
     $('#capPanel').classList.remove('on');
-    showLabels=true; showOrbits=true; capRatio='full'; capAlign=false;
+    showOrbits=true; capRatio='full'; capAlign=false;
   }
   syncCapUI();
 }
@@ -5828,9 +5838,10 @@ $('#btnSound').onclick=()=>{
 
 /* ---- 설정 ---- */
 const SETTINGS=[
-  {k:'sound', t:'완료 사운드',      d:'세션이 끝나면 짧은 종소리를 냅니다'},
-  {k:'invX',  t:'좌우 드래그 반전', d:'끄면 손으로 붙잡고 돌리는 방향, 켜면 카메라를 돌리는 방향입니다'},
-  {k:'invY',  t:'상하 드래그 반전', d:'위아래로 끌었을 때 시점이 기울어지는 방향을 뒤집습니다'},
+  {k:'sound',    t:'완료 사운드',      d:'세션이 끝나면 짧은 종소리를 냅니다'},
+  {k:'showName', t:'중심별 이름 표시', d:'중심별 아래에 이름을 띄웁니다. 촬영 중에는 촬영 설정에서 따로 정합니다'},
+  {k:'invX',     t:'좌우 드래그 반전', d:'끄면 손으로 붙잡고 돌리는 방향, 켜면 카메라를 돌리는 방향입니다'},
+  {k:'invY',     t:'상하 드래그 반전', d:'위아래로 끌었을 때 시점이 기울어지는 방향을 뒤집습니다'},
 ];
 function renderSettings(){
   $('#setBody').innerHTML=SETTINGS.map(o=>`
