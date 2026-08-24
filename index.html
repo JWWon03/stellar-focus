@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.23-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.24-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5101,11 +5101,21 @@ function drawGlobe(cv,tex,lon,lat,tint,opt){
   const lx=L[0], ly=L[1], lz=L[2];
   const shape=opt.shape, emis=!!opt.emis;
   const ex=shape?shape.ax[0]:1, ey=shape?shape.ax[1]:1, ez=shape?shape.ax[2]:1;
-  const lump=shape?shape.lump:0;
+  let lump=shape?shape.lump:0;
   const smap=lump?shapeMap(opt.shapeId,shape):null;
+  if(!smap) lump=0;      // 아직 안 구워졌으면 이번 프레임만 매끈하게 그린다
   const atm=opt.atmos?0.34:0;
   const tilt=shape?0.28:0, ct=Math.cos(tilt), st=Math.sin(tilt);
   const DU=1/SMAP_W, DV=1/SMAP_H;
+  // 유한차분은 격자 간격에 비례해 작아진다. 해상도를 바꿔도 음영 세기가
+  // 유지되도록 격자 수로 되돌려 준다.
+  const GK=lump*12*(SMAP_W/128), GV=lump*12*(SMAP_H/64);
+  /* 교란이 기본 법선을 넘어서면 법선이 뒤집혀 **검은 얼룩**이 생긴다.
+     히페리온(lump 0.22)에서 실제로 그랬다. 그렇다고 잘라 버리면 넘치는
+     구간이 전부 같은 값이 되어 음영이 판판해진다 — 부드럽게 포화시킨다.
+     작은 기울기는 그대로 지나가고 큰 것만 GMAX 로 눕는다. */
+  const GMAX=0.62;
+  const GEO=0.40;         // 윤곽을 깎는 비율. 1 로 두면 검은 틈이 생긴다
   for(let py=0;py<H;py++){
     const py0=(py-cy)/R;
     for(let px=0;px<W;px++){
@@ -5124,12 +5134,21 @@ function drawGlobe(cv,tex,lon,lat,tint,opt){
       let Rd=1, gx=0, gy=0;
       if(lump){
         const h=smapAt(smap,u,1-v);
-        Rd=1+lump*h;
+        /* **윤곽을 깎는 깊이와 음영의 세기를 따로 둔다.**
+           변위를 그대로 쓰면 파인 곳에서 `r2 > Rd²` 가 되어 픽셀이 버려지는데,
+           그 자리가 배경이 비치는 **검은 틈**이 된다 — 히페리온에서 몸통
+           안쪽의 7.7% 가 그랬다. 윤곽은 얕게만 깎고(GEO), 크레이터의
+           생김새는 아래의 법선 교란이 맡는다. 어차피 부풀어 오른 쪽은
+           `r2>1` 에서 이미 잘려 나가므로 변위를 키워도 얻는 것이 없다. */
+        Rd=1+lump*h*GEO;
         if(r2>Rd*Rd){d[i+3]=0;continue;}
         nz=Math.sqrt(Rd*Rd-r2);
         // 요철의 기울기로 법선을 틀어 준다 — 밝기만 조절하면 물렁해 보인다
-        gx=(smapAt(smap,u+DU,1-v)-smapAt(smap,u-DU,1-v))*lump*2.6;
-        gy=(smapAt(smap,u,1-v+DV)-smapAt(smap,u,1-v-DV))*lump*2.6;
+        gx=(smapAt(smap,u+DU,1-v)-smapAt(smap,u-DU,1-v))*GK;
+        gy=(smapAt(smap,u,1-v+DV)-smapAt(smap,u,1-v-DV))*GV;
+        const gm=Math.sqrt(gx*gx+gy*gy);
+        const q=GMAX/Math.sqrt(gm*gm+GMAX*GMAX);
+        gx*=q; gy*=q;
       }
       const tx=Math.min(tex.w-1,(u*tex.w)|0), ty=Math.min(tex.h-1,((1-v)*tex.h)|0);
       const ti=(ty*tex.w+tx)*4;
@@ -5250,21 +5269,98 @@ const SHAPE={
 const shapeOf=id=>SHAPE[id]||null;
 
 /* 방향별 반지름을 저해상도 맵으로 한 번만 구워 둔다.
-   픽셀마다 노이즈를 돌리면 회전 중 프레임이 무거워진다. */
-const SMAP_W=128, SMAP_H=64, _smapCache={};
+   픽셀마다 노이즈를 돌리면 회전 중 프레임이 무거워진다.
+
+   **매끄러운 노이즈만 쓰면 표면이 물결친다.** 예전에는 낮은 주파수 fbm
+   한 겹으로 요철을 만들었는데, 바다 물결처럼 부드럽게 굽이쳐 돌덩이가
+   아니라 녹아내린 것처럼 보였다. 실제 소천체의 표면을 만드는 것은 거의
+   전부 **충돌 크레이터**다 — 포물선 그릇에 테두리가 솟은 자국이 크기별로
+   겹쳐 있고, 그 사이가 각진 능선으로 남는다.
+
+   그래서 두 겹으로 만든다. ① 완만한 저주파로 전체 윤곽만 잡고(소천체는
+   실제로 구가 아니다) ② 그 위에 크레이터를 크기 멱법칙으로 찍는다.
+   해상도를 128×64 에서 올린 것은 크레이터 테두리가 이중선형 보간에
+   뭉개지지 않게 하기 위해서다. */
+const SMAP_W=256, SMAP_H=128, _smapCache={};
+/* 크레이터 하나를 찍는다. 포물선 그릇 + 가장자리에 솟은 테두리.
+
+   **걸치는 경도 폭까지 계산해 훑는다.** 위도만 좁히고 경도는 전 열을 돌면
+   작은 크레이터 하나에도 256 칸을 도는데, 100 개를 찍으니 천체당 13~18ms 가
+   나왔다 — 프레임 하나가 통째로 날아가는 값이다. 구면 코사인 법칙으로
+   폭을 구해 실제 넓이만큼만 돈다. */
+function stampCrater(m,dx,dy,dz,ang,depth){
+  const cosA=Math.cos(ang), latC=Math.asin(dy), lonC=Math.atan2(dz,dx);
+  const sinC=Math.sin(latC), cosC=Math.cos(latC);
+  const j0=Math.max(0,Math.floor((latC-ang+Math.PI/2)/Math.PI*SMAP_H)-1);
+  const j1=Math.min(SMAP_H-1,Math.ceil((latC+ang+Math.PI/2)/Math.PI*SMAP_H)+1);
+  for(let j=j0;j<=j1;j++){
+    const la=(j+0.5)/SMAP_H*Math.PI-Math.PI/2, cl=Math.cos(la), sl=Math.sin(la);
+    const den=cl*cosC;
+    let i0=0, i1=SMAP_W-1;
+    if(den>1e-9){
+      const cd=(cosA-sl*sinC)/den;
+      if(cd>=1) continue;                       // 이 위도에는 걸치지 않는다
+      if(cd>-1){
+        const half=Math.acos(cd);
+        i0=Math.floor((lonC-half)/TAU*SMAP_W)-1;
+        i1=Math.ceil((lonC+half)/TAU*SMAP_W)+1;
+        if(i1-i0>=SMAP_W){ i0=0; i1=SMAP_W-1; }  // 한 바퀴를 넘으면 같은 칸을 두 번 찍는다
+      }
+    }
+    const row=j*SMAP_W;
+    for(let k=i0;k<=i1;k++){
+      const i=((k%SMAP_W)+SMAP_W)%SMAP_W;
+      const lo=(i+0.5)/SMAP_W*TAU;
+      const dot=cl*Math.cos(lo)*dx+sl*dy+cl*Math.sin(lo)*dz;
+      if(dot<=cosA)continue;
+      const t=Math.acos(dot>1?1:dot)/ang;        // 0=중심, 1=가장자리
+      const e=(t-0.86)/0.21;
+      // 단순 크레이터는 실제로 포물선 그릇이다. 테두리가 뾰족하면 음영이 튄다.
+      m[row+i]+=depth*(-(1-t*t)+0.38*Math.exp(-e*e));
+    }
+  }
+}
+let _smapLast=0;
 function shapeMap(id,sh){
   if(_smapCache[id]) return _smapCache[id];
+  /* **한 프레임에 여러 장을 구우면 그만큼 화면이 멈춘다.** 요철 천체를 여럿
+     배치하면 첫 프레임에 전부 몰려 80ms 가 날아간다. 한 번에 하나씩만 굽고,
+     아직인 천체는 그 프레임만 매끈하게 그린다 — 몇 프레임 안에 채워진다. */
+  const now=performance.now();
+  if(now-_smapLast<12) return null;
+  _smapLast=now;
   const m=new Float32Array(SMAP_W*SMAP_H), sd=fnv(id)&0xffff;
+  // ① 전체 윤곽. 이것만으로 끝내면 물결처럼 보이므로 약하게만 깐다.
   for(let j=0;j<SMAP_H;j++){
     const la=(j+0.5)/SMAP_H*Math.PI-Math.PI/2, cl=Math.cos(la), sl=Math.sin(la);
     for(let i=0;i<SMAP_W;i++){
       const lo=(i+0.5)/SMAP_W*TAU;
       const bx=cl*Math.cos(lo), by=sl, bz=cl*Math.sin(lo);
-      const d=fbm3(bx*2.1,by*2.1,bz*2.1,3,1,sd)-0.5;
-      m[j*SMAP_W+i]=d*2;                        // -1 ~ 1
+      m[j*SMAP_W+i]=(fbm3(bx*1.9,by*1.9,bz*1.9,1,1,sd)-0.5)*0.55;   // 한 겹이면 충분하다 — 잔무늬는 크레이터가 만든다
     }
   }
-  return _smapCache[id]=m;
+  // ② 크레이터. 작은 것이 압도적으로 많다(멱법칙).
+  const r=mulberry(sd^0x9e3779b9);
+  const N=70+Math.round(70*r());
+  for(let k=0;k<N;k++){
+    const uu=r()*2-1, ph=r()*TAU, ss=Math.sqrt(1-uu*uu);
+    const ang=0.085+0.40*Math.pow(r(),2.6);
+    stampCrater(m,ss*Math.cos(ph),uu,ss*Math.sin(ph),ang,1.05*ang);
+  }
+  /* ③ -1~1 로 맞춘다. 실제 세기는 SHAPE 의 lump 가 정한다.
+     **최댓값으로 나누면 안 된다** — 큰 크레이터 하나가 기준이 되어 나머지가
+     전부 납작해진다. 상위 2% 지점을 기준으로 맞추고 넘치는 값만 자른다. */
+  const abs=Float32Array.from(m,x=>x<0?-x:x).sort();
+  const k=abs[Math.floor(abs.length*0.98)]||1e-6;
+  for(let i=0;i<m.length;i++){
+    const x=m[i]/(k/0.8);
+    m[i]=x>1?1:x<-1?-1:x;
+  }
+  _smapCache[id]=m;
+  /* 맵이 늦게 오면 그 전에 구운 썸네일은 매끈한 채로 캐시에 남는다.
+     텍스처가 늦게 올 때와 같은 처리를 해 준다. */
+  if(typeof invalidateSprites==='function') invalidateSprites(id);
+  return m;
 }
 function smapAt(m,u,v){                          // 이중선형 보간
   const x=u*SMAP_W-0.5, y=v*SMAP_H-0.5;
