@@ -481,6 +481,30 @@ body.capture #hint{display:none}
 .setRow .txt{flex:1;min-width:0}
 .setRow .txt b{display:block;font-size:13.5px;font-weight:600}
 .setRow .txt span{display:block;font-size:11px;color:var(--txt-3);margin-top:3px;line-height:1.5}
+
+/* ⓘ 설명 풍선. 설정 화면이 설명 문구로 빽빽해지면 정작 토글이 안 보인다.
+   설명은 눌러야 뜨게 하고 평소에는 접어 둔다. 글자 아이콘 대신 테두리를
+   둥글린 알파벳 i 를 쓴다 — 기기마다 대체 폰트가 달라지지 않는다. */
+.iBtn{
+  width:16px;height:16px;flex:0 0 auto;padding:0;margin-left:6px;vertical-align:-2px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line-2);border-radius:50%;background:rgba(255,255,255,.05);
+  color:var(--txt-3);font:700 10px/1 Pretendard,system-ui,sans-serif;letter-spacing:0;
+  cursor:pointer;transition:.15s
+}
+.iBtn:hover{border-color:rgba(138,180,255,.55);color:#cfe0ff}
+.iBtn.on{border-color:rgba(138,180,255,.8);color:#cfe0ff;background:rgba(58,110,255,.22)}
+.infoPop{
+  position:fixed;z-index:92;display:none;left:0;top:0;
+  width:max-content;max-width:min(300px,calc(100vw - 28px));
+  padding:11px 13px;border-radius:12px;
+  font-size:11.5px;line-height:1.65;color:var(--txt-2);font-weight:400;letter-spacing:normal;
+  background:linear-gradient(170deg,rgba(30,38,64,.98),rgba(14,19,36,.99));
+  border:1px solid var(--line-2);box-shadow:0 16px 44px rgba(0,0,0,.6);
+  animation:pop .15s cubic-bezier(.2,.9,.3,1)
+}
+.infoPop.on{display:block}
+@keyframes pop{from{opacity:0;transform:translateY(-5px) scale(.97)}to{opacity:1;transform:none}}
 .tgl{width:42px;height:24px;border-radius:20px;background:rgba(255,255,255,.10);
   border:1px solid var(--line);position:relative;flex:0 0 auto;transition:.18s}
 .tgl::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
@@ -1182,6 +1206,7 @@ body.locked #timerPanel input{cursor:not-allowed}
 </div>
 
 <div id="tokenPop"></div>
+<div class="infoPop" id="infoPop"></div>
 <div id="toast"></div>
 
 <script>
@@ -1675,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.21-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.22-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4163,7 +4188,46 @@ function paintTokens(){
    6. 모달 헬퍼
    ========================================================================== */
 function open(id){$('#'+id).classList.add('on');}
-function close(id){$('#'+id).classList.remove('on');}
+function close(id){$('#'+id).classList.remove('on');hideInfo();}
+
+/* ⓘ 설명 풍선.
+   본문이 스크롤되는 창 안에서 열리는데 풍선은 fixed 라 같이 움직이지
+   않는다. 그래서 스크롤·리사이즈·바깥 누름에서 닫는다. 스크롤 감시는
+   **캡처 단계**로 걸어야 한다 — 모달 본문의 스크롤은 window 까지
+   올라오지 않는다. */
+const INFO={};                      // 키 → 설명 HTML. 버튼은 누를 때 읽는다
+let _infoBtn=null;
+function hideInfo(){
+  if(!_infoBtn)return;
+  _infoBtn.classList.remove('on'); _infoBtn=null;
+  $('#infoPop').classList.remove('on');
+}
+function showInfo(btn,html){
+  if(_infoBtn===btn){hideInfo();return;}       // 같은 버튼을 다시 누르면 닫는다
+  hideInfo();
+  if(!html)return;
+  const pop=$('#infoPop');
+  pop.style.left=pop.style.top='0px';          // 재두기 전에 재야 폭이 제대로 나온다
+  pop.innerHTML=html;
+  pop.classList.add('on'); btn.classList.add('on'); _infoBtn=btn;
+  const b=btn.getBoundingClientRect(), r=pop.getBoundingClientRect(), M=10;
+  let x=clamp(b.left+b.width/2-r.width/2, M, Math.max(M,innerWidth-r.width-M));
+  let y=b.bottom+8;
+  if(y+r.height>innerHeight-M) y=Math.max(M,b.top-r.height-8);   // 아래가 좁으면 위로
+  pop.style.left=x+'px'; pop.style.top=y+'px';
+}
+/** 컨테이너 안의 ⓘ 버튼을 INFO 에 연결한다 */
+function bindInfo(root){
+  $$('.iBtn',root).forEach(b=>b.onclick=e=>{
+    e.stopPropagation();                       // 설정 행의 토글까지 눌리면 안 된다
+    showInfo(b,INFO[b.dataset.info]);
+  });
+}
+addEventListener('pointerdown',e=>{
+  if(_infoBtn&&!e.target.closest('.iBtn')&&!e.target.closest('.infoPop'))hideInfo();
+},true);
+addEventListener('resize',hideInfo);
+addEventListener('scroll',hideInfo,true);
 
 /** 앱 내부 확인 다이얼로그.
     브라우저 confirm()은 홈 화면 PWA나 일부 모바일 웹뷰에서 조용히 차단되어
@@ -5843,16 +5907,23 @@ const SETTINGS=[
   {k:'invX',     t:'좌우 드래그 반전', d:'끄면 손으로 붙잡고 돌리는 방향, 켜면 카메라를 돌리는 방향입니다'},
   {k:'invY',     t:'상하 드래그 반전', d:'위아래로 끌었을 때 시점이 기울어지는 방향을 뒤집습니다'},
 ];
+/* 설명은 행에 늘어놓지 않고 ⓘ 로 접어 둔다. SETTINGS 가 그대로 설명의
+   출처이므로 문구는 한 군데에만 있다. */
+const INFO_INTRO=
+  `집중하는 동안 계속 재생되고, 남은 시간을 화면으로 읽을 수 있습니다.<br><br>
+   <b>벨트 탐사</b> 표적이 하나씩 줄어 끝에 하나만 남습니다<br>
+   <b>혜성 근일점</b> 화면 밖에서 날아와 끝나는 순간 가장 가까워집니다<br>
+   <b>엄폐(식)</b> 옆에서 본 시점에서 광도 곡선이 완성됩니다<br>
+   <b>탐사선 항해</b> 스윙바이로 카이퍼 벨트까지 갔다가 돌아옵니다`;
 function renderSettings(){
+  SETTINGS.forEach(o=>INFO[o.k]=o.d);
+  INFO.intro=INFO_INTRO;
   $('#setBody').innerHTML=SETTINGS.map(o=>`
     <div class="setRow ${S[o.k]?'on':''}" data-k="${o.k}">
-      <div class="txt"><b>${o.t}</b><span>${o.d}</span></div>
+      <div class="txt"><b>${o.t}<button class="iBtn" data-info="${o.k}">i</button></b></div>
       <div class="tgl"></div>
     </div>`).join('')
-    +`<div class="pickerHint" style="margin-top:14px">
-        드래그 방향은 취향을 많이 타는 부분이라 따로 뒤집을 수 있게 두었습니다.
-        화면을 끌어 보면서 편한 쪽으로 맞추세요.</div>
-      <div class="setSep">집중 연출</div>
+    +`<div class="setSep">집중 연출<button class="iBtn" data-info="intro">i</button></div>
       <div class="capRow" id="introPick" style="grid-template-columns:repeat(2,1fr)">
         <button class="capBtn" data-fx="none">없음</button>
         <button class="capBtn" data-fx="scope">벨트 탐사</button>
@@ -5860,14 +5931,7 @@ function renderSettings(){
         <button class="capBtn" data-fx="transit">엄폐(식)</button>
         <button class="capBtn" data-fx="probe">탐사선 항해</button>
       </div>
-      <div class="pickerHint" style="margin-top:7px">
-        집중하는 동안 계속 재생되고, 남은 시간을 화면으로 읽을 수 있습니다.<br>
-        <b>벨트 탐사</b> 표적이 하나씩 줄어 끝에 하나만 남습니다 ·
-        <b>혜성 근일점</b> 화면 밖에서 날아와 끝나는 순간 가장 가까워집니다 ·
-        <b>엄폐(식)</b> 옆에서 본 시점에서 광도 곡선이 완성됩니다 ·
-        <b>탐사선 항해</b> 스윙바이로 카이퍼 벨트까지 갑니다.
-      </div>
-      <div class="setSep">알림과 설치</div>
+      <div class="setSep">알림과 설치<button class="iBtn" data-info="notify">i</button></div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
         버전 ${APP_VER} · 뒤로가기 ${trapArmed()?'준비됨':'대기(화면을 한 번 누르세요)'} (${history.length})
@@ -5890,6 +5954,7 @@ function renderSettings(){
     S.intro=b.dataset.fx; save(); syncIntro();
   });
   syncIntro();
+  bindInfo($('#setBody'));
 
   renderPwaRows();          // 알림 행 핸들러는 이 뒤에 걸어야 살아남는다
 }
@@ -5917,36 +5982,37 @@ function renderPwaRows(){
     :perm==='denied' ?'차단됨 · 브라우저 사이트 설정에서 풀어야 합니다'
     :'집중이 끝나면 알림을 보냅니다';
   const ios=/iP(hone|ad|od)/.test(navigator.userAgent);
+  /* 설치 안내와 한계는 화면에 늘어놓지 않고 ⓘ('알림과 설치' 옆)로 접는다.
+     특히 마지막 한 줄은 지우지 말 것 — "알림이 안 온다"는 문의의 대부분이
+     앱을 완전히 종료한 경우다. */
+  INFO.notify=
+    (isNative()
+      ? `안드로이드 앱으로 실행 중입니다. 알림을 <b>OS가 예약</b>하므로 앱을 완전히 종료해도 제때 옵니다.`
+      : (isStandalone()
+          ? `홈 화면에서 실행 중입니다. 이 상태여야 알림이 잠금화면까지 옵니다.`
+          : ios
+            ? `아이폰은 사파리 공유 버튼 → <b>홈 화면에 추가</b>를 눌러야 알림을 쓸 수 있습니다. 브라우저 탭으로 열어둔 상태에서는 iOS가 알림을 막습니다.`
+            : `브라우저 메뉴의 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>로 설치하면 알림이 잠금화면까지 옵니다.`)
+        +`<br><br>앱을 <b>완전히 종료</b>하면 알림이 오지 않습니다. 예약 알림을 보내려면
+          푸시 서버가 필요한데 이 앱에는 없습니다. 화면을 끄거나 다른 앱을 보는 정도는 괜찮습니다.`)
+    +(perm==='granted'
+      ? `<br><br><b>10초 뒤 알림</b>을 누르고 <b>화면을 끄거나 다른 앱으로</b> 넘어가 보세요.
+         이게 오면 집중 완료 알림도 옵니다.`
+      : ``);
   el.innerHTML=
     `<div class="setRow ${perm==='granted'?'on':''}" id="rowNotif">
        <div class="txt"><b>완료 알림</b><span>${nTxt}</span></div>
        <div class="tgl"></div>
      </div>`
-    +(isNative()
-      ? ``
-      : isStandalone()
-      ? `<div class="pickerHint">홈 화면에서 실행 중입니다. 이 상태여야 알림이 잠금화면까지 옵니다.</div>`
-      : _installPrompt
-        ? `<button class="cbtn primary" id="btnInstall" style="width:100%;margin-top:8px">홈 화면에 추가</button>`
-        : ios
-          ? `<div class="pickerHint">아이폰은 사파리 공유 버튼 → <b>홈 화면에 추가</b>를 눌러야 알림을 쓸 수 있습니다. 브라우저 탭으로 열어둔 상태에서는 iOS가 알림을 막습니다.</div>`
-          : `<div class="pickerHint">브라우저 메뉴의 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>로 설치하면 알림이 잠금화면까지 옵니다.</div>`)
+    +(!isNative()&&!isStandalone()&&_installPrompt
+      ? `<button class="cbtn primary" id="btnInstall" style="width:100%;margin-top:8px">홈 화면에 추가</button>`
+      : ``)
     +(perm==='granted'
       ? `<div class="capRow" style="margin-top:8px">
            <button class="capBtn" id="btnNotifNow">지금 알림 테스트</button>
            <button class="capBtn" id="btnNotifLater">10초 뒤 알림</button>
-         </div>
-         <div class="pickerHint" style="margin-top:6px">
-           <b>10초 뒤 알림</b>을 누르고 <b>화면을 끄거나 다른 앱으로</b> 넘어가 보세요.
-           이게 오면 집중 완료 알림도 옵니다.</div>`
-      : ``)
-    +(isNative()
-      ? `<div class="pickerHint" style="margin-top:8px">
-           안드로이드 앱으로 실행 중입니다. 알림을 <b>OS가 예약</b>하므로 앱을
-           완전히 종료해도 제때 옵니다.</div>`
-      : `<div class="pickerHint" style="margin-top:8px">
-           앱을 <b>완전히 종료</b>하면 알림이 오지 않습니다. 예약 알림을 보내려면
-           푸시 서버가 필요한데 이 앱에는 없습니다. 화면을 끄거나 다른 앱을 보는 정도는 괜찮습니다.</div>`);
+         </div>`
+      : ``);
   const row=$('#rowNotif');
   if(row) row.onclick=async()=>{
     if(!sup) return warn('이 브라우저는 알림을 지원하지 않습니다');
@@ -6099,6 +6165,7 @@ function topMask(){
   return on.length?on[on.length-1]:null;
 }
 async function onBack(){
+  if(_infoBtn){ hideInfo(); pushTrap(); return; }   // 열린 것부터 닫는다
   const m=topMask();
   if(m){                                   // 열린 창부터 닫는다
     if(m.id==='mIntro'){pushTrap();return;} // 중심별 이름을 정하기 전엔 나갈 데가 없다
