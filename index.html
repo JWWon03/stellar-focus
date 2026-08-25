@@ -1700,7 +1700,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.26-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.26-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2421,6 +2421,7 @@ function starPositions(){
 const KB_BK=4;
 const KB_TILE=4;                          // 칠하기 경계상자를 줄이는 화면 분할
 const KB_CAP=90, KB_HB=64;                // 자갈로 칠할 최대 개수 / 크기 히스토그램 칸
+const KB_SIZE=0.65;                       // 알갱이 크기 배율 (1 이면 예전 굵기)
 const KB_TONE=['#8d8177','#a8b6c6'];      // 암석질 / 얼음질
 /* 큰 소천체에만 쓰는 자갈 색 — [밝은 면, 중간, 그늘]. 실제 카이퍼 벨트
    천체는 반사율이 0.05 언저리로 아주 어둡다. 밝기가 아니라 명암 차이로
@@ -2443,13 +2444,19 @@ const KB_PEB=[['#e7d7b9','#8a7d6f','#0f0c08'],['#f0fcff','#9fb0c0','#0e131b']];
    얼음질의 밝은 면이 흰색으로 뭉갠다(확인하고 1.10 으로 정했다).
 
    버킷이 고정이라 표는 한 번만 만든다. */
-const KB_FLOOR=0.52, KB_GAIN=1.10, KB_LIFT=0.35;
+const KB_FLOOR=0.52, KB_GAIN=0.80, KB_LIFT=0.35;
+/* 얼음질의 밝은 면이 거의 흰색이라 확대하면 알갱이가 아니라 거품처럼
+   보였다. 암석질의 중간색 쪽으로 눌러 준다 — 실제 카이퍼 벨트 천체는
+   반사율이 0.05 언저리로 아주 어둡다. */
+const KB_COOL=0.35;
 const _kbFlat=[], _kbGrad=[];
 for(let t=0;t<2;t++) for(let b=0;b<KB_BK;b++){
   const f=(b+0.5)/KB_BK, k=(KB_FLOOR+(1-KB_FLOOR)*f*f)*KB_GAIN;
-  _kbFlat[t*KB_BK+b]=shade(KB_TONE[t], k*(t?1:0.9));   // 암석질은 조금 더 어둡다
-  _kbGrad[t*KB_BK+b]=[shade(KB_PEB[t][0],k), shade(KB_PEB[t][1],k),
-                      shade(mix(KB_PEB[t][2],KB_PEB[t][1],KB_LIFT),k)];
+  const tone=t?mix(KB_TONE[1],KB_TONE[0],KB_COOL):KB_TONE[0];
+  const peb =t?KB_PEB[1].map(h=>mix(h,KB_PEB[0][1],KB_COOL)):KB_PEB[0];
+  _kbFlat[t*KB_BK+b]=shade(tone, k*(t?1:0.9));         // 암석질은 조금 더 어둡다
+  _kbGrad[t*KB_BK+b]=[shade(peb[0],k), shade(peb[1],k),
+                      shade(mix(peb[2],peb[1],KB_LIFT),k)];
 }
 /** 고정된 불규칙 윤곽을 현재 경로에 더한다 */
 /* 소천체 윤곽. 꼭짓점 일곱 개는 개체마다 고정이고(`o.shape`), **모서리는
@@ -2483,7 +2490,10 @@ function drawBelt(g){
   const st=Math.sin(VIEW.tilt), ct=Math.cos(VIEW.tilt);
   const sa=Math.sin(VIEW.az),  ca=Math.cos(VIEW.az);
   const Vx=sa*st, Vy=ca*st, Vz=ct;
-  const rad=Math.max(0.6,g.R*VIEW.zoom*0.0042);
+  /* 알갱이 크기 배율. 굵으면 확대했을 때 모래가 아니라 콩알로 보인다.
+     낮추면 그만큼 그라디언트 문턱(2.0px)을 넘는 개체가 줄어 평평해지므로,
+     너무 낮추지 말 것 — 0.65 가 확대 화면에서 아직 명암이 살아 있는 값이다. */
+  const rad=Math.max(0.6,g.R*VIEW.zoom*0.0042*KB_SIZE);
 
   /* [재질][밝기][타일] 버킷.
 
