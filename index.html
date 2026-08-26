@@ -1807,7 +1807,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.30-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.30-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4657,7 +4657,6 @@ $('#btnCreate').onclick=()=>{
   S.tokens=1;                       // 첫 1회 무료
   saveNow();close('mIntro');
   paintTokens();updateTimerUI();
-  showHint(`<b>${esc(nm)}</b> 항성계가 생성되었습니다<br>토큰 1개를 드렸어요 — 우측 상단에서 첫 천체를 뽑아보세요`);
 };
 $('#inStarName').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnCreate').click();});
 
@@ -4674,6 +4673,15 @@ function openStarEdit(){
   open('mStarEdit');
 }
 
+/* 화면 아래 한가운데에 7초 떴다 사라지는 안내.
+
+   **지금은 아무도 부르지 않는다.** 처음 쓰는 사람에게 어디를 눌러야 하는지
+   알려 주던 문구 셋을 뺐다 — 첫날에만 잠깐 보이는데다, 어떻게 드러낼지
+   다시 정하기로 했다. 틀만 남겨 두었으니 부르기만 하면 되살아난다.
+
+   **되살릴 때 위치를 먼저 확인할 것.** 화면 아래 한가운데라 좁은 창에서는
+   좌하단 타이머 위젯에 앞부분이 가린다 — 창 폭 680px 에서 50px, 폰 폭에서는
+   그보다 더 잘렸다. 1280px 에서는 겹치지 않는다. */
 function showHint(html){
   const h=$('#hint');h.innerHTML=html;h.classList.remove('hide');
   clearTimeout(showHint._t);showHint._t=setTimeout(()=>h.classList.add('hide'),7000);
@@ -6992,12 +7000,6 @@ function boot(){
   if(!S.created){
     open('mIntro');
     setTimeout(()=>$('#inStarName').focus(),350);
-  }else{
-    const cnt=S.sys.slots.filter(s=>s.p).length;
-    if(cnt===0&&S.owned.planet.length===0&&S.tokens>0)
-      showHint('우측 상단 <b>가챠 배너</b>에서 첫 천체를 뽑아보세요');
-    else if(cnt===0&&S.owned.planet.length>0)
-      showHint('우하단 <b>항성계 설정</b>에서 보관함의 행성을 궤도에 배치해 보세요');
   }
   cloudSyncOnBoot();
   registerSW();
