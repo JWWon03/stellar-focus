@@ -693,6 +693,17 @@ body.capture #hint{display:none}
   animation:tokIn .6s cubic-bezier(.2,1.2,.4,1) .15s both
 }
 @keyframes tokIn{from{opacity:0;transform:translateY(14px) scale(.85)}to{opacity:1;transform:none}}
+/* 집중 기록 */
+.recGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.recBox{padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+.recBox .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.recBox .k{font-size:10.5px;color:var(--txt-3);margin-top:3px;letter-spacing:.04em}
+.recBars{display:flex;align-items:flex-end;gap:3px;height:52px;margin-top:13px}
+.recBars i{flex:1;background:rgba(138,180,255,.30);border-radius:3px 3px 1px 1px;min-height:2px;display:block}
+.recBars i.on{background:linear-gradient(180deg,var(--acc),rgba(58,110,255,.55))}
+.recBars i.today{background:linear-gradient(180deg,var(--gold),rgba(255,170,60,.6))}
+.recFoot{display:flex;justify-content:space-between;font-size:10px;color:var(--txt-3);margin-top:5px}
+
 .statLine{display:flex;gap:10px;margin-top:20px}
 .statBox{flex:1;padding:11px 8px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
 .statBox .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -1282,6 +1293,55 @@ function hsv2hex(h,s,v){
 }
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function dayKey(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+/* ---- 날짜별 집중 기록 ----
+   키는 'YYYY-MM-DD', 값은 그날 집중한 밀리초. 저장 키 하나에 전부 들어가고
+   클라우드로도 매번 올라가므로 **무한정 쌓이게 두지 않는다** — 최근
+   LOG_DAYS 일만 남긴다(400일 × 22바이트 ≈ 9KB). */
+const LOG_DAYS=400;
+/* 모양만 맞는 키를 걸러 내는 것으로는 부족하다 — `2026-13-99` 가 통과한다.
+   실제 날짜로 만들어 되돌려 보고 같은 문자열이 나오는지 본다. */
+function validDay(k){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(k);
+  return !!m && dayKey(new Date(+m[1],+m[2]-1,+m[3]))===k;
+}
+function cleanLog(o){
+  const out={};
+  if(!o||typeof o!=='object')return out;
+  const ks=Object.keys(o).filter(k=>validDay(k)&&isFinite(o[k])&&o[k]>0);
+  ks.sort();
+  for(const k of ks.slice(-LOG_DAYS)) out[k]=Math.round(o[k]);
+  return out;
+}
+/** 두 기록을 합친다. 같은 날은 큰 쪽 — 기기마다 따로 쌓였을 수 있다. */
+function mergeLog(a,b){
+  const out=Object.assign({},cleanLog(a));
+  const bb=cleanLog(b);
+  for(const k in bb) if(!(out[k]>=bb[k])) out[k]=bb[k];
+  return cleanLog(out);
+}
+/** 오늘부터 거슬러 올라가며 연속으로 집중한 날 수.
+    오늘 아직 안 했다고 연속이 끊긴 것은 아니므로 어제부터 센다. */
+function focusStreak(log){
+  const d=new Date();
+  if(!(log[dayKey(d)]>0)) d.setDate(d.getDate()-1);
+  let n=0;
+  while(log[dayKey(d)]>0){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+/** 최근 n 일치를 과거→오늘 순으로 */
+function recentDays(log,n){
+  const out=[], d=new Date();
+  d.setDate(d.getDate()-(n-1));
+  for(let i=0;i<n;i++){ const k=dayKey(d); out.push({k,ms:log[k]|0}); d.setDate(d.getDate()+1); }
+  return out;
+}
+/** 일·시간까지 올려 읽는 길이 (fmtH 는 시간·분까지만 본다) */
+function fmtDur(ms){
+  const m=Math.round(ms/60000), h=Math.floor(m/60), d=Math.floor(h/24);
+  if(d>0) return (h%24)? d+'일 '+(h%24)+'시간' : d+'일';   // '3일 0시간' 은 어색하다
+  if(h>0) return (m%60)? h+'시간 '+(m%60)+'분' : h+'시간';
+  return m+'분';
+}
 function fnv(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function mulberry(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;
   let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;
@@ -1728,7 +1788,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.28-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.29-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1754,6 +1814,10 @@ function freshState(){
       useLong:true
     },
     stats:{sessions:0,focusMs:0,day:'',dayMs:0},
+    /* 날짜별 집중 시간. 'YYYY-MM-DD' → 밀리초.
+       stats.dayMs 는 오늘치만 들고 있어 하루가 바뀌면 사라진다. 며칠을
+       집중했는지·연속 며칠인지를 보려면 날짜별로 남겨야 한다. */
+    log:{},
     sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false
   };
 }
@@ -1775,6 +1839,7 @@ function load(raw0){
     S.pity=Object.assign({star:{p4:0,p5:0},planet:{p4:0,p5:0},moon:{p4:0,p5:0}},o.pity||{});
     S.timer=Object.assign(freshState().timer,o.timer||{});
     S.stats=Object.assign({sessions:0,focusMs:0,day:'',dayMs:0},o.stats||{});
+    S.log=cleanLog(o.log);
     // 시스템 구조 보정
     const fs=freshState().sys;
     if(!o.sys) S.sys=fs;
@@ -4134,6 +4199,7 @@ function onPhaseDone(){
     const dk=dayKey();
     if(S.stats.day!==dk){S.stats.day=dk;S.stats.dayMs=0;}
     S.stats.dayMs+=T.total;
+    S.log[dk]=(S.log[dk]|0)+T.total;
 
     if(T.mode==='pomo'){
       T.round++;
@@ -6522,9 +6588,13 @@ function cloudSyncOnBoot(){
     setCloudState('ok');
     if(fingerprint(cd)===fingerprint(S)){
       // 항성계는 같다. 기록만 어긋났으면 합쳐서 올리고 조용히 넘어간다.
-      const m=mergeStats(S.stats,cd.stats);
+      const m=mergeStats(S.stats,cd.stats), lg=mergeLog(S.log,cd.log);
       if(JSON.stringify(m)!==JSON.stringify(S.stats)||
-         JSON.stringify(m)!==JSON.stringify(cd.stats)){ S.stats=m; saveNow(); }
+         JSON.stringify(m)!==JSON.stringify(cd.stats)||
+         JSON.stringify(lg)!==JSON.stringify(S.log)||
+         JSON.stringify(lg)!==JSON.stringify(cleanLog(cd.log))){
+        S.stats=m; S.log=lg; saveNow();
+      }
       else markSynced(S.updatedAt);
       return;
     }
@@ -6570,9 +6640,17 @@ function adoptCloud(serverData){
   const localHas=(()=>{try{return localRaw&&JSON.parse(localRaw).created;}catch(e){return false;}})();
   const serverHas=serverData&&serverData.created;
 
-  // 올리지 않으면 클라우드에는 옛 스키마가 남아 다음 부팅에 또 어긋난다
-  const useServer=()=>{load(serverData);saveNow();cloudPush(true);afterAccountSwitch();};
-  const useLocal =()=>{load(localRaw);saveNow();cloudPush(true);afterAccountSwitch();};
+  /* 올리지 않으면 클라우드에는 옛 스키마가 남아 다음 부팅에 또 어긋난다.
+     항성계는 고른 쪽을 쓰되 **집중 기록은 양쪽을 합친다** — 어느 쪽을
+     골랐다고 몇 달치 기록이 사라지면 안 된다. */
+  const mine=(()=>{try{return JSON.parse(localRaw);}catch(e){return null;}})();
+  const keepRecord=other=>{
+    if(!other)return;
+    S.stats=mergeStats(S.stats,other.stats);
+    S.log  =mergeLog(S.log,other.log);
+  };
+  const useServer=()=>{load(serverData);keepRecord(mine);      saveNow();cloudPush(true);afterAccountSwitch();};
+  const useLocal =()=>{load(localRaw);  keepRecord(serverData);saveNow();cloudPush(true);afterAccountSwitch();};
 
   if(serverHas&&localHas){
     // 양쪽에 데이터가 있으면 사용자가 고르게 한다 (덮어쓰기 사고 방지)
@@ -6706,6 +6784,37 @@ function paintAccount(){
   ico.className='st-'+cloudState;
   ico.textContent=cloudState==='sync'?'◐':cloudState==='err'?'⚠':'●';
 }
+/* 집중 기록 블록. 계정 화면 아래에 붙는다.
+   기록은 이 기기에 쌓이고, 로그인하면 클라우드로 따라간다 — 로그인 여부와
+   무관하게 보여 준다. */
+function recordHTML(){
+  const st=S.stats, log=S.log||{};
+  const days=Object.keys(log).length;
+  const bars=recentDays(log,14);
+  const mx=Math.max(1,...bars.map(b=>b.ms));
+  const today=dayKey();
+  /* 날짜별 기록은 이번 판올림부터 쌓인다. 누적 시간은 예전부터 있었으므로
+     둘이 어긋날 수 있는데, 그걸 설명하지 않으면 버그로 보인다. */
+  const older=days===0&&st.focusMs>0;
+  return `
+    <div class="setSep">집중 기록</div>
+    <div class="recGrid">
+      <div class="recBox"><div class="v">${fmtDur(st.focusMs)}</div><div class="k">누적 집중</div></div>
+      <div class="recBox"><div class="v">${st.sessions}회</div><div class="k">완주한 세션</div></div>
+      <div class="recBox"><div class="v">${days}일</div><div class="k">집중한 날</div></div>
+      <div class="recBox"><div class="v">${focusStreak(log)}일</div><div class="k">연속 기록</div></div>
+    </div>
+    <div class="recBars">${bars.map(b=>
+      `<i class="${b.ms>0?(b.k===today?'today':'on'):''}" style="height:${
+        b.ms>0?Math.max(8,Math.round(b.ms/mx*100)):2}%" title="${b.k} · ${b.ms>0?fmtH(b.ms):'없음'}"></i>`
+      ).join('')}</div>
+    <div class="recFoot"><span>14일 전</span><span>오늘</span></div>
+    <div class="pickerHint" style="margin-top:12px">
+      ${older?'날짜별 기록은 이번 판올림부터 쌓입니다. 누적 시간과 세션 수는 예전 기록 그대로입니다.<br>':''}
+      ${AUTH?'로그인 중이라 이 기록은 클라우드에 함께 저장됩니다 — 다른 기기에서도 이어집니다.'
+            :'기록은 지금 이 기기에만 있습니다. 로그인하면 다른 기기에서도 이어집니다.'}
+    </div>`;
+}
 function renderAccount(){
   const body=$('#acBody');
   if(!cloudReady()){
@@ -6713,7 +6822,8 @@ function renderAccount(){
       클라우드 동기화가 아직 설정되지 않았습니다.<br><br>
       리포지토리의 <b>supabase/schema.sql</b> 을 Supabase SQL Editor에서 실행하고,
       <b>index.html</b> 상단의 <b>CLOUD</b> 상수에 프로젝트 URL과 anon 키를 넣으면 켜집니다.<br><br>
-      설정 전까지 항성계는 이 기기에만 저장되며, 게임은 정상 동작합니다.</div>`;
+      설정 전까지 항성계는 이 기기에만 저장되며, 게임은 정상 동작합니다.</div>`
+      +recordHTML();
     return;
   }
   if(!AUTH){
@@ -6734,7 +6844,8 @@ function renderAccount(){
       <div class="pickerHint" style="margin:14px 0 0">
         PIN은 서버에 해시로만 저장되고, 10회 틀리면 15분간 잠깁니다.
         다만 자릿수가 짧으니 다른 곳에서 쓰는 비밀번호는 쓰지 마세요.
-      </div>`;
+      </div>`
+      +recordHTML();
     $('#acSignup').onclick=()=>doAuth('signup');
     $('#acLogin').onclick=()=>doAuth('login');
     $('#acPin').onkeydown=e=>{if(e.key==='Enter')doAuth('login');};
@@ -6780,7 +6891,8 @@ function renderAccount(){
     <div class="pickerHint" style="margin:14px 0 0">
       변경사항은 자동으로 저장됩니다. 다른 기기에서 항성계를 키웠다면
       <b>클라우드에서 불러오기</b>로 이 기기에 덮어쓸 수 있습니다.
-    </div>`;
+    </div>`
+    +recordHTML();
   $('#acSync').onclick=()=>{toast('동기화 중…');cloudPush(true);};
   $('#acLogout').onclick=async()=>{
     if(await ask('로그아웃할까요?','클라우드 저장본은 그대로 남아 있어 다시 로그인하면 이어서 할 수 있습니다.','로그아웃',true))
