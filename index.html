@@ -96,8 +96,10 @@ button,input,select{font-family:inherit;color:inherit}
   transition:.18s;
   white-space:nowrap;
 }
-.cbtn:hover{border-color:var(--line-2);background:rgba(24,32,56,.85);transform:translateY(-1px)}
-.cbtn:active{transform:translateY(0) scale(.98)}
+/* 호버로 버튼을 움직이지 않는다 — 커서를 스칠 때마다 화면이 들썩인다.
+   색과 테두리만 바뀌고, 자리 이동은 **누를 때**만 준다. */
+.cbtn:hover{border-color:var(--line-2);background:rgba(24,32,56,.85)}
+.cbtn:active{transform:scale(.98)}
 .cbtn.primary{background:linear-gradient(160deg,#3b63c9,#2a3f8f);border-color:rgba(160,190,255,.4);color:#fff}
 .cbtn.primary:hover{background:linear-gradient(160deg,#4874e0,#33499f)}
 .cbtn.ghost{background:rgba(255,255,255,.03)}
@@ -167,8 +169,8 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 }
 .mBtn svg{width:19px;height:19px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6}
 .mBtn span{font-size:12.5px;font-weight:600;letter-spacing:.01em}
-.mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt);transform:translateX(-2px)}
-.mBtn:active{transform:translateX(0) scale(.98)}
+.mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt)}
+.mBtn:active{transform:scale(.98)}
 #btnGacha:hover{color:var(--acc-2)}
 #btnDex:hover{color:var(--ok)}
 #btnCamera:hover{color:var(--gold)}
@@ -1714,7 +1716,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.27-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.27-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
