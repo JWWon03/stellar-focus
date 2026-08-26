@@ -817,9 +817,11 @@ body.locked #timerPanel input{cursor:not-allowed}
       </svg>
     </button>
     <button class="mBtn" id="btnSystem" title="항성계 설정">
+      <!-- 교차하는 두 타원 궤도 + 가운데 별. 사용자가 그려 준 모양이다. -->
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <ellipse cx="12" cy="12" rx="10" ry="4.6"/>
-        <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/>
+        <ellipse cx="12" cy="12" rx="10.1" ry="3.9" transform="rotate(-32 12 12)"/>
+        <ellipse cx="12" cy="12" rx="10.1" ry="3.9" transform="rotate(12 12 12)"/>
+        <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
       </svg>
     </button>
     <button class="mBtn" id="btnDex" title="천체 도감">
@@ -835,9 +837,11 @@ body.locked #timerPanel input{cursor:not-allowed}
       </svg>
     </button>
     <button class="mBtn" id="btnSettings" title="설정">
+      <!-- 톱니바퀴. 예전 것(원 + 방사선)은 해·밝기 아이콘처럼 보였다.
+           이 경로는 8개 톱니를 계산해 뽑은 것이라 손으로 고치지 말 것. -->
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="3.2"/>
-        <path d="M12 2.6v3M12 18.4v3M21.4 12h-3M5.6 12h-3M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1M18.6 18.6l-2.1-2.1M7.5 7.5L5.4 5.4" stroke-linecap="round"/>
+        <path d="M10.44 5.49 L10.69 2.79 A9.30 9.30 0 0 1 13.31 2.79 L13.56 5.49 A6.70 6.70 0 0 1 15.50 6.29 L17.58 4.56 A9.30 9.30 0 0 1 19.44 6.42 L17.71 8.50 A6.70 6.70 0 0 1 18.51 10.44 L21.21 10.69 A9.30 9.30 0 0 1 21.21 13.31 L18.51 13.56 A6.70 6.70 0 0 1 17.71 15.50 L19.44 17.58 A9.30 9.30 0 0 1 17.58 19.44 L15.50 17.71 A6.70 6.70 0 0 1 13.56 18.51 L13.31 21.21 A9.30 9.30 0 0 1 10.69 21.21 L10.44 18.51 A6.70 6.70 0 0 1 8.50 17.71 L6.42 19.44 A9.30 9.30 0 0 1 4.56 17.58 L6.29 15.50 A6.70 6.70 0 0 1 5.49 13.56 L2.79 13.31 A9.30 9.30 0 0 1 2.79 10.69 L5.49 10.44 A6.70 6.70 0 0 1 6.29 8.50 L4.56 6.42 A9.30 9.30 0 0 1 6.42 4.56 L8.50 6.29 A6.70 6.70 0 0 1 10.44 5.49 Z" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="2.9"/>
       </svg>
     </button>
   </div>
@@ -1700,7 +1704,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.26-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.27-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
