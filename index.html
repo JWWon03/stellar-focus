@@ -1142,7 +1142,7 @@ body.locked #timerPanel input{cursor:not-allowed}
 <div class="mask" id="mRecord">
   <div class="modal" style="max-width:420px">
     <div class="mHead">
-      <div style="flex:1"><h2>집중 기록</h2><p>지금까지 쌓은 시간입니다</p></div>
+      <div style="flex:1"><h2>집중 기록</h2></div>
       <button class="mClose" data-close="mRecord">✕</button>
     </div>
     <div class="mBody" id="recBody"></div>
@@ -1807,7 +1807,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.30-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.30-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -6827,9 +6827,6 @@ function recordHTML(){
   const bars=recentDays(log,14);
   const mx=Math.max(1,...bars.map(b=>b.ms));
   const today=dayKey();
-  /* 날짜별 기록은 이번 판올림부터 쌓인다. 누적 시간은 예전부터 있었으므로
-     둘이 어긋날 수 있는데, 그걸 설명하지 않으면 버그로 보인다. */
-  const older=days===0&&st.focusMs>0;
   return `
     <div class="recGrid" style="margin-top:2px">
       <div class="recBox"><div class="v">${fmtDur(st.focusMs)}</div><div class="k">누적 집중</div></div>
@@ -6841,12 +6838,7 @@ function recordHTML(){
       `<i class="${b.ms>0?(b.k===today?'today':'on'):''}" style="height:${
         b.ms>0?Math.max(8,Math.round(b.ms/mx*100)):2}%" title="${b.k} · ${b.ms>0?fmtH(b.ms):'없음'}"></i>`
       ).join('')}</div>
-    <div class="recFoot"><span>14일 전</span><span>오늘</span></div>
-    <div class="pickerHint" style="margin-top:12px">
-      ${older?'날짜별 기록은 이번 판올림부터 쌓입니다. 누적 시간과 세션 수는 예전 기록 그대로입니다.<br>':''}
-      ${AUTH?'로그인 중이라 이 기록은 클라우드에 함께 저장됩니다 — 다른 기기에서도 이어집니다.'
-            :'기록은 지금 이 기기에만 있습니다. 로그인하면 다른 기기에서도 이어집니다.'}
-    </div>`;
+    <div class="recFoot"><span>14일 전</span><span>오늘</span></div>`;
 }
 function renderAccount(){
   const body=$('#acBody');
