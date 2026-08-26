@@ -172,8 +172,8 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 .mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt)}
 .mBtn:active{transform:scale(.98)}
 #btnGacha:hover{color:var(--acc-2)}
-#btnDex:hover{color:var(--ok)}
-#btnCamera:hover{color:var(--gold)}
+#btnDex:hover{color:#fff}
+#btnCamera:hover{color:var(--acc)}
 
 /* 우하단 시점 버튼 */
 .vBtn{
@@ -825,15 +825,16 @@ body.locked #timerPanel input{cursor:not-allowed}
            1.5배**로 열었다. 비대칭 배율이라 기울기도 함께 바뀐다
            (atan(tan θ · 2.4) — 1.2°→2.9°, -17.3°→-36.8°).
            별·행성의 상대 위치와 크기 비율은 원본 그대로다.
-           색을 박아 두었으므로 이 버튼만 호버 색이 바뀌지 않는다. -->
+           색은 다른 메뉴 아이콘과 맞춰 `currentColor` 로 둔다 — 그래야
+           호버·활성 색이 나머지와 같이 따라간다. -->
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <g fill="none" stroke="#5b6ee1" stroke-width="1.2">
+        <g fill="none" stroke="currentColor" stroke-width="1.2">
           <ellipse cx="12.11" cy="11.90" rx="8.07" ry="2.44" transform="rotate(2.9 12.11 11.90)"/>
           <ellipse cx="12.00" cy="11.97" rx="11.51" ry="3.05" transform="rotate(-36.8 12.00 11.97)"/>
         </g>
-        <circle cx="12.06" cy="11.97" r="2.03" fill="#ffe066" stroke="none"/>
-        <circle cx="8.05"  cy="16.43" r="0.90" fill="#ff6b6b" stroke="none"/>
-        <circle cx="18.63" cy="12.71" r="0.79" fill="#a8dcef" stroke="none"/>
+        <circle cx="12.06" cy="11.97" r="2.03" fill="currentColor" stroke="none"/>
+        <circle cx="8.05"  cy="16.43" r="0.90" fill="currentColor" stroke="none"/>
+        <circle cx="18.63" cy="12.71" r="0.79" fill="currentColor" stroke="none"/>
       </svg>
     </button>
     <button class="mBtn" id="btnDex" title="천체 도감">
@@ -1716,7 +1717,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.27-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.28-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
