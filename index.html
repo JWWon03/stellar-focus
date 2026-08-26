@@ -261,16 +261,21 @@ body.capture .camBar{display:flex}
 body.capture .followChip{display:none!important}
 body.capture #hint{display:none}
 
-/* 타이머 탭 */
-.tTabs{display:flex;align-items:center;gap:5px;margin-bottom:12px}
+/* 타이머 탭 — 위쪽 줄을 반씩 나눠 갖는다.
+   활성 탭은 본문과 같은 바탕이고 아래 테두리가 없어 본문으로 이어진다
+   (브라우저 탭처럼 눌린 쪽이 앞으로 나온다). */
+.tTabs{display:flex}
 .tTab{
-  padding:7px 10px;border:1px solid var(--line);border-radius:10px 10px 0 0;
-  background:rgba(255,255,255,.02);color:var(--txt-3);font-size:11.5px;font-weight:600;
-  cursor:pointer;transition:.15s;border-bottom-color:transparent;
+  flex:1;padding:11px 8px;border:0;border-bottom:1px solid var(--line);
+  background:rgba(0,0,0,.28);color:var(--txt-3);
+  font-size:12.5px;font-weight:600;letter-spacing:.02em;
+  cursor:pointer;transition:.15s;font-family:inherit;
   white-space:nowrap                      /* 두 줄로 접히면 읽기 나쁘다 */
 }
-.tTab:hover{color:var(--txt-2)}
-.tTab.on{background:rgba(58,90,180,.3);border-color:rgba(138,180,255,.5);color:#fff}
+.tTab+.tTab{border-left:1px solid var(--line)}
+.tTab:hover{color:var(--txt-2);background:rgba(0,0,0,.18)}
+.tTab.on{background:transparent;border-bottom-color:transparent;color:#fff}
+.tTab.on:hover{background:transparent}
 .tSpacer{flex:1}
 .tIco{
   width:26px;height:26px;border-radius:8px;border:1px solid var(--line);
@@ -291,28 +296,20 @@ body.capture #hint{display:none}
 @keyframes tokPulse{0%{box-shadow:0 0 0 0 rgba(255,198,92,.55)}100%{box-shadow:0 0 0 22px rgba(255,198,92,0)}}
 
 /* ---------- 타이머 위젯 ---------- */
-#timerPanel{width:288px;padding:14px 16px 16px;transition:.25s}
+/* 탭 · 본문 · 조작 줄 세 층. 다이얼 원은 없앴다 — 사용자가 그린 배치에 없고,
+   원을 빼면 그 자리를 숫자가 크게 쓸 수 있다. */
+#timerPanel{width:288px;padding:0;overflow:hidden;transition:.25s}
 /* 접었을 때는 남은 시간과 펼치기 버튼만 남는다 */
 #timerPanel.mini{width:auto;padding:8px 10px 8px 16px}
-#timerPanel.mini .tBody,#timerPanel.mini .tTabs{display:none}
+#timerPanel.mini .tBody,#timerPanel.mini .tTabs,#timerPanel.mini .tFoot{display:none}
 .tMini{display:none;align-items:center;gap:14px}
 #timerPanel.mini .tMini{display:flex}
 .tMini b{font-size:22px;font-weight:300;letter-spacing:.05em;color:var(--txt);
   font-variant-numeric:tabular-nums;line-height:1}
-.tHead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.tHead .ttl{font-size:12px;font-weight:700;letter-spacing:.09em;color:var(--txt-2);flex:1}
-.tHead .ico{
-  width:26px;height:26px;border-radius:8px;border:1px solid var(--line);
-  background:rgba(255,255,255,.03);cursor:pointer;font-size:12px;line-height:1;
-  display:flex;align-items:center;justify-content:center;transition:.15s
-}
-.tHead .ico:hover{border-color:var(--line-2);background:rgba(255,255,255,.08)}
-.tHead .ico.off{opacity:.4}
 
-/* 모드 선택 (체크박스형) */
-.modeRow{display:flex;gap:8px;margin-bottom:12px}
+/* 체크박스 (긴 휴식) */
 .chk{
-  flex:1;display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:8px;
   padding:9px 10px;border:1px solid var(--line);border-radius:11px;
   cursor:pointer;font-size:12px;font-weight:600;color:var(--txt-2);transition:.15s;
   background:rgba(255,255,255,.02);
@@ -324,17 +321,135 @@ body.capture #hint{display:none}
 }
 .chk.on{border-color:rgba(138,180,255,.6);background:rgba(58,90,180,.22);color:#fff}
 .chk.on .box{background:var(--acc);border-color:var(--acc);color:#08101f}
-.chk.sm{margin-bottom:9px;padding:7px 10px;font-size:11.5px}
 
-/* 시간 설정 */
-.setGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+/* 본문 */
+.tBody{padding:18px 16px 14px;position:relative}
+
+/* 카운트다운 — 큰 숫자 하나 */
+.bigWrap{text-align:center}
+.big{
+  font-size:46px;font-weight:200;letter-spacing:.03em;line-height:1;
+  font-variant-numeric:tabular-nums;display:inline-block;
+  border-bottom:1px dashed transparent;
+  transition:font-size .42s cubic-bezier(.4,0,.2,1),border-color .15s
+}
+/* 누르면 고칠 수 있다는 것을 알려준다 */
+.big.editable{cursor:pointer}
+.big.editable:hover{border-bottom-color:var(--line-2)}
+#timerPanel.run .big{font-size:62px}
+.bigIn{
+  display:none;width:150px;background:transparent;border:none;outline:none;
+  font-size:46px;font-weight:200;letter-spacing:.03em;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--txt);text-align:center;
+  border-bottom:1px dashed var(--line-2);padding:0;font-family:inherit
+}
+.bigIn:focus{border-bottom-color:var(--acc)}
+.bigIn::-webkit-outer-spin-button,.bigIn::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.bigIn{-moz-appearance:textfield}
+
+/* 프리셋 — 시작하면 접힌다.
+   max-height 로 접어야 transition 이 걸린다. display:none 은 애니메이션이 안 된다. */
+/* 폭을 채우지 않고 가운데로 모은다 — 작은 알약 셋이 넉넉히 떨어져 있는 모양 */
+.setGrid{
+  display:flex;justify-content:center;gap:18px;
+  max-height:20px;opacity:1;margin-top:15px;overflow:hidden;
+  transition:max-height .42s cubic-bezier(.4,0,.2,1),
+             opacity .22s ease,
+             margin-top .42s cubic-bezier(.4,0,.2,1)
+}
+#timerPanel.run .setGrid{max-height:0;opacity:0;margin-top:0}
 .pre{
-  padding:7px 0;text-align:center;
-  border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.02);
-  font-size:12px;cursor:pointer;color:var(--txt-2);transition:.15s;font-variant-numeric:tabular-nums
+  padding:1px 11px;text-align:center;line-height:1.3;
+  border:1px solid var(--line);border-radius:6px;background:rgba(255,255,255,.02);
+  font-size:10px;cursor:pointer;color:var(--txt-2);transition:.15s;
+  font-variant-numeric:tabular-nums;white-space:nowrap
 }
 .pre:hover{border-color:var(--line-2);color:var(--txt)}
 .pre.on{background:rgba(58,90,180,.3);border-color:rgba(138,180,255,.55);color:#fff;font-weight:700}
+
+/* 포모도로 — 집중 / 휴식 두 칸 */
+.pomoRow{display:flex;align-items:flex-start}
+.pomoCol{flex:1;text-align:center;transition:opacity .3s}
+.pomoCol .lb{font-size:12px;color:var(--txt-2);letter-spacing:.06em;font-weight:600;
+  margin-bottom:9px;transition:color .3s}
+.pomoCol .num{
+  font-size:33px;font-weight:200;letter-spacing:.02em;line-height:1;
+  font-variant-numeric:tabular-nums;display:inline-block;
+  border-bottom:1px dashed transparent;
+  transition:font-size .42s cubic-bezier(.4,0,.2,1),border-color .15s
+}
+.pomoCol .num.editable{cursor:pointer}
+.pomoCol .num.editable:hover{border-bottom-color:var(--line-2)}
+.pomoIn{
+  display:none;width:104px;background:transparent;border:none;outline:none;
+  font-size:33px;font-weight:200;letter-spacing:.02em;line-height:1;
+  font-variant-numeric:tabular-nums;color:var(--txt);text-align:center;
+  border-bottom:1px dashed var(--line-2);padding:0;font-family:inherit
+}
+.pomoIn:focus{border-bottom-color:var(--acc)}
+.pomoIn::-webkit-outer-spin-button,.pomoIn::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.pomoIn{-moz-appearance:textfield}
+/* 진행 중에는 그 단계만 크게, 나머지는 물러난다 */
+#timerPanel.run .pomoCol{opacity:.32}
+#timerPanel.run .pomoCol.act{opacity:1}
+#timerPanel.run .pomoCol.act .num{font-size:52px}
+#timerPanel.run .pomoCol.act .lb{color:var(--acc)}
+
+/* 긴 휴식 — 포모도로 보너스가 이 값을 쓴다 */
+.longRow{
+  display:flex;align-items:center;gap:8px;margin-top:15px;
+  max-height:40px;opacity:1;overflow:hidden;
+  transition:max-height .42s cubic-bezier(.4,0,.2,1),opacity .22s,margin-top .42s
+}
+#timerPanel.run .longRow{max-height:0;opacity:0;margin-top:0}
+.longRow .chk{padding:6px 8px;font-size:11px;border-radius:9px;white-space:nowrap;flex:0 0 auto}
+.longRow .chk .box{width:13px;height:13px;border-radius:4px;font-size:9px}
+/* 288px 안에 들어가야 한다 — nowrap 을 안 걸면 '회마다'가 두 줄로 접힌다 */
+.longRow .sm{flex:1;display:flex;align-items:center;gap:4px;white-space:nowrap;
+  font-size:10.5px;color:var(--txt-3);justify-content:flex-end}
+.longRow .sm input{
+  width:33px;flex:0 0 auto;
+  background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:8px;
+  padding:5px 2px;font-size:11px;text-align:center;outline:none;color:var(--txt);
+  font-variant-numeric:tabular-nums;font-family:inherit;-moz-appearance:textfield
+}
+/* 스피너를 안 끄면 그만큼 자리를 먹어 두 자리 숫자가 잘린다 */
+.longRow .sm input::-webkit-outer-spin-button,
+.longRow .sm input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.longRow .sm input:focus{border-color:var(--line-2)}
+
+/* 남은 문구는 최소한만 — 화면 어디서도 알 수 없는 것만 (휴식 중 · 일시정지 · 회차) */
+.stTxt{font-size:11px;color:var(--txt-3);margin-top:12px;text-align:center;letter-spacing:.06em}
+.stTxt b{color:var(--acc);font-weight:600}
+.tHint{
+  font-size:10.5px;color:var(--txt-3);text-align:center;letter-spacing:.03em;
+  max-height:18px;opacity:1;overflow:hidden;margin-top:12px;
+  transition:max-height .42s cubic-bezier(.4,0,.2,1),opacity .22s,margin-top .42s
+}
+#timerPanel.run .tHint{max-height:0;opacity:0;margin-top:0}
+
+/* 구분선 아래 조작 줄 */
+.tFoot{
+  display:flex;align-items:center;gap:7px;
+  border-top:1px solid var(--line);padding:11px 14px;background:rgba(0,0,0,.16)
+}
+.tFoot .sp{flex:1}
+.tFoot .tIco{width:32px;height:32px;border-radius:9px}
+.tFoot .tIco:active{transform:translateY(1px)}
+.tIco.play{border-color:rgba(138,180,255,.45);color:var(--acc);
+  background:linear-gradient(150deg,rgba(58,90,180,.34),rgba(40,60,140,.28))}
+.tIco.play:hover{border-color:var(--acc);color:#fff}
+.tIco.stop{border-color:rgba(255,138,107,.5);color:#ff9b7d;
+  background:linear-gradient(150deg,rgba(150,60,40,.3),rgba(110,40,30,.24))}
+.tIco.stop:hover{border-color:#ff8a6b;color:#fff}
+/* 종료 버튼은 세션이 있을 때만 나타난다. 대기 중에는 되돌릴 것이 없다. */
+#btnReset{overflow:hidden;
+  transition:width .24s cubic-bezier(.4,0,.2,1),opacity .18s,margin-left .24s cubic-bezier(.4,0,.2,1)}
+#btnReset.gone{width:0;opacity:0;margin-left:-7px;border-width:0;pointer-events:none}
+
+/* 계정 모달 등에서 쓰는 입력 행 */
 .fieldRow{display:flex;gap:8px;margin-bottom:12px}
 .field{flex:1;display:flex;flex-direction:column;gap:5px}
 .field label{font-size:10px;color:var(--txt-3);letter-spacing:.05em}
@@ -343,34 +458,6 @@ body.capture #hint{display:none}
   padding:8px 10px;font-size:13px;text-align:center;outline:none;font-variant-numeric:tabular-nums
 }
 .field input:focus{border-color:var(--line-2)}
-
-/* 다이얼 */
-.dial{position:relative;width:100%;height:132px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
-/* rotate(-90deg) 때문에 히트 영역이 .dial 밖으로 삐져나와 위쪽 입력창을 덮는다.
-   장식용이므로 클릭을 통과시킨다. */
-.dial svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
-.dial .center{pointer-events:none}
-.dial .center{position:relative;text-align:center;z-index:1}
-.dial .big{font-size:38px;font-weight:200;letter-spacing:.04em;font-variant-numeric:tabular-nums;line-height:1}
-.dial .center input{pointer-events:auto}
-.bigIn{
-  display:none;width:118px;background:transparent;border:none;outline:none;
-  font-size:38px;font-weight:200;letter-spacing:.04em;line-height:1;
-  font-variant-numeric:tabular-nums;color:var(--txt);text-align:center;
-  border-bottom:1px dashed var(--line-2);padding:0 0 2px;font-family:inherit
-}
-.bigIn:focus{border-bottom-color:var(--acc)}
-/* 누르면 고칠 수 있다는 것을 알려준다 */
-.dial .big.editable{pointer-events:auto;cursor:pointer;
-  border-bottom:1px dashed transparent;transition:border-color .15s}
-.dial .big.editable:hover{border-bottom-color:var(--line-2)}
-.tHint{font-size:10.5px;color:var(--txt-3);text-align:center;
-  margin:-4px 0 9px;letter-spacing:.03em}
-.bigIn::-webkit-outer-spin-button,.bigIn::-webkit-inner-spin-button{
-  -webkit-appearance:none;margin:0}
-.bigIn{-moz-appearance:textfield}
-.dial .st{font-size:11px;color:var(--txt-3);margin-top:6px;letter-spacing:.06em}
-.dial .st b{color:var(--acc)}
 
 .btnRow{display:flex;gap:8px}
 .btnRow .cbtn{flex:1;text-align:center;padding:11px 8px;box-shadow:none}
@@ -698,15 +785,107 @@ body.capture #hint{display:none}
 }
 @keyframes tokIn{from{opacity:0;transform:translateY(14px) scale(.85)}to{opacity:1;transform:none}}
 /* 집중 기록 */
-.recGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
-.recBox{padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
-.recBox .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.recBox .k{font-size:10.5px;color:var(--txt-3);margin-top:3px;letter-spacing:.04em}
-.recBars{display:flex;align-items:flex-end;gap:3px;height:52px;margin-top:13px}
-.recBars i{flex:1;background:rgba(138,180,255,.30);border-radius:3px 3px 1px 1px;min-height:2px;display:block}
-.recBars i.on{background:linear-gradient(180deg,var(--acc),rgba(58,110,255,.55))}
-.recBars i.today{background:linear-gradient(180deg,var(--gold),rgba(255,170,60,.6))}
-.recFoot{display:flex;justify-content:space-between;font-size:10px;color:var(--txt-3);margin-top:5px}
+/* ---------- 집중 기록 ----------
+   머리: [뒤로][달력] ... 26th Wed ... 2026 August
+   달력 화면에서는 달력 버튼을 감춘다 (이미 그 화면이다). */
+.recHead{padding:15px 17px 12px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:9px}
+.recHead .ico{
+  width:32px;height:32px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(255,255,255,.03);cursor:pointer;color:var(--txt-2);
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:.15s
+}
+.recHead .ico:hover{border-color:var(--line-2);color:var(--txt)}
+.recHead .ico.cal:hover{color:var(--gold);border-color:rgba(255,198,92,.45)}
+.recHead .ico.hide{display:none}
+.recHead .day{flex:1;text-align:center;font-size:19px;font-weight:700;letter-spacing:.01em;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.recHead .day sup{font-size:11px;font-weight:600;color:var(--txt-2);vertical-align:super;margin-left:1px}
+.recHead .day em{font-style:normal;font-size:13px;font-weight:600;color:var(--txt-2);margin-left:7px}
+.recHead .ym{font-size:12px;color:var(--txt-3);letter-spacing:.05em;flex:0 0 auto;
+  text-align:right;line-height:1.4}
+
+/* 24시간 띠 — 격자가 블록 위로 비쳐 보인다.
+   **`.tl` 로 짓지 말 것** — HUD 좌상단 컨테이너가 이미 `.hud tl` 을 쓴다.
+   겹치면 시계 패널이 position/height 를 빼앗겨 시각이 잘린다(실제로 그랬다). */
+.recTlAxis{position:relative;height:15px;margin-bottom:5px}
+.recTlAxis span{position:absolute;top:0;font-size:11px;color:var(--txt-3);
+  font-variant-numeric:tabular-nums;transform:translateX(-50%)}
+.recTl{position:relative;height:48px;border:1px solid var(--line-2);border-radius:6px;
+  background:rgba(0,0,0,.28);overflow:hidden}
+.recTl .grid{position:absolute;inset:0;pointer-events:none;z-index:2}
+.recTl .grid i{position:absolute;top:0;bottom:0;width:1px;background:rgba(140,175,255,.13)}
+.recTl .grid i.maj{background:rgba(140,175,255,.30)}
+.recTl .blk{
+  position:absolute;top:14%;height:72%;z-index:1;
+  background:linear-gradient(180deg,rgba(138,180,255,.42),rgba(58,110,255,.26));
+  border:1px solid rgba(160,196,255,.75);border-radius:4px;cursor:pointer;transition:.15s
+}
+.recTl .blk:hover,.recTl .blk.sel{
+  background:linear-gradient(180deg,rgba(180,208,255,.62),rgba(90,140,255,.42));border-color:#cfe0ff}
+.recTl.empty::after{content:attr(data-msg);position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--txt-3)}
+.recTlTip{height:17px;margin-top:6px;font-size:11.5px;color:var(--acc);
+  font-variant-numeric:tabular-nums;letter-spacing:.03em;text-align:center}
+
+/* 그 날의 숫자 */
+.dayNums{margin-top:15px;display:flex;flex-direction:column;gap:9px}
+.dayNums div{display:flex;align-items:baseline;gap:10px;font-size:14.5px;color:var(--txt-2)}
+.dayNums b{font-size:23px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;margin-left:auto}
+.dayNums span{font-size:13px;color:var(--txt-3);margin-left:2px}
+.dayNav{display:flex;gap:8px;margin-top:15px}
+.dayNav button{
+  flex:1;padding:9px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.02);
+  color:var(--txt-2);font-size:12px;cursor:pointer;font-family:inherit;transition:.15s;
+  font-variant-numeric:tabular-nums
+}
+.dayNav button:hover:not(:disabled){border-color:var(--line-2);color:var(--txt)}
+.dayNav button:disabled{opacity:.3;cursor:default}
+
+/* 달력 */
+.calNav{display:flex;align-items:center;gap:8px;margin-bottom:13px}
+.calNav button{
+  width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);
+  color:var(--txt-2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s
+}
+.calNav button:hover:not(:disabled){border-color:var(--line-2);color:var(--txt)}
+.calNav button:disabled{opacity:.28;cursor:default}
+.calNav .mo{flex:1;text-align:center;font-size:15px;font-weight:700;letter-spacing:.03em}
+.calHead{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:5px}
+.calHead div{text-align:center;font-size:10.5px;color:var(--txt-3);letter-spacing:.06em;
+  font-weight:600;padding-bottom:3px}
+.calHead div:first-child{color:#ff9a9a}
+.calHead div:last-child{color:#9ab8ff}
+.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{
+  position:relative;min-height:52px;border:1px solid var(--line);border-radius:9px;
+  background:rgba(255,255,255,.015);padding:5px 6px;cursor:pointer;transition:.14s;overflow:hidden
+}
+.cell:hover{border-color:var(--line-2);background:rgba(255,255,255,.05)}
+.cell.blank{border-color:transparent;background:transparent;cursor:default}
+.cell .d{font-size:12px;color:var(--txt-2);font-variant-numeric:tabular-nums;line-height:1;
+  position:relative;z-index:2}
+.cell.sun .d{color:#ff9a9a}
+.cell.sat .d{color:#9ab8ff}
+.cell.today{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,198,92,.45) inset}
+.cell.today .d{color:var(--gold);font-weight:700}
+.cell.sel{border-color:var(--acc);box-shadow:0 0 0 1px rgba(138,180,255,.5) inset}
+.cell.today.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,198,92,.55) inset}
+/* 집중량 — 칸 아래쪽이 그 달 최대치 대비 비율만큼 차오른다 */
+.cell .fill{position:absolute;left:0;right:0;bottom:0;z-index:1;
+  background:linear-gradient(180deg,rgba(138,180,255,.30),rgba(58,110,255,.16))}
+.cell .m{position:absolute;right:5px;bottom:4px;z-index:2;font-size:9.5px;color:var(--txt-3);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.cell.on .m{color:#bcd0f5}
+/* 달력 하단 — 숫자와 이름표만 (설명 문구는 두지 않는다) */
+.calStat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:15px}
+.calStat div{padding:10px 11px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,255,255,.02)}
+.calStat b{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.calStat span{font-size:13px;color:var(--txt-2);margin-left:2px}
+.calStat em{display:block;font-style:normal;font-size:10.5px;color:var(--txt-3);
+  margin-top:3px;letter-spacing:.02em;white-space:nowrap}
 
 .statLine{display:flex;gap:10px;margin-top:20px}
 .statBox{flex:1;padding:11px 8px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
@@ -779,21 +958,44 @@ body.locked #timerPanel input{cursor:not-allowed}
 /* ---------- 반응형 ---------- */
 @media (max-width:760px){
   /* 좁은 화면에서는 위젯이 항성계를 가리지 않도록 최대한 압축 */
-  #timerPanel{width:234px;padding:11px 12px 12px}
-  .setGrid{grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:8px}
-  .pre{padding:6px 0;font-size:10.5px;border-radius:7px}
-  .modeRow{gap:6px;margin-bottom:9px}
+  #timerPanel{width:234px;padding:0}
+  .tBody{padding:13px 12px 11px}
+  .tFoot{padding:9px 11px;gap:6px}
+  .tFoot .tIco{width:30px;height:30px}
+  #btnReset.gone{margin-left:-6px}
+  .setGrid{gap:14px;max-height:19px;margin-top:12px}
+  .pre{padding:1px 9px;font-size:9.5px;border-radius:6px}
   .chk{padding:7px 8px;font-size:11px;border-radius:9px}
   .chk .box{width:13px;height:13px}
   .fieldRow{gap:6px;margin-bottom:9px}
   .field label{font-size:9.5px}
   .field input{padding:6px 8px;font-size:12px}
-  .dial{height:94px;margin-bottom:9px}
-  .tTab{font-size:10.5px;padding:6px 7px}
-  .dial .big{font-size:27px}
-  .bigIn{font-size:27px;width:92px}
-  .dial .st{font-size:10px;margin-top:4px}
-  .btnRow .cbtn{padding:9px 6px;font-size:12px}
+  .tTab{font-size:11px;padding:9px 7px}
+  .big{font-size:36px}
+  #timerPanel.run .big{font-size:48px}
+  .bigIn{font-size:36px;width:120px}
+  .pomoCol .lb{font-size:11px;margin-bottom:7px}
+  .pomoCol .num{font-size:26px}
+  #timerPanel.run .pomoCol.act .num{font-size:40px}
+  .pomoIn{font-size:26px;width:84px}
+  .longRow{margin-top:12px}
+  .stTxt{font-size:10px;margin-top:9px}
+  .tHint{margin-top:9px}
+  /* 집중 기록 */
+  .recHead{padding:12px 13px 10px;gap:7px}
+  .recHead .ico{width:30px;height:30px}
+  .recHead .day{font-size:17px}
+  .recHead .ym{font-size:10.5px}
+  .recTl{height:42px}
+  .dayNums b{font-size:20px}
+  .cell{min-height:46px;padding:4px 5px}
+  .cell .d{font-size:11px}
+  .cell .m{font-size:8.5px;right:4px}
+  .calStat{gap:6px}
+  .calStat div{padding:9px 8px}
+  .calStat b{font-size:17px}
+  .calStat span{font-size:11.5px}
+  .calStat em{font-size:9.5px}
   .tNote{display:none}
   #clock{min-width:150px;padding:9px 12px}
   #clock .time{font-size:22px}
@@ -809,9 +1011,14 @@ body.locked #timerPanel input{cursor:not-allowed}
   .dexGrid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
   #hint{bottom:calc(84px + var(--safe-b));font-size:11px}
 }
+@media (max-width:400px){
+  .cell{min-height:42px}
+  .cell .m{display:none}
+}
 @media (max-height:620px){
   #timerPanel .tNote{display:none}
-  .dial{height:100px;margin-bottom:8px}
+  .big{font-size:34px}
+  #timerPanel.run .big{font-size:44px}
 }
 </style>
 </head>
@@ -896,9 +1103,6 @@ body.locked #timerPanel input{cursor:not-allowed}
     <div class="tTabs">
       <button class="tTab on" id="mdCount">카운트다운</button>
       <button class="tTab" id="mdPomo">포모도로</button>
-      <div class="tSpacer"></div>
-      <button class="tIco" id="btnSound" title="완료 사운드">♪</button>
-      <button class="tIco" id="btnMini" title="접기">—</button>
     </div>
     <div class="tMini">
       <b id="miniTime">25:00</b>
@@ -910,49 +1114,58 @@ body.locked #timerPanel input{cursor:not-allowed}
       </button>
     </div>
     <div class="tBody">
+      <!-- 카운트다운 — 큰 숫자를 누르면 그 자리가 입력창이 된다.
+           위에 따로 두면 같은 값이 두 번 보여 헷갈린다. -->
       <div id="cfgCount">
+        <div class="bigWrap">
+          <input type="number" id="inCount" class="bigIn" min="10" max="300" step="1"
+                 value="25" inputmode="numeric">
+          <span class="big" id="bigTime">25:00</span>
+        </div>
         <div class="setGrid" id="presets"></div>
       </div>
 
+      <!-- 포모도로 — 집중 / 휴식 두 칸. 각 숫자도 눌러서 고친다. -->
       <div id="cfgPomo" style="display:none">
-        <div class="fieldRow">
-          <div class="field"><label id="lblFocus">집중 (최소 10)</label><input type="number" id="inFocus" min="10" max="180" step="1" value="25" inputmode="numeric"></div>
-          <div class="field"><label>휴식</label><input type="number" id="inBreak" min="1" max="60" step="1" value="5" inputmode="numeric"></div>
+        <div class="pomoRow">
+          <div class="pomoCol act" id="colFocus">
+            <div class="lb">집중</div>
+            <input type="number" id="inFocus" class="pomoIn" min="10" max="180" step="1"
+                   value="25" inputmode="numeric">
+            <span class="num" id="numFocus">25:00</span>
+          </div>
+          <div class="pomoCol" id="colBreak">
+            <div class="lb">휴식</div>
+            <input type="number" id="inBreak" class="pomoIn" min="1" max="60" step="1"
+                   value="5" inputmode="numeric">
+            <span class="num" id="numBreak">05:00</span>
+          </div>
         </div>
-        <div class="chk sm on" id="mdLong"><span class="box">✓</span>긴 휴식 사용</div>
-        <div class="fieldRow" id="longRow">
-          <div class="field"><label>긴 휴식</label><input type="number" id="inLong" min="5" max="90" step="1" value="20" inputmode="numeric"></div>
-          <div class="field"><label>주기 (회)</label><input type="number" id="inEvery" min="2" max="10" step="1" value="4" inputmode="numeric"></div>
-        </div>
-      </div>
-
-      <div class="dial">
-        <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="5"/>
-          <circle id="ring" cx="60" cy="60" r="52" fill="none" stroke="url(#rg)" stroke-width="5"
-                  stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
-          <defs>
-            <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#8ab4ff"/><stop offset="100%" stop-color="#c9a6ff"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <div class="center">
-          <!-- 대기 중에는 여기가 곧 입력창이다. 위에 따로 두면 같은 값이
-               두 번 보여 헷갈린다. -->
-          <input type="number" id="inCount" class="bigIn" min="10" max="300" step="1"
-                 value="25" inputmode="numeric">
-          <div class="big" id="bigTime">25:00</div>
-          <div class="st" id="stTxt">대기 중</div>
+        <div class="longRow">
+          <div class="chk on" id="mdLong"><span class="box">✓</span>긴 휴식</div>
+          <div class="sm" id="longRow">
+            <input type="number" id="inLong" min="5" max="90" step="1" value="20" inputmode="numeric">분
+            <input type="number" id="inEvery" min="2" max="10" step="1" value="4" inputmode="numeric">회마다
+          </div>
         </div>
       </div>
 
+      <div class="stTxt" id="stTxt"></div>
       <div class="tHint" id="tHint">집중 시간 · 최소 10분</div>
-      <div class="btnRow">
-        <button class="cbtn primary" id="btnStart">시작</button>
-        <button class="cbtn ghost" id="btnReset">초기화</button>
-      </div>
       <div class="tNote" id="tNote"></div>
+    </div>
+
+    <!-- 구분선 아래 조작 줄. 아이콘은 전부 인라인 SVG —
+         글자 아이콘은 폰트 대체에 따라 기기마다 모양이 달라진다. -->
+    <div class="tFoot">
+      <button class="tIco play" id="btnStart" title="시작"></button>
+      <button class="tIco stop gone" id="btnReset" title="종료"></button>
+      <div class="sp"></div>
+      <button class="tIco" id="btnSound" title="완료 알림 소리"></button>
+      <button class="tIco" id="btnMini" title="접기">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+             stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>
+      </button>
     </div>
   </div>
 </div>
@@ -1140,10 +1353,21 @@ body.locked #timerPanel input{cursor:not-allowed}
 
 <!-- ============ 모달: 집중 기록 ============ -->
 <div class="mask" id="mRecord">
-  <div class="modal" style="max-width:420px">
-    <div class="mHead">
-      <div style="flex:1"><h2>집중 기록</h2></div>
-      <button class="mClose" data-close="mRecord">✕</button>
+  <div class="modal">
+    <div class="recHead">
+      <button class="ico" id="recBack" title="닫기">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="ico cal" id="recCal" title="달력">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round">
+          <rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17"/>
+          <path d="M8 3v3.4M16 3v3.4"/></svg>
+      </button>
+      <div class="day" id="recDay"></div>
+      <div class="ym" id="recYm"></div>
     </div>
     <div class="mBody" id="recBody"></div>
   </div>
@@ -1338,6 +1562,43 @@ function mergeLog(a,b){
   for(const k in bb) if(!(out[k]>=bb[k])) out[k]=bb[k];
   return cleanLog(out);
 }
+/* ---- 날짜별 세션 구간 ----
+   'YYYY-MM-DD' → [[시작분, 길이분], …]. 시작분은 자정부터의 분(0~1439).
+   log 는 그날의 **총량**만 알고 있어 24시간 띠를 그릴 수 없다. 그래서 언제
+   했는지를 따로 남긴다. 세션 하나가 숫자 둘이라 400일치가 20KB 남짓이다.
+   log 와 같은 기간(LOG_DAYS)만 남겨 둘이 어긋나지 않게 한다. */
+function cleanSes(o){
+  const out={};
+  if(!o||typeof o!=='object')return out;
+  const ks=Object.keys(o).filter(k=>validDay(k)&&Array.isArray(o[k]));
+  ks.sort();
+  for(const k of ks.slice(-LOG_DAYS)){
+    const v=o[k]
+      .filter(s=>Array.isArray(s)&&s.length>=2&&isFinite(s[0])&&isFinite(s[1])&&s[1]>0)
+      .map(s=>[clamp(Math.round(s[0]),0,1439), clamp(Math.round(s[1]),1,1440)])
+      .sort((a,b)=>a[0]-b[0]);
+    if(v.length) out[k]=v;
+  }
+  return out;
+}
+/** 같은 날은 **총량이 큰 쪽 하루를 통째로** 쓴다. 구간을 섞으면 같은 세션이
+    두 번 들어가고, 총량 기준이라 mergeLog 와 결과가 어긋나지 않는다. */
+function mergeSes(a,b){
+  const tot=v=>v.reduce((s,x)=>s+x[1],0);
+  const out=Object.assign({},cleanSes(a)), bb=cleanSes(b);
+  for(const k in bb) if(!out[k]||tot(bb[k])>tot(out[k])) out[k]=bb[k];
+  return cleanSes(out);
+}
+/** 완주한 세션을 기록한다. 자정을 넘겼으면 **시작한 날**에 남기고 24시에서 자른다.
+    일시정지가 있었으면 실제 벽시계 구간보다 짧지만, 집중한 길이는 맞다. */
+function pushSession(startMs,ms){
+  const d=new Date(startMs), k=dayKey(d);
+  const st=d.getHours()*60+d.getMinutes();
+  const len=clamp(Math.round(ms/60000),1,1440-st);
+  if(len<1)return;
+  (S.ses[k]=S.ses[k]||[]).push([st,len]);
+  S.ses[k].sort((a,b)=>a[0]-b[0]);
+}
 /** 오늘부터 거슬러 올라가며 연속으로 집중한 날 수.
     오늘 아직 안 했다고 연속이 끊긴 것은 아니므로 어제부터 센다. */
 function focusStreak(log){
@@ -1346,13 +1607,6 @@ function focusStreak(log){
   let n=0;
   while(log[dayKey(d)]>0){ n++; d.setDate(d.getDate()-1); }
   return n;
-}
-/** 최근 n 일치를 과거→오늘 순으로 */
-function recentDays(log,n){
-  const out=[], d=new Date();
-  d.setDate(d.getDate()-(n-1));
-  for(let i=0;i<n;i++){ const k=dayKey(d); out.push({k,ms:log[k]|0}); d.setDate(d.getDate()+1); }
-  return out;
 }
 /** 일·시간까지 올려 읽는 길이 (fmtH 는 시간·분까지만 본다) */
 function fmtDur(ms){
@@ -1807,7 +2061,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.30-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -1837,6 +2091,9 @@ function freshState(){
        stats.dayMs 는 오늘치만 들고 있어 하루가 바뀌면 사라진다. 며칠을
        집중했는지·연속 며칠인지를 보려면 날짜별로 남겨야 한다. */
     log:{},
+    /* 날짜별 세션 구간. 'YYYY-MM-DD' → [[시작분,길이분],…].
+       log 는 총량만 알아 24시간 띠를 그릴 수 없으므로 따로 남긴다. */
+    ses:{},
     sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false
   };
 }
@@ -1859,6 +2116,7 @@ function load(raw0){
     S.timer=Object.assign(freshState().timer,o.timer||{});
     S.stats=Object.assign({sessions:0,focusMs:0,day:'',dayMs:0},o.stats||{});
     S.log=cleanLog(o.log);
+    S.ses=cleanSes(o.ses);          // 옛 저장본에는 없다 — 빈 객체로 시작한다
     // 시스템 구조 보정
     const fs=freshState().sys;
     if(!o.sys) S.sys=fs;
@@ -4136,7 +4394,7 @@ function syncAdminUI(){
   document.body.classList.toggle('admin',a);
   $('#inCount').min=limMin('count');
   $('#inFocus').min=limMin('focus');
-  $('#lblFocus').textContent=`집중 (최소 ${limMin('focus')})`;
+  /* 최소값 안내는 #tHint 한 곳에만 있다 — updateTimerUI 가 모드에 맞춰 쓴다 */
   paintTokens();
 }
 function currentFocusMin(){ return S.timer.mode==='pomo'?S.timer.focus:S.timer.count; }
@@ -4219,6 +4477,8 @@ function onPhaseDone(){
     if(S.stats.day!==dk){S.stats.day=dk;S.stats.dayMs=0;}
     S.stats.dayMs+=T.total;
     S.log[dk]=(S.log[dk]|0)+T.total;
+    /* 24시간 띠에 쓸 구간. 끝난 시각에서 길이만큼 거슬러 올라가 시작으로 삼는다 */
+    pushSession(Date.now()-T.total, T.total);
 
     if(T.mode==='pomo'){
       T.round++;
@@ -4350,41 +4610,87 @@ function updateLockUI(){
   document.body.classList.toggle('locked',isLocked());
 }
 
+/* 조작 줄 아이콘. 글자 아이콘은 폰트 대체에 따라 기기마다 모양이 달라지므로
+   전부 인라인 SVG 로 박아 둔다.
+     대기      ▶ 시작                (종료는 없다 — 되돌릴 세션이 없다)
+     진행 중   ⏸ 일시정지   ■ 종료
+     일시정지  ▶ 이어서     ■ 종료   */
+const TICO={
+  play :'<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M8.5 5.4v13.2L19 12z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">'
+       +'<rect x="7.6" y="5.8" width="3.5" height="12.4" rx="1.1"/>'
+       +'<rect x="12.9" y="5.8" width="3.5" height="12.4" rx="1.1"/></svg>',
+  stop :'<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">'
+       +'<rect x="6.3" y="6.3" width="11.4" height="11.4" rx="1.7"/></svg>',
+  /* 종 — 완료 알림 소리. 끄면 사선을 긋는다: 흐리게만 하면 켠 건지 끈 건지
+     밝기 하나로만 갈려 애매하다. */
+  bell :'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
+       +'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+       +'<path d="M18.4 15.6c0-.9-.7-1.6-.9-3.6-.2-1.7 0-2.6-.4-3.9C16.5 6 14.4 4.6 12 4.6'
+       +'S7.5 6 6.9 8.1c-.4 1.3-.2 2.2-.4 3.9-.2 2-.9 2.7-.9 3.6h12.8z"/>'
+       +'<path d="M12 2.6v2"/><path d="M10.2 18.2a1.9 1.9 0 0 0 3.6 0"/></svg>',
+  bellOff:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
+       +'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+       +'<path d="M18.4 15.6c0-.9-.7-1.6-.9-3.6-.2-1.7 0-2.6-.4-3.9C16.5 6 14.4 4.6 12 4.6'
+       +'S7.5 6 6.9 8.1c-.4 1.3-.2 2.2-.4 3.9-.2 2-.9 2.7-.9 3.6h12.8z"/>'
+       +'<path d="M12 2.6v2"/><path d="M10.2 18.2a1.9 1.9 0 0 0 3.6 0"/>'
+       +'<path d="M4 3.6l16 16.8"/></svg>'
+};
+function paintSound(){
+  const b=$('#btnSound');
+  b.classList.toggle('off',!S.sound);
+  b.innerHTML=S.sound?TICO.bell:TICO.bellOff;
+  b.title=S.sound?'완료 알림 소리 끄기':'완료 알림 소리 켜기';
+}
+
 function updateTimerUI(){
   const T=S.timer;
   const rem=T.phase==='idle'?currentFocusMin()*60000:remainMs();
-  $('#bigTime').textContent=mmss(rem);
-  $('#miniTime').textContent=mmss(rem);      // 접힌 상태에도 남은 시간을 보인다
-  // 다이얼 가운데는 평소 남은 시간이고, 눌렀을 때만 입력창으로 바뀐다
-  const canEdit=T.phase==='idle'&&T.mode==='count';
-  const editing=_editing&&canEdit;
-  $('#inCount').style.display=editing?'block':'none';
-  $('#bigTime').style.display=editing?'none':'block';
-  $('#bigTime').classList.toggle('editable',canEdit);
-  $('#tHint').style.display=canEdit?'':'none';
-  $('#tHint').textContent=`집중 시간 · 최소 ${limMin('count')}분`;
-  const prog=T.total>0&&T.phase!=='idle'?clamp(1-rem/T.total,0,1):0;
-  $('#ring').setAttribute('stroke-dashoffset',(326.7*(1-prog)).toFixed(1));
+  const live=mmss(rem), active=T.phase!=='idle';
+  const onBreak=T.phase==='break'||T.phase==='longbreak';
+  $('#miniTime').textContent=live;           // 접힌 상태에도 남은 시간을 보인다
+
+  /* 카운트다운은 큰 숫자 하나, 포모도로는 집중·휴식 두 칸.
+     진행 중인 단계만 살아 있는 시간을 보이고 나머지는 설정값 그대로다. */
+  $('#bigTime').textContent  = active?live:mmss(T.count*60000);
+  $('#numFocus').textContent = (active&&!onBreak)?live:mmss(T.focus*60000);
+  $('#numBreak').textContent = (active&& onBreak)?live:mmss(T.brk*60000);
+  $('#colFocus').classList.toggle('act',!onBreak);
+  $('#colBreak').classList.toggle('act', onBreak);
+
+  // 숫자를 누르면 그 자리가 입력창이 된다 (대기 중에만)
+  const canEdit=!active, ed=k=>_editing===k&&canEdit;
+  [['count','#inCount','#bigTime'],['focus','#inFocus','#numFocus'],['brk','#inBreak','#numBreak']]
+    .forEach(([k,inp,txt])=>{
+      $(inp).style.display=ed(k)?'inline-block':'none';
+      $(txt).style.display=ed(k)?'none':'inline-block';
+      $(txt).classList.toggle('editable',canEdit);
+    });
+
+  // 시작하면 프리셋·안내가 접히고 그 여백만큼 숫자가 커진다
+  $('#timerPanel').classList.toggle('run',active);
+  $('#tHint').textContent = T.mode==='count'
+    ? `집중 시간 · 최소 ${limMin('count')}분`
+    : `집중 최소 ${limMin('focus')}분 · 휴식 최소 ${LIMITS.brk.min}분`;
+
   let st=phaseLabel();
-  if(T.phase!=='idle'&&!T.running&&T.remain>0) st='일시정지';
-  /* '집중 중'·'대기 중'은 링과 버튼만 봐도 아는 상태라 글자를 지운다.
+  if(active&&!T.running&&T.remain>0) st='일시정지';
+  /* '집중 중'·'대기 중'은 버튼만 봐도 아는 상태라 글자를 지운다.
      휴식·긴 휴식·일시정지·포모도로 회차는 남긴다 — 그건 화면 어디에서도
      알 수 없는 정보다. */
   if(st==='집중 중'||st==='대기 중') st='';
-  $('#stTxt').innerHTML=T.mode==='pomo'&&T.phase!=='idle'
+  $('#stTxt').innerHTML=T.mode==='pomo'&&active
     ? st.replace(/(\d+)회차/,'<b>$1</b>회차')
     : st;
   $('#stTxt').style.display=st?'':'none';
 
-  // 요구사항 16 — 집중 중에는 종료 버튼 하나만 남긴다
-  const b=$('#btnStart'), lock=isLocked();
-  b.classList.toggle('danger',lock);
-  b.classList.toggle('primary',!lock);
-  $('#btnReset').style.display=lock?'none':'';
-  if(lock)                  b.textContent='종료';
-  else if(T.phase==='idle') b.textContent='시작';
-  else if(T.running)        b.textContent='일시정지';
-  else                      b.textContent='이어서';
+  /* 대기 ▶ · 진행 중 ⏸■ · 일시정지 ▶■.
+     종료는 세션이 있을 때만 나타난다 — 대기 중에는 되돌릴 것이 없다. */
+  const a=$('#btnStart'), b=$('#btnReset');
+  a.innerHTML = T.running?TICO.pause:TICO.play;
+  a.title     = !active?'시작':(T.running?'일시정지':'이어서');
+  b.innerHTML = TICO.stop;
+  b.classList.toggle('gone',!active);
 
   /* 잠금 안내와 가챠 권유 문구는 뺐다 — 버튼과 화면만 봐도 아는 상태라
      글자를 더 얹을 필요가 없다. 남기는 것은 이 앱의 핵심인 궤도 한 줄뿐이고,
@@ -6162,7 +6468,7 @@ function showBreakDone(){
 /* ==========================================================================
    11. 타이머 위젯 UI 바인딩
    ========================================================================== */
-const PRESETS=[10,15,25,45,60,90];
+const PRESETS=[10,45,60];
 $('#presets').innerHTML=PRESETS.map(m=>`<div class="pre" data-m="${m}">${m}</div>`).join('');
 function syncPresets(){
   $$('#presets .pre').forEach(p=>p.classList.toggle('on',+p.dataset.m===S.timer.count));
@@ -6194,23 +6500,6 @@ function syncLongUI(){
   $('#longRow').style.display=S.timer.useLong?'':'none';
 }
 
-/* 다이얼 가운데 편집 — 누르면 입력창, 빠져나오면 다시 시간 표시 */
-let _editing=false;
-function beginEdit(){
-  const T=S.timer;
-  if(guard()||T.phase!=='idle'||T.mode!=='count')return;
-  _editing=true; $('#inCount').value=T.count; updateTimerUI();
-  const el=$('#inCount'); el.focus(); el.select();
-}
-function endEdit(){ _editing=false; updateTimerUI(); }
-$('#bigTime').onclick=beginEdit;
-$('#inCount').addEventListener('blur',endEdit);
-// blur 만 믿으면 안 된다. 값이 바뀌어 change 가 뜨는 경로에서도 닫는다.
-$('#inCount').addEventListener('change',endEdit);
-$('#inCount').addEventListener('keydown',e=>{
-  if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();e.target.blur();}
-});
-
 Object.keys(LIMITS).forEach(k=>{
   const el=$(LIMITS[k].el);
   el.addEventListener('change',()=>{
@@ -6223,29 +6512,56 @@ Object.keys(LIMITS).forEach(k=>{
   });
 });
 
-const askEndSession=()=>ask('집중 세션을 종료할까요?','지금 종료하면 토큰이 지급되지 않습니다.','종료',true);
-$('#btnStart').onclick=async()=>{
+/* 숫자 편집 — 누르면 그 자리가 입력창, 빠져나오면 다시 시간 표시.
+   카운트다운은 큰 숫자 하나, 포모도로는 집중·휴식 두 칸이 각각 열린다.
+   위 LIMITS 루프보다 **뒤에** 걸어야 validateField 가 먼저 값을 확정한다. */
+let _editing=null;
+function beginEdit(key){
   const T=S.timer;
-  if(isLocked()){                       // 요구사항 16 — 집중 중에는 종료만 가능
-    if(await askEndSession()) resetTimer();
-    return;
-  }
+  if(guard()||T.phase!=='idle')return;
+  if((key==='count')!==(T.mode==='count'))return;   // 지금 보이는 모드의 칸만
+  _editing=key; $(LIMITS[key].el).value=T[key]; updateTimerUI();
+  const el=$(LIMITS[key].el); el.focus(); el.select();
+}
+function endEdit(){ _editing=null; updateTimerUI(); }
+$('#bigTime').onclick =()=>beginEdit('count');
+$('#numFocus').onclick=()=>beginEdit('focus');
+$('#numBreak').onclick=()=>beginEdit('brk');
+['#inCount','#inFocus','#inBreak'].forEach(sel=>{
+  const el=$(sel);
+  el.addEventListener('blur',endEdit);
+  // blur 만 믿으면 안 된다. 값이 바뀌어 change 가 뜨는 경로에서도 닫는다.
+  el.addEventListener('change',endEdit);
+  el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();e.target.blur();}
+  });
+});
+
+/* 집중 중에도 일시정지할 수 있다. 잠기는 것은 가챠·항성계·모드·시간 입력이고,
+   타이머 자체는 세우거나 끝낼 수 있다. */
+$('#btnStart').onclick=()=>{
+  const T=S.timer;
   if(T.phase==='idle'){
     if(!S.created)return;
     askNotifyPermission();
     startPhase('focus');
     beginStartFx(S.intro);       // startPhase 가 정한 zoomTo 를 두고 현재 zoom 만 당긴다
-  }
-  else if(T.running) pause();
-  else resume();
-};
-$('#btnReset').onclick=async()=>{
-  if(isLocked()){
-    if(await askEndSession()) resetTimer();
     return;
   }
-  if(S.timer.phase!=='idle'&&!await ask('세션을 초기화할까요?','진행 중인 세션이 사라지고 토큰은 지급되지 않습니다.','초기화',true))return;
-  resetTimer();
+  if(T.running) pause(); else resume();
+};
+/* 빨간 버튼은 되돌릴 수 없으므로 반드시 한 번 묻는다.
+   묻는 동안에는 세워 둔다 — 취소했는데 몇 초를 손해 보면 안 된다. */
+$('#btnReset').onclick=async()=>{
+  const T=S.timer;
+  if(T.phase==='idle')return;
+  const wasRunning=T.running;
+  if(wasRunning) pause();
+  const ok=T.phase==='focus'
+    ? await ask('집중 세션을 종료할까요?','지금 종료하면 토큰이 지급되지 않습니다.','종료',true)
+    : await ask('휴식을 끝낼까요?','타이머가 대기 상태로 돌아갑니다.','종료',true);
+  if(ok) resetTimer();
+  else if(wasRunning) resume();
 };
 function setMini(v){
   S.mini=v;
@@ -6255,7 +6571,7 @@ function setMini(v){
 $('#btnMini').onclick=()=>setMini(true);
 $('#btnMiniOpen').onclick=()=>setMini(false);
 $('#btnSound').onclick=()=>{
-  S.sound=!S.sound;$('#btnSound').classList.toggle('off',!S.sound);
+  S.sound=!S.sound;paintSound();
   save();toast(S.sound?'완료 사운드 켜짐':'완료 사운드 꺼짐');
 };
 
@@ -6303,7 +6619,7 @@ function renderSettings(){
     const k=el.dataset.k;
     S[k]=!S[k];
     el.classList.toggle('on',S[k]);
-    if(k==='sound')$('#btnSound').classList.toggle('off',!S.sound);
+    if(k==='sound')paintSound();
     save();
   });
   // 시작 연출 선택 — .capBtn 이라 위의 .setRow 훑기에 안 걸린다
@@ -6531,6 +6847,9 @@ async function onBack(){
     // 확인창을 버튼 말고 다른 방법으로 닫으면 약속이 영원히 안 풀려
     // _exiting 이 참으로 굳고, 그때부터 뒤로가기가 통째로 죽는다.
     if(m.id==='mAsk'){ if(_askRes)_askRes(); else close('mAsk'); pushTrap(); return; }
+    /* 기록 창은 화면이 둘이다. 달력에서 뒤로가기는 하루 보기로 한 단계만
+       물러난다 — 머리의 `←` 와 같은 동작이라야 헷갈리지 않는다. */
+    if(m.id==='mRecord'&&recView==='cal'){ renderRecordDay(); pushTrap(); return; }
     close(m.id); pushTrap(); return;
   }
   if(document.body.classList.contains('capture')){ setCapture(false); pushTrap(); return; }
@@ -6622,12 +6941,15 @@ function cloudSyncOnBoot(){
     setCloudState('ok');
     if(fingerprint(cd)===fingerprint(S)){
       // 항성계는 같다. 기록만 어긋났으면 합쳐서 올리고 조용히 넘어간다.
-      const m=mergeStats(S.stats,cd.stats), lg=mergeLog(S.log,cd.log);
+      const m=mergeStats(S.stats,cd.stats), lg=mergeLog(S.log,cd.log),
+            sg=mergeSes(S.ses,cd.ses);
       if(JSON.stringify(m)!==JSON.stringify(S.stats)||
          JSON.stringify(m)!==JSON.stringify(cd.stats)||
          JSON.stringify(lg)!==JSON.stringify(S.log)||
-         JSON.stringify(lg)!==JSON.stringify(cleanLog(cd.log))){
-        S.stats=m; S.log=lg; saveNow();
+         JSON.stringify(lg)!==JSON.stringify(cleanLog(cd.log))||
+         JSON.stringify(sg)!==JSON.stringify(S.ses)||
+         JSON.stringify(sg)!==JSON.stringify(cleanSes(cd.ses))){
+        S.stats=m; S.log=lg; S.ses=sg; saveNow();
       }
       else markSynced(S.updatedAt);
       return;
@@ -6682,6 +7004,7 @@ function adoptCloud(serverData){
     if(!other)return;
     S.stats=mergeStats(S.stats,other.stats);
     S.log  =mergeLog(S.log,other.log);
+    S.ses  =mergeSes(S.ses,other.ses);
   };
   const useServer=()=>{load(serverData);keepRecord(mine);      saveNow();cloudPush(true);afterAccountSwitch();};
   const useLocal =()=>{load(localRaw);  keepRecord(serverData);saveNow();cloudPush(true);afterAccountSwitch();};
@@ -6821,24 +7144,121 @@ function paintAccount(){
 /* 집중 기록 블록. 좌상단 날짜를 누르면 뜨는 `mRecord` 의 내용이다.
    기록은 이 기기에 쌓이고, 로그인하면 클라우드로 따라간다 — 로그인 여부와
    무관하게 보여 준다. */
-function recordHTML(){
-  const st=S.stats, log=S.log||{};
-  const days=Object.keys(log).length;
-  const bars=recentDays(log,14);
-  const mx=Math.max(1,...bars.map(b=>b.ms));
-  const today=dayKey();
-  return `
-    <div class="recGrid" style="margin-top:2px">
-      <div class="recBox"><div class="v">${fmtDur(st.focusMs)}</div><div class="k">누적 집중</div></div>
-      <div class="recBox"><div class="v">${st.sessions}회</div><div class="k">완주한 세션</div></div>
-      <div class="recBox"><div class="v">${days}일</div><div class="k">집중한 날</div></div>
-      <div class="recBox"><div class="v">${focusStreak(log)}일</div><div class="k">연속 기록</div></div>
+const REC_WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const REC_MO=['January','February','March','April','May','June',
+              'July','August','September','October','November','December'];
+const recOrd=n=>(n%10===1&&n%100!==11)?'st':(n%10===2&&n%100!==12)?'nd':(n%10===3&&n%100!==13)?'rd':'th';
+const recHm=m=>pad(Math.floor(m/60)%24)+':'+pad(m%60);
+const recKey=(y,m,d)=>y+'-'+pad(m+1)+'-'+pad(d);
+let recCur=new Date(), recY=recCur.getFullYear(), recM=recCur.getMonth(), recView='day';
+
+/* 하루 보기 — 24시간 띠 + 그 날의 숫자.
+   띠는 S.ses(구간)가 있어야 그려진다. ses 가 생기기 전에 쌓인 날은 총량만
+   있으므로 띠가 비고 숫자는 정상으로 나온다. */
+function renderRecordDay(){
+  recView='day';
+  const d=recCur, k=dayKey(d), list=S.ses[k]||[];
+  const ms=S.log[k]|0;
+  $('#recDay').innerHTML=`${d.getDate()}<sup>${recOrd(d.getDate())}</sup><em>${REC_WD[d.getDay()]}</em>`;
+  $('#recYm').innerHTML=`${d.getFullYear()}<br>${REC_MO[d.getMonth()]}`;
+  $('#recCal').classList.remove('hide');
+  $('#recBack').title='닫기';
+
+  let grid='';
+  for(let h=0;h<=24;h++) grid+=`<i class="${h%6===0?'maj':''}" style="left:${h/24*100}%"></i>`;
+  const blks=list.map((s,i)=>
+    `<div class="blk" data-i="${i}" style="left:${s[0]/1440*100}%;width:${
+      Math.max(0.6,s[1]/1440*100)}%"></div>`).join('');
+
+  const prev=new Date(d); prev.setDate(prev.getDate()-1);
+  const next=new Date(d); next.setDate(next.getDate()+1);
+  const noNext=dayKey(next)>dayKey(new Date());
+  const emptyMsg=ms>0?'이 날은 시간대 기록이 없습니다':'이 날은 집중 기록이 없습니다';
+
+  $('#recBody').innerHTML=`
+    <div class="recTlAxis">${[0,6,12,18,24].map(h=>
+      `<span style="left:${clamp(h/24*100,2,98)}%">${h}</span>`).join('')}</div>
+    <div class="recTl ${list.length?'':'empty'}" data-msg="${emptyMsg}">${blks}<div class="grid">${grid}</div></div>
+    <div class="recTlTip" id="tlTip"></div>
+    <div class="dayNums">
+      <div>누적 집중<b>${Math.round(ms/60000)}</b><span>분</span></div>
+      <div>완주한 세션<b>${list.length}</b><span>회</span></div>
     </div>
-    <div class="recBars">${bars.map(b=>
-      `<i class="${b.ms>0?(b.k===today?'today':'on'):''}" style="height:${
-        b.ms>0?Math.max(8,Math.round(b.ms/mx*100)):2}%" title="${b.k} · ${b.ms>0?fmtH(b.ms):'없음'}"></i>`
-      ).join('')}</div>
-    <div class="recFoot"><span>14일 전</span><span>오늘</span></div>`;
+    <div class="dayNav">
+      <button id="dPrev">&lsaquo; ${prev.getMonth()+1}/${prev.getDate()}</button>
+      <button id="dToday">오늘</button>
+      <button id="dNext"${noNext?' disabled':''}>${
+        noNext?'&mdash;':(next.getMonth()+1)+'/'+next.getDate()+' &rsaquo;'}</button>
+    </div>`;
+
+  $$('#recBody .blk').forEach(b=>{
+    const s=list[+b.dataset.i];
+    const show=()=>{
+      $$('#recBody .blk').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      $('#tlTip').textContent=`${recHm(s[0])} – ${recHm(s[0]+s[1])} · ${s[1]}분`;
+    };
+    b.onpointerenter=show; b.onclick=show;
+  });
+  $('#dPrev').onclick=()=>{recCur=prev;renderRecordDay();};
+  $('#dNext').onclick=()=>{if(!noNext){recCur=next;renderRecordDay();}};
+  $('#dToday').onclick=()=>{recCur=new Date();renderRecordDay();};
+}
+
+/* 달력 — 오늘은 노란 테두리, 집중한 날은 칸이 그만큼 차오른다 */
+function renderRecordCal(){
+  recView='cal';
+  $('#recDay').textContent='';
+  $('#recYm').innerHTML='';
+  $('#recCal').classList.add('hide');       // 이미 달력 화면이다
+  $('#recBack').title='하루 보기로';
+
+  const now=new Date(), tk=dayKey(now), sk=dayKey(recCur);
+  const first=new Date(recY,recM,1).getDay();
+  const dim=new Date(recY,recM+1,0).getDate();
+  let mx=1, moDays=0;
+  for(let i=1;i<=dim;i++){ const v=S.log[recKey(recY,recM,i)]|0; if(v>0)moDays++; mx=Math.max(mx,v); }
+
+  let cells='';
+  for(let i=0;i<first;i++) cells+='<div class="cell blank"></div>';
+  for(let i=1;i<=dim;i++){
+    const k=recKey(recY,recM,i), v=S.log[k]|0, wd=(first+i-1)%7;
+    const cls=['cell'];
+    if(wd===0)cls.push('sun');
+    if(wd===6)cls.push('sat');
+    if(v>0)cls.push('on');
+    if(k===tk)cls.push('today');
+    if(k===sk)cls.push('sel');
+    const h=v>0?Math.max(14,Math.round(v/mx*76)):0;
+    cells+=`<div class="${cls.join(' ')}" data-d="${i}">${
+      v>0?`<div class="fill" style="height:${h}%"></div>`:''}<div class="d">${i}</div>${
+      v>0?`<div class="m">${Math.round(v/60000)}</div>`:''}</div>`;
+  }
+  const canNext=(recY<now.getFullYear())||(recY===now.getFullYear()&&recM<now.getMonth());
+
+  $('#recBody').innerHTML=`
+    <div class="calNav">
+      <button id="cPrev"><svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="mo">${REC_MO[recM]} <span style="color:var(--txt-3);font-weight:600">${recY}</span></div>
+      <button id="cNext"${canNext?'':' disabled'}><svg viewBox="0 0 24 24" width="15" height="15"
+        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="calHead">${REC_WD.map(w=>`<div>${w}</div>`).join('')}</div>
+    <div class="calGrid">${cells}</div>
+    <div class="calStat">
+      <div><b>${moDays}</b><span>일</span><em>이 달 집중</em></div>
+      <div><b>${Object.keys(S.log).length}</b><span>일</span><em>전체 집중</em></div>
+      <div><b>${focusStreak(S.log)}</b><span>일</span><em>연속 기록</em></div>
+    </div>`;
+
+  $('#cPrev').onclick=()=>{recM--;if(recM<0){recM=11;recY--;}renderRecordCal();};
+  $('#cNext').onclick=()=>{if(canNext){recM++;if(recM>11){recM=0;recY++;}renderRecordCal();}};
+  $$('#recBody .cell[data-d]').forEach(c=>{
+    c.onclick=()=>{ recCur=new Date(recY,recM,+c.dataset.d); renderRecordDay(); };
+  });
 }
 function renderAccount(){
   const body=$('#acBody');
@@ -6950,11 +7370,17 @@ $('#btnAccount').onclick=()=>{if(guard())return;renderAccount();open('mAccount')
 /* 집중 기록. 좌상단 날짜·시각을 눌러 연다.
    읽기만 하는 화면이라 집중 중에도 막지 않는다(`guard()` 없음) — 오히려
    달리는 중에 연속 며칠인지 보고 싶은 화면이다. */
-function renderRecord(){ $('#recBody').innerHTML=recordHTML(); }
+function renderRecord(){
+  recCur=new Date(); recY=recCur.getFullYear(); recM=recCur.getMonth();
+  renderRecordDay();
+}
 $('#clockTap').onclick=()=>{ renderRecord(); open('mRecord'); };
 $('#clockTap').onkeydown=e=>{
   if(e.key==='Enter'||e.key===' '){ e.preventDefault(); renderRecord(); open('mRecord'); }
 };
+$('#recCal').onclick=()=>{ recY=recCur.getFullYear(); recM=recCur.getMonth(); renderRecordCal(); };
+/* 화살표는 달력에서는 하루 보기로, 하루 보기에서는 창을 닫는다 */
+$('#recBack').onclick=()=>{ if(recView==='cal') renderRecordDay(); else close('mRecord'); };
 
 /* ==========================================================================
    12. 부팅
@@ -6975,7 +7401,7 @@ function boot(){
   $('#cfgPomo').style.display=T.mode==='pomo'?'':'none';
   syncPresets();syncLongUI();updateLockUI();syncAdminUI();
   $('#timerPanel').classList.toggle('mini',!!S.mini);
-  $('#btnSound').classList.toggle('off',!S.sound);
+  paintSound();
   document.body.classList.toggle('menuOpen',!!S.menuOpen);
 
   paintTokens();
