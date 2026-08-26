@@ -172,8 +172,12 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 .mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt)}
 .mBtn:active{transform:scale(.98)}
 #btnGacha:hover{color:var(--acc-2)}
+#btnSystem:hover{color:var(--gold)}
 #btnDex:hover{color:#fff}
 #btnCamera:hover{color:var(--acc)}
+/* 설정만 중성 회색이다. 나머지가 전부 색을 띠고 있어 회색이 오히려 눈에 띈다.
+   기본색(--txt-2 #98a6c8)보다 밝아야 호버가 일어난 것으로 읽힌다. */
+#btnSettings:hover{color:#c3c8d0}
 
 /* 우하단 시점 버튼 */
 .vBtn{
@@ -1717,7 +1721,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.28-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.28-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
