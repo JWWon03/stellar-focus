@@ -817,11 +817,21 @@ body.locked #timerPanel input{cursor:not-allowed}
       </svg>
     </button>
     <button class="mBtn" id="btnSystem" title="항성계 설정">
-      <!-- 교차하는 두 타원 궤도 + 가운데 별. 사용자가 그려 준 모양이다. -->
+      <!-- 사용자가 1024px 로 그려 준 그림을 그대로 옮긴 것.
+           원본은 궤도가 아주 납작해(장단축비 9%) 19px 로 줄이면 선이 안을
+           메워 덩어리가 된다. 그래서 **세로만 2.4배 늘리고 궤도 두께를
+           1.5배**로 열었다. 비대칭 배율이라 기울기도 함께 바뀐다
+           (atan(tan θ · 2.4) — 1.2°→2.9°, -17.3°→-36.8°).
+           별·행성의 상대 위치와 크기 비율은 원본 그대로다.
+           색을 박아 두었으므로 이 버튼만 호버 색이 바뀌지 않는다. -->
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <ellipse cx="12" cy="12" rx="10.1" ry="3.9" transform="rotate(-32 12 12)"/>
-        <ellipse cx="12" cy="12" rx="10.1" ry="3.9" transform="rotate(12 12 12)"/>
-        <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+        <g fill="none" stroke="#5b6ee1" stroke-width="1.2">
+          <ellipse cx="12.11" cy="11.90" rx="8.07" ry="2.44" transform="rotate(2.9 12.11 11.90)"/>
+          <ellipse cx="12.00" cy="11.97" rx="11.51" ry="3.05" transform="rotate(-36.8 12.00 11.97)"/>
+        </g>
+        <circle cx="12.06" cy="11.97" r="2.03" fill="#ffe066" stroke="none"/>
+        <circle cx="8.05"  cy="16.43" r="0.90" fill="#ff6b6b" stroke="none"/>
+        <circle cx="18.63" cy="12.71" r="0.79" fill="#a8dcef" stroke="none"/>
       </svg>
     </button>
     <button class="mBtn" id="btnDex" title="천체 도감">
@@ -1704,7 +1714,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.27-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.27-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
