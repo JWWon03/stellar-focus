@@ -1807,7 +1807,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.29-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.30-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4367,9 +4367,14 @@ function updateTimerUI(){
   $('#ring').setAttribute('stroke-dashoffset',(326.7*(1-prog)).toFixed(1));
   let st=phaseLabel();
   if(T.phase!=='idle'&&!T.running&&T.remain>0) st='일시정지';
+  /* '집중 중'·'대기 중'은 링과 버튼만 봐도 아는 상태라 글자를 지운다.
+     휴식·긴 휴식·일시정지·포모도로 회차는 남긴다 — 그건 화면 어디에서도
+     알 수 없는 정보다. */
+  if(st==='집중 중'||st==='대기 중') st='';
   $('#stTxt').innerHTML=T.mode==='pomo'&&T.phase!=='idle'
     ? st.replace(/(\d+)회차/,'<b>$1</b>회차')
     : st;
+  $('#stTxt').style.display=st?'':'none';
 
   // 요구사항 16 — 집중 중에는 종료 버튼 하나만 남긴다
   const b=$('#btnStart'), lock=isLocked();
@@ -4381,13 +4386,15 @@ function updateTimerUI(){
   else if(T.running)        b.textContent='일시정지';
   else                      b.textContent='이어서';
 
+  /* 잠금 안내와 가챠 권유 문구는 뺐다 — 버튼과 화면만 봐도 아는 상태라
+     글자를 더 얹을 필요가 없다. 남기는 것은 이 앱의 핵심인 궤도 한 줄뿐이고,
+     행성이 없으면 그마저 보여 줄 것이 없으므로 통째로 감춘다. */
   const cnt=S.sys.slots.filter(s=>s.p).length;
-  const note=lock
-    ? `집중 중 · 메뉴가 잠겨 있습니다<br>천체는 완료 시 다시 빛납니다`
-    : cnt>0
+  const note=cnt>0
     ? `가장 바깥 행성이 <b>1바퀴</b> 돌면 완료<br>궤도 주기 = <b>${currentFocusMin()}분</b> · 행성 ${cnt}기`
-    : `가챠에서 행성을 얻어<br>궤도에 배치해 보세요`;
+    : '';
   $('#tNote').innerHTML=note;
+  $('#tNote').style.display=note?'':'none';
 }
 
 /* 완료 사운드 */
