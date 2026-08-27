@@ -2036,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-f';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-g';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5178,6 +5178,10 @@ function scopeStart(body,onDone){
        t0:performance.now(), last:performance.now(), spin:0,
        held:false, dismiss:0, done:false };
   loadM13();                      // 처음 뽑을 때 한 번만 받는다
+  /* 텍스처 굽기를 **지금** 예약한다. 발견 순간에야 부르면 그때부터 굽기
+     시작이라 천체가 없는 빈 화면이 스친다. 여기서 걸어 두면 연출이 흐르는
+     4.2초 동안 시간 분할로 다 구워진다. */
+  readyTexture(body,SC_GLOBE);
   $('#scopeFx').classList.add('on');
   setPulling(true);
   scopeResize();
@@ -5267,8 +5271,10 @@ function scopeDraw(p){
       x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
     });
   }
-  /* 사진이 보이는 동안 절차적 별은 물러난다. 사진이 걷히면 살아나 흐름을 받는다. */
-  const starA=1-photoA*.68;
+  /* 사진이 보이는 동안 절차적 별은 물러난다. 사진이 걷히면 살아나 흐름을 받는다.
+     발견에 들어가면 배경 별을 걷는다 — 결과 화면에는 찾아낸 천체만 남아야
+     이름과 등급이 읽힌다. */
+  const starA=(1-photoA*.68)*(1-clamp(bLand/.6,0,1));
 
   /* 성단. **후광은 그리지 않는다** — 점마다 빛이 번지면 관측 사진이 아니라
      애니메이션처럼 보인다. 밝기는 크기와 알파로만 낸다. */
