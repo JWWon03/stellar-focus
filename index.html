@@ -672,25 +672,11 @@ body.capture #hint{display:none}
 .dex.t4{border-color:rgba(195,150,255,.28);background:rgba(150,90,255,.05)}
 .dex.t5{border-color:rgba(255,198,92,.34);background:rgba(255,180,60,.06)}
 
-/* 가챠 결과 */
-.pullStage{
-  min-height:330px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  position:relative;padding:10px 0
-}
-.pullCard{
-  width:212px;padding:24px 18px 20px;border-radius:20px;text-align:center;position:relative;
-  border:1px solid var(--line-2);
-  background:linear-gradient(170deg,rgba(30,38,66,.95),rgba(12,16,32,.95));
-  animation:cardIn .55s cubic-bezier(.2,1.1,.35,1);
-}
-@keyframes cardIn{0%{opacity:0;transform:scale(.6) rotateY(50deg)}100%{opacity:1;transform:none}}
-.pullCard.t4{border-color:rgba(195,150,255,.65);box-shadow:0 0 60px rgba(160,100,255,.35)}
-.pullCard.t5{border-color:rgba(255,198,92,.75);box-shadow:0 0 80px rgba(255,190,80,.45)}
-.pullCard canvas{width:118px;height:118px;display:block;margin:0 auto 14px}
-.pullCard .stars{font-size:15px;letter-spacing:.16em;margin-bottom:7px}
-.pullCard .nm{font-size:18px;font-weight:700;letter-spacing:.01em}
-.pullCard .ds{font-size:11.5px;color:var(--txt-2);margin-top:9px;line-height:1.55}
-.pullCard .kd{font-size:10px;color:var(--txt-3);margin-top:10px;letter-spacing:.1em}
+/* 가챠 연출 — 화면 전체 망원경 시야.
+   모달(z-index 60)과 확인창(90) 위에 덮는다. */
+#scopeFx{position:fixed;inset:0;z-index:95;display:none;background:#000;touch-action:none}
+#scopeFx.on{display:block}
+#scopeFx canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .newTag2{position:absolute;top:4px;left:4px;font-size:8px;font-weight:800;letter-spacing:.1em;
   padding:2px 5px;border-radius:5px;background:linear-gradient(120deg,#ffd77a,#ff9d4d);color:#2a1600}
 .newTag{
@@ -1259,19 +1245,8 @@ body.locked #timerPanel input{cursor:not-allowed}
 </div>
 
 <!-- ============ 모달: 가챠 결과 ============ -->
-<div class="mask" id="mPull">
-  <div class="modal" style="max-width:400px">
-    <div class="mBody">
-      <div class="pullStage" id="pullStage"></div>
-    </div>
-    <div class="mFoot">
-      <div class="spacer" style="font-size:11.5px;color:var(--txt-3)" id="pullFootMsg">보관함에 추가되었습니다</div>
-      <button class="cbtn" id="btnSkip" style="display:none">연출 건너뛰기 ▸</button>
-      <button class="cbtn" id="btnPullAgain">한 번 더</button>
-      <button class="cbtn primary" id="btnPullClose" data-close="mPull">확인</button>
-    </div>
-  </div>
-</div>
+<!-- 가챠 연출 — 화면 전체를 쓰는 망원경 시야. 모달이 아니라 그 위에 덮는다. -->
+<div id="scopeFx"><canvas id="scopeCv"></canvas></div>
 
 <!-- ============ 모달: 항성계 설정 ============ -->
 <div class="mask" id="mSystem">
@@ -2061,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4802,7 +4777,7 @@ function ask(title,msg,okLabel,danger){
 }
 $$('[data-close]').forEach(b=>b.onclick=()=>{close(b.dataset.close);if(b.dataset.close==='mDetail')stopGlobe();});
 $$('.mask').forEach(m=>m.addEventListener('mousedown',e=>{
-  const noOutside=['mIntro','mDone','mPull','mAsk','mShot'];
+  const noOutside=['mIntro','mDone','mAsk','mShot'];
   if(e.target===m && noOutside.indexOf(m.id)<0){close(m.id);if(m.id==='mDetail')stopGlobe();}
 }));
 
@@ -5040,7 +5015,8 @@ function pull(){
   showPull(got,bn);
 }
 
-/** 연속 뽑기 — 연출을 생략하고 결과를 한 번에 보여준다 */
+/** 연속 뽑기 — 연출은 **가장 높은 등급으로 한 번만** 보여 주고,
+    닫으면 지금까지처럼 결과 요약을 띄운다. */
 function pullMany(n){
   if(pulling){warn('연출이 끝난 뒤에 뽑을 수 있습니다');return;}
   const bn=curBanner, left=remainOf(bn).length;
@@ -5051,6 +5027,11 @@ function pullMany(n){
   saveNow();paintTokens();renderGacha();
   chime(got.some(b=>b.t===5));
   const best=Math.max.apply(null,got.map(b=>b.t));
+  const star=got.filter(b=>b.t===best)[0];      // 연출에 세울 한 천체
+  buildMulti(got,bn,n,cnt,best);
+  scopeStart(star,()=>open('mMulti'));
+}
+function buildMulti(got,bn,n,cnt,best){
   $('#multiTtl').textContent=`${n}연속 결과`;
   $('#multiSub').textContent=cnt<n
     ? `남은 천체가 ${cnt}종뿐이라 ${cnt}회만 진행했습니다 · 최고 ★${best}`
@@ -5062,92 +5043,379 @@ function pullMany(n){
        <div class="n">${b.n}</div><div class="s s${b.t}">${'★'.repeat(b.t)}</div>
      </div>`).join('')}</div>`;
   paintDexCards($('#multiBody'),bn);
-  open('mMulti');
 }
 
-/* 가챠 연출 상태. pulling=true 인 동안 뽑기 버튼이 잠기고 스킵만 가능하다. */
-let pulling=false, _warpRaf=0, _skipTo=null;
+/* ==========================================================================
+   가챠 연출 — 성단 관측
+   화면 전체를 쓰는 원형 망원경 시야다. 모달이 아니라 그 위에 덮는다.
+
+   박자 여섯
+     0.00–0.10  시야 열림   아이피스 조리개가 열린다
+     0.10–0.30  스캔        시야가 흐르고 표적이 하나씩 붙는다
+     0.30–0.58  판정        진 표적은 문구 없이 꺼진다
+     0.58–0.70  확인        하나가 초록 → **등급은 여기에만 실린다**
+     0.70–0.90  줌인        그 표적으로 파고든다
+     0.90–1.00  발견        해상되고 도감처럼 천천히 자전한다
+
+   표적 수(3~6)·전체 길이·성단은 등급과 무관하다. 개수나 길이로 드러내면
+   시작하자마자 등급이 새어 나간다.
+   ========================================================================== */
+let pulling=false, _scopeRaf=0;
 function setPulling(v){
   pulling=v;
   $('#btnPull').disabled=v||(!isAdmin()&&S.tokens<1);
-  $('#btnPullAgain').disabled=v||(!isAdmin()&&S.tokens<1)||!remainOf(curBanner).length;
-  $('#btnSkip').style.display=v?'':'none';
-  $('#pullFootMsg').style.display=v?'none':'';
-  $('#btnPullClose').disabled=v;
+  $('#btnPull5').disabled=v||(!isAdmin()&&S.tokens<5);
+  $('#btnPull10').disabled=v||(!isAdmin()&&S.tokens<10);
 }
-function skipPull(){
-  if(!pulling||!_skipTo)return;
-  cancelAnimationFrame(_warpRaf);
-  const f=_skipTo;_skipTo=null;
-  f();
+
+const SCOPE_DUR=4200;                 // 등급과 무관하게 같다
+const SCOPE_SPIN=0.16;                // rad/s — 도감과 비슷하게 느긋하게
+const SCOPE_GREEN='#6fe6b0';
+const SCOPE_TIER={
+  3:{flash:.14, shock:0, shake:0, wash:.03, pulses:1, label:'CONFIRMED'},
+  4:{flash:.30, shock:1, shake:3, wash:.08, pulses:2, label:'RARE SPECTRUM'},
+  5:{flash:.52, shock:3, shake:9, wash:.15, pulses:3, label:'UNCATALOGUED OBJECT'}
+};
+const scLerp=(a,b,t)=>a+(b-a)*t;
+const scSeg=(p,a,b)=>clamp((p-a)/(b-a),0,1);
+const scOut=t=>1-Math.pow(1-t,3);
+const scIn =t=>t*t*t;
+const scInOut=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const SC_B={open:[0,.10], scan:[.10,.30], judge:[.30,.58],
+            conf:[.58,.70], zoom:[.70,.90], land:[.90,1]};
+
+/* 성단은 늘 같은 것을 본다 — 우리 관측소의 표준 시야다.
+   중심으로 갈수록 빽빽하고, 대부분 어둡고 몇 개만 밝다. */
+const SC_CLUSTER=(()=>{
+  const r=mulberry(20260827), st=[];
+  for(let i=0;i<520;i++){
+    const a=r()*TAU, q=Math.pow(r(),1.9), rad=q*1.35, mag=Math.pow(r(),2.2), hue=r();
+    st.push({x:Math.cos(a)*rad, y:Math.sin(a)*rad*.92,
+      s:0.5+mag*3.4, b:.22+mag*.78, tw:r()*TAU, tws:.6+r()*2.2,
+      c: hue<.16?'#ffd9a8' : hue<.34?'#fff0d0' : hue<.72?'#ffffff' :
+         hue<.90?'#cfe0ff' : '#a8c8ff'});
+  }
+  return st;
+})();
+const SC_NEB=(()=>{const r=mulberry(77),o=[];
+  for(let i=0;i<7;i++)o.push({x:(r()-.5)*1.5,y:(r()-.5)*1.4,
+    r:.35+r()*.6, c:r()<.5?'#3a5a9e':'#5a3f8e', a:.05+r()*.07});
+  return o;})();
+
+/* 표적을 고른다. 브래킷과 이름표까지 시야 안에 들어오도록 0.62 안쪽에서만 뽑고,
+   서로 붙지 않게 가장 멀리 떨어진 후보를 고른다. */
+function scPickTargets(seed){
+  const r=mulberry(seed);
+  const n=3+Math.floor(r()*4);
+  const cand=SC_CLUSTER.filter(s=>s.b>.5 && Math.hypot(s.x,s.y)<0.62);
+  const out=[];
+  for(let k=0;k<n && cand.length;k++){
+    let best=null,bestD=-1;
+    for(let t=0;t<40;t++){
+      const c=cand[Math.floor(r()*cand.length)];
+      const d=out.length?Math.min.apply(null,out.map(o=>Math.hypot(o.star.x-c.x,o.star.y-c.y))):9;
+      if(d>bestD){bestD=d;best=c;}
+    }
+    out.push({star:best, x:best.x, y:best.y, id:'OBJ-'+String(1000+Math.floor(r()*8999))});
+    cand.splice(cand.indexOf(best),1);
+  }
+  return out;
+}
+
+/* 발견한 천체를 도감과 같은 방식으로 그린다.
+   비용이 제곱으로 늘므로 320px 에 구워 확대한다(본편 도감도 300px 이다).
+   drawGlobe 는 캔버스 안쪽 2px 을 비우므로 합성할 때 globeFit 을 곱한다. */
+const SC_GLOBE=320;
+let _scGlobe=null, _scInner=null;
+function scopeGlobe(b,lon){
+  const tex=readyTexture(b,SC_GLOBE);
+  if(!tex) return null;                       // 아직 안 구워졌다 — 이번 프레임은 건너뛴다
+  if(!_scGlobe){_scGlobe=document.createElement('canvas');_scGlobe.width=_scGlobe.height=SC_GLOBE;}
+  const gx=_scGlobe.getContext('2d');
+  gx.clearRect(0,0,SC_GLOBE,SC_GLOBE);
+  const F=b.f||{}, isRing=!!F.ring, rst=ringStyle(b.id);
+  const tint=hx(b.c1);
+  const gopt={shape:shapeOf(b.id), shapeId:b.id,
+              atmos:!!(F.atmos||F.ocean||F.glow), emis:b.m!==undefined};
+  const lat=isRing?0.46:0;
+  if(isRing){
+    if(rst.tex) loadRingTex();
+    const R=Math.round(SC_GLOBE*0.94/rst.rout), c=SC_GLOBE/2;
+    if(!_scInner||_scInner.width!==R*2){
+      _scInner=document.createElement('canvas'); _scInner.width=_scInner.height=R*2;
+    }
+    drawGlobeRing(gx,c,c,R,lat,_ringTex,rst,'back',{id:b.id});
+    drawGlobe(_scInner,tex,lon,lat,tint,gopt);
+    gx.drawImage(_scInner,c-R,c-R);
+    drawGlobeRing(gx,c,c,R,lat,_ringTex,rst,'front',{id:b.id});
+  }else{
+    drawGlobe(_scGlobe,tex,lon,lat,tint,gopt);
+  }
+  return _scGlobe;
+}
+
+/* 연출 한 판의 상태 */
+let SC=null;
+function scopeStart(body,onDone){
+  const cv=$('#scopeCv');
+  const seed=(Date.now()^fnv(body.id))>>>0;
+  const tg=scPickTargets(seed);
+  SC={ body, onDone, tg, win:Math.floor(mulberry(seed*31|0)()*tg.length),
+       t0:performance.now(), last:performance.now(), spin:0,
+       held:false, dismiss:0, done:false };
+  $('#scopeFx').classList.add('on');
+  setPulling(true);
+  scopeResize();
+  cancelAnimationFrame(_scopeRaf);
+  _scopeRaf=requestAnimationFrame(scopeLoop);
+}
+function scopeResize(){
+  const cv=$('#scopeCv');
+  const d=Math.min(2,window.devicePixelRatio||1);
+  cv.width=innerWidth*d; cv.height=innerHeight*d;
+  cv.getContext('2d').setTransform(d,0,0,d,0,0);
+}
+addEventListener('resize',()=>{ if(SC) scopeResize(); });
+
+function scopeEnd(){
+  cancelAnimationFrame(_scopeRaf);
+  $('#scopeFx').classList.remove('on');
+  const f=SC&&SC.onDone; SC=null;
+  setPulling(false);
+  if(f) f();
+}
+/* 아무 곳이나 누르면 — 진행 중이면 건너뛰기, 발견 화면이면 닫기 */
+$('#scopeFx').addEventListener('pointerdown',()=>{
+  if(!SC)return;
+  if(SC.held){ if(!SC.dismiss) SC.dismiss=0.001; }
+  else SC.t0=performance.now()-SCOPE_DUR;
+});
+
+function scopeLoop(now){
+  if(!SC)return;
+  now=now||performance.now();
+  SC.spin+=(now-SC.last)/1000*SCOPE_SPIN;
+  const dt=now-SC.last; SC.last=now;
+  const p=Math.min((now-SC.t0)/SCOPE_DUR,1);
+  scopeDraw(p);
+  if(p>=1) SC.held=true;
+  if(SC.dismiss>0){
+    SC.dismiss+=dt/380;
+    const x=$('#scopeCv').getContext('2d');
+    x.fillStyle='rgba(0,0,0,'+clamp(SC.dismiss,0,1)+')';
+    x.fillRect(0,0,innerWidth,innerHeight);
+    if(SC.dismiss>=1) return scopeEnd();
+  }
+  _scopeRaf=requestAnimationFrame(scopeLoop);
+}
+
+function scopeDraw(p){
+  const x=$('#scopeCv').getContext('2d');
+  const W=innerWidth, H=innerHeight, cx=W/2, cy=H/2;
+  const b=SC.body, tier=b.t, T=SCOPE_TIER[tier], tint=TIER_COLOR[tier];
+  const win=SC.tg[SC.win];
+  const bOpen=scSeg(p,...SC_B.open), bScan=scSeg(p,...SC_B.scan), bJudge=scSeg(p,...SC_B.judge);
+  const bConf=scSeg(p,...SC_B.conf), bZoom=scSeg(p,...SC_B.zoom), bLand=scSeg(p,...SC_B.land);
+
+  x.fillStyle='#000'; x.fillRect(0,0,W,H);
+  const EYE=Math.min(W,H)*0.44;
+  const iris=EYE*scOut(bOpen);
+  if(iris<1) return;
+
+  const shake=(bConf>0&&bConf<1)?Math.sin(bConf*Math.PI*6)*(1-bConf)*T.shake:0;
+
+  x.save();
+  x.beginPath(); x.arc(cx+shake*.4,cy+shake*.2,iris,0,TAU); x.clip();
+
+  /* 확인 단계에서 **먼저 조준을 붙이고** 그다음 배율을 올린다.
+     중심이 어긋난 채 배율을 올리면 그 어긋남이 그대로 증폭된다. */
+  const zf=scIn(bZoom)*.75+scInOut(bLand)*.25;
+  const scale=EYE*0.92*(1+zf*zf*46);
+  const drift=(1-bConf)*0.035, lock=scInOut(bConf);
+  const camX=scLerp(Math.sin(p*2.1)*drift, win.x, lock);
+  const camY=scLerp(Math.cos(p*1.7)*drift*.7, win.y, lock);
+  const S=(fx,fy)=>[cx+(fx-camX)*scale+shake*.4, cy+(fy-camY)*scale+shake*.2];
+
+  SC_NEB.forEach(n=>{
+    const q=S(n.x,n.y), rr=n.r*scale;
+    const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);
+    g.addColorStop(0,rgba(n.c,n.a*(1-zf*.8))); g.addColorStop(1,rgba(n.c,0));
+    x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
+  });
+
+  /* 성단. **후광은 그리지 않는다** — 점마다 빛이 번지면 관측 사진이 아니라
+     애니메이션처럼 보인다. 밝기는 크기와 알파로만 낸다. */
+  const streak=scIn(bZoom);
+  SC_CLUSTER.forEach(s=>{
+    const isWin=(s===win.star);
+    if(isWin&&bLand>.25) return;              // 착지에서는 천체가 대신한다
+    const q=S(s.x,s.y);
+    if(q[0]<-80||q[0]>W+80||q[1]<-80||q[1]>H+80) return;
+    const tw=.82+.18*Math.sin(p*40*s.tws+s.tw);
+    const rr=isWin ? Math.max(s.s*tw, s.s+scIn(bZoom)*Math.min(W,H)*0.20)
+                   : s.s*(1+zf*1.6)*tw;
+    if(streak>.02&&!isWin){
+      const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
+      x.strokeStyle=rgba(s.c,s.b*tw*.5*streak);
+      x.lineWidth=rr*1.1; x.lineCap='round';
+      x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
+    }
+    x.fillStyle=rgba(s.c,s.b*tw);
+    x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
+  });
+
+  /* 표적 */
+  SC.tg.forEach((t,k)=>{
+    const isWin=k===SC.win;
+    const acq=scSeg(bScan, k/SC.tg.length*.8, k/SC.tg.length*.8+.28);
+    if(acq<=0) return;
+    const lose=SC.tg.filter((o,i)=>i!==SC.win), li=lose.indexOf(t);
+    const gone=isWin?0:scSeg(bJudge, li/lose.length*.85, li/lose.length*.85+.22);
+    const q=S(t.x,t.y);
+    /* 줌이 시작되면 브래킷은 물러난다 — 끝까지 남으면 천체를 가로막는다 */
+    const fade=1-scIn(clamp(bZoom/.55,0,1));
+    const base=Math.min(W,H)*0.055*(1+scIn(bZoom)*2.2);
+    const size=base*(2.2-1.2*scOut(acq))*(1+gone*.35);
+    const a=(isWin?1:1-gone)*scOut(acq)*fade;
+    if(a<=.01) return;
+    let col='#cfe0ff';
+    if(isWin&&bConf>0) col = bConf<.35 ? SCOPE_GREEN
+      : (tier===3 ? SCOPE_GREEN : mix(SCOPE_GREEN,tint,scOut(scSeg(bConf,.35,.8))));
+    x.strokeStyle=rgba(col,a*(.55+(isWin?bConf*.45:0)));
+    x.lineWidth=1.6+(isWin?bConf*2.6:0); x.lineCap='butt';
+    const L=size*.34;
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(u=>{
+      const px=q[0]+u[0]*size, py=q[1]+u[1]*size;
+      x.beginPath();
+      x.moveTo(px-u[0]*L,py); x.lineTo(px,py); x.lineTo(px,py-u[1]*L); x.stroke();
+    });
+    if(isWin&&bConf>0){
+      for(let z=0;z<T.pulses;z++){
+        const ph=clamp(bConf*1.4-z*.18,0,1); if(ph<=0||ph>=1)continue;
+        x.strokeStyle=rgba(col,(1-ph)*.55); x.lineWidth=2+(1-ph)*3;
+        x.beginPath(); x.arc(q[0],q[1],size*(1+ph*2.4),0,TAU); x.stroke();
+      }
+    }
+    if(zf<.12){                                  // 진 표적은 문구 없이 꺼진다
+      x.font='11px ui-monospace,Consolas,monospace'; x.textAlign='left';
+      x.fillStyle=rgba(col,a*.9*(1-zf/.12));
+      x.fillText(isWin&&bConf>.2?(bConf>.5?T.label:'ANALYSING…'):t.id, q[0]+size+6, q[1]-size+11);
+    }
+  });
+
+  /* 발견 — 도감처럼 천천히 자전한다 */
+  if(bLand>0){
+    const q=S(win.x,win.y);
+    const R=Math.min(W,H)*0.20*scOut(bLand);
+    const g=scopeGlobe(b,SC.spin);
+    if(g){
+      const blur=26*(1-scOut(bLand));
+      x.save();
+      if(blur>.3) x.filter='blur('+blur.toFixed(1)+'px)';
+      const need=R*2*globeFit(SC_GLOBE);
+      x.drawImage(g,q[0]-need/2,q[1]-need/2,need,need);
+      x.restore();
+    }
+  }
+
+  /* 확인 — 섬광은 표적 둘레에만. 화면을 전부 덮으면 성단이 묻힌다. */
+  if(bConf>0&&bConf<1){
+    const f=Math.sin(bConf*Math.PI), q=S(win.x,win.y), fr=Math.min(W,H)*.30;
+    const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],fr);
+    g.addColorStop(0,rgba('#ffffff',f*T.flash));
+    g.addColorStop(.30,rgba(tier===3?SCOPE_GREEN:tint,f*T.flash*.45));
+    g.addColorStop(1,rgba(tier===3?SCOPE_GREEN:tint,0));
+    x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],fr,0,TAU); x.fill();
+    for(let z=0;z<T.shock;z++){
+      const ph=clamp(bConf*2.1-z*.22,0,1); if(ph<=0||ph>=1)continue;
+      x.strokeStyle=rgba(tint,Math.pow(1-ph,1.8)*.45);
+      x.lineWidth=2.5*(1-ph)+.8;
+      x.beginPath(); x.arc(q[0],q[1],ph*Math.min(W,H)*.42,0,TAU); x.stroke();
+    }
+  }
+  if(bConf>0){
+    x.fillStyle=rgba(tint,T.wash*(bConf>=1?(1-bZoom*.5):bConf));
+    x.fillRect(0,0,W,H);
+  }
+  x.restore();
+
+  /* ── 아이피스 ── */
+  x.save(); x.fillStyle='#000';
+  x.beginPath(); x.rect(0,0,W,H); x.arc(cx,cy,iris,0,TAU,true); x.fill('evenodd');
+  x.restore();
+
+  const vg=x.createRadialGradient(cx,cy,iris*.62,cx,cy,iris);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.72)');
+  x.fillStyle=vg; x.beginPath(); x.arc(cx,cy,iris,0,TAU); x.fill();
+
+  x.strokeStyle=rgba(bConf>.4?tint:'#8ea5c9',.34+bConf*.3);
+  x.lineWidth=2; x.beginPath(); x.arc(cx,cy,iris,0,TAU); x.stroke();
+  x.strokeStyle=rgba('#8ea5c9',.10);
+  x.lineWidth=10; x.beginPath(); x.arc(cx,cy,iris+6,0,TAU); x.stroke();
+
+  const ret=(1-scOut(bZoom))*(1-bLand);
+  if(ret>.02){
+    x.save(); x.globalAlpha=ret;
+    x.strokeStyle=rgba('#8ea5c9',.20); x.lineWidth=1;
+    for(let k=0;k<72;k++){
+      const a=k/72*TAU, big=k%6===0;
+      const r1=iris*(big?.945:.968), r2=iris*.995;
+      x.beginPath();
+      x.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+      x.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2); x.stroke();
+    }
+    x.strokeStyle=rgba('#8ea5c9',.16);
+    x.beginPath();
+    x.moveTo(cx-iris*.9,cy); x.lineTo(cx-iris*.06,cy);
+    x.moveTo(cx+iris*.06,cy); x.lineTo(cx+iris*.9,cy);
+    x.moveTo(cx,cy-iris*.9); x.lineTo(cx,cy-iris*.06);
+    x.moveTo(cx,cy+iris*.06); x.lineTo(cx,cy+iris*.9);
+    x.stroke();
+    x.restore();
+  }
+
+  /* ── 계기 ── */
+  const lose=SC.tg.length-1;
+  const msg = bLand>0 ? '발견'
+            : bZoom>0 ? 'APPROACHING'
+            : bConf>0 ? T.label
+            : bJudge>0? 'EVALUATING  '+(lose-Math.round((1-bJudge)*lose))+'/'+lose
+            : bScan>0 ? 'ACQUIRING  '+Math.min(SC.tg.length,Math.ceil(bScan*SC.tg.length*1.2))+'/'+SC.tg.length
+            : 'FIELD OPEN';
+  x.textAlign='center';
+  x.font='12px ui-monospace,Consolas,monospace';
+  x.fillStyle=rgba(bConf>.4?tint:'#8ea5c9',.9);
+  x.fillText(msg, cx, cy+iris+30);
+  if(bLand<.4){
+    x.font='10.5px ui-monospace,Consolas,monospace';
+    x.fillStyle=rgba('#5f6d90',.8*(1-bLand/.4));
+    x.fillText('M13 · GLOBULAR CLUSTER · 7.1 kpc', cx, cy+iris+48);
+  }
+
+  /* 발견 — 이름과 등급 */
+  if(bLand>.35){
+    const a=scOut(scSeg(bLand,.35,1)), R=Math.min(W,H)*0.20;
+    x.fillStyle=rgba(tint,a);
+    x.font='700 15px ui-monospace,Consolas,monospace';
+    x.fillText('★'.repeat(b.t)+'☆'.repeat(5-b.t), cx, cy-R-46);
+    x.fillStyle=rgba('#e8eefc',a);
+    x.font='700 30px Pretendard,system-ui,sans-serif';
+    x.fillText(b.n, cx, cy-R-14);
+    x.fillStyle=rgba('#98a6c8',a*.9);
+    x.font='13px Pretendard,system-ui,sans-serif';
+    x.fillText(b.d, cx, cy+R+34);
+  }
+  if(SC.held&&!SC.dismiss){
+    x.fillStyle=rgba('#98a6c8',.35+.25*Math.sin(performance.now()/520));
+    x.font='12px Pretendard,system-ui,sans-serif';
+    x.fillText('화면을 누르면 닫힙니다', cx, H-30);
+  }
+  x.textAlign='left';
 }
 
 function showPull(b,bn){
-  open('mPull');
-  setPulling(true);
-  _skipTo=()=>{setPulling(false);revealCard(b,bn);};
-  const st=$('#pullStage');
-  st.innerHTML='<div class="warpFx"><canvas id="warpCv"></canvas></div>';
-  const wc=$('#warpCv');
-  const rect=st.getBoundingClientRect();
-  wc.width=Math.max(300,rect.width)*2;wc.height=330*2;
-  const wx=wc.getContext('2d');wx.scale(2,2);
-  const WW=wc.width/2;
-  const lines=[];
-  for(let i=0;i<80;i++)lines.push({a:Math.random()*TAU,d:Math.random()*.4,v:.8+Math.random()*2.4,l:.05+Math.random()*.2});
-  const tint=TIER_COLOR[b.t];
-  const dur=b.t===5?1500:b.t===4?1100:750;
-  const t0=performance.now();
-  cancelAnimationFrame(_warpRaf);      // 이전 연출이 남아 있으면 끊는다
-  (function warp(){
-    const p=(performance.now()-t0)/dur;
-    wx.clearRect(0,0,WW,330);
-    const cx=WW/2,cy=165;
-    wx.globalAlpha=1;
-    lines.forEach(L=>{
-      L.d+=L.v*.012*(1+p*3.2);
-      if(L.d>1.5)L.d=0;
-      const r1=L.d*Math.max(WW,330), r2=(L.d+L.l)*Math.max(WW,330);
-      wx.strokeStyle=rgba(p>.55?tint:'#a9c6ff',clamp(.55-Math.abs(.5-L.d)*.4,0,1)*.8);
-      wx.lineWidth=1+p*2;
-      wx.beginPath();
-      wx.moveTo(cx+Math.cos(L.a)*r1,cy+Math.sin(L.a)*r1);
-      wx.lineTo(cx+Math.cos(L.a)*r2,cy+Math.sin(L.a)*r2);
-      wx.stroke();
-    });
-    // 중앙 섬광
-    const fl=wx.createRadialGradient(cx,cy,0,cx,cy,40+p*p*300);
-    fl.addColorStop(0,rgba(tint,clamp(p*1.5,0,1)));
-    fl.addColorStop(.4,rgba(tint,clamp(p*.5,0,.6)));
-    fl.addColorStop(1,rgba(tint,0));
-    wx.fillStyle=fl;wx.beginPath();wx.arc(cx,cy,40+p*p*300,0,TAU);wx.fill();
-    if(p<1)_warpRaf=requestAnimationFrame(warp);
-    else if(_skipTo){const f=_skipTo;_skipTo=null;f();}
-  })();
+  scopeStart(b,null);
 }
-function revealCard(b,bn){
-  const st=$('#pullStage');
-  const stars='★'.repeat(b.t)+'☆'.repeat(5-b.t);
-  const kind=bn==='star'?'항성 · 동반성':bn==='planet'?'행성':'위성';
-  st.innerHTML=`
-    <div class="pullCard t${b.t}">
-      <div class="newTag">NEW</div>
-      <canvas width="236" height="236"></canvas>
-      <div class="stars s${b.t}">${stars}</div>
-      <div class="nm">${b.n}</div>
-      <div class="ds">${b.d}</div>
-      <div class="kd">${kind}</div>
-    </div>`;
-  const c=$('canvas',st);
-  paintThumb(c,b,bn);
-  setPulling(false);
-}
-$('#btnPullAgain').onclick=()=>{
-  if(pulling)return;
-  if(!isAdmin()&&S.tokens<1){warn('토큰이 부족합니다');return;}
-  pull();
-};
-$('#btnSkip').onclick=skipPull;
 $('#btnPull').onclick=pull;
 $('#btnPull5').onclick=()=>pullMany(5);
 $('#btnPull10').onclick=()=>pullMany(10);
