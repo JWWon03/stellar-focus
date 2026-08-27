@@ -2036,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-d';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5097,6 +5097,20 @@ const SC_CLUSTER=(()=>{
   }
   return st;
 })();
+/* 실제 M13 사진 (NOIRLab/NSF/AURA · CC BY 4.0).
+   **사진만으로는 안 된다** — 줌인이 46배까지 파고들어 사진은 뭉개지고,
+   표적은 그려진 픽셀이 아니라 좌표를 가진 별에 붙어야 한다. 그래서
+   사진은 바탕으로 깔고 그 위에 절차적 별을 얹은 뒤, 줌이 시작되면
+   사진을 걷고 절차적 별이 흐름을 이어받는다.
+   파일이 없으면 조용히 절차적 성단만으로 돈다. */
+let _m13=null, _m13Tried=false;
+function loadM13(){
+  if(_m13Tried)return; _m13Tried=true;
+  const im=new Image();
+  im.onload=()=>{_m13=im;};
+  im.onerror=()=>{_m13=null;};
+  im.src='textures/m13.jpg';
+}
 const SC_NEB=(()=>{const r=mulberry(77),o=[];
   for(let i=0;i<7;i++)o.push({x:(r()-.5)*1.5,y:(r()-.5)*1.4,
     r:.35+r()*.6, c:r()<.5?'#3a5a9e':'#5a3f8e', a:.05+r()*.07});
@@ -5163,6 +5177,7 @@ function scopeStart(body,onDone){
   SC={ body, onDone, tg, win:Math.floor(mulberry(seed*31|0)()*tg.length),
        t0:performance.now(), last:performance.now(), spin:0,
        held:false, dismiss:0, done:false };
+  loadM13();                      // 처음 뽑을 때 한 번만 받는다
   $('#scopeFx').classList.add('on');
   setPulling(true);
   scopeResize();
@@ -5236,12 +5251,24 @@ function scopeDraw(p){
   const camY=scLerp(Math.cos(p*1.7)*drift*.7, win.y, lock);
   const S=(fx,fy)=>[cx+(fx-camX)*scale+shake*.4, cy+(fy-camY)*scale+shake*.2];
 
-  SC_NEB.forEach(n=>{
-    const q=S(n.x,n.y), rr=n.r*scale;
-    const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);
-    g.addColorStop(0,rgba(n.c,n.a*(1-zf*.8))); g.addColorStop(1,rgba(n.c,0));
-    x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
-  });
+  /* 사진을 바탕에 깐다. 줌 앞 절반에 걷어낸다 — 그 뒤로는 확대가 심해
+     사진이 뭉개지고, 절차적 별이 흐름을 이어받는다. */
+  const photoA=_m13?(1-clamp(bZoom/.5,0,1)):0;
+  if(photoA>.01){
+    const span=2.8*scale, q=S(0,0);
+    x.globalAlpha=photoA;
+    x.drawImage(_m13,q[0]-span/2,q[1]-span/2,span,span);
+    x.globalAlpha=1;
+  }else{
+    SC_NEB.forEach(n=>{                       // 사진이 없을 때만 성운기를 그린다
+      const q=S(n.x,n.y), rr=n.r*scale;
+      const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);
+      g.addColorStop(0,rgba(n.c,n.a*(1-zf*.8))); g.addColorStop(1,rgba(n.c,0));
+      x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
+    });
+  }
+  /* 사진이 보이는 동안 절차적 별은 물러난다. 사진이 걷히면 살아나 흐름을 받는다. */
+  const starA=1-photoA*.68;
 
   /* 성단. **후광은 그리지 않는다** — 점마다 빛이 번지면 관측 사진이 아니라
      애니메이션처럼 보인다. 밝기는 크기와 알파로만 낸다. */
@@ -5257,11 +5284,11 @@ function scopeDraw(p){
                    : s.s*(1+zf*1.6);
     if(streak>.02&&!isWin){
       const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
-      x.strokeStyle=rgba(s.c,s.b*.5*streak);
+      x.strokeStyle=rgba(s.c,s.b*.5*streak*starA);
       x.lineWidth=rr*1.1; x.lineCap='round';
       x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
     }
-    x.fillStyle=rgba(s.c,s.b);
+    x.fillStyle=rgba(s.c,s.b*starA);
     x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
   });
 
@@ -5387,10 +5414,12 @@ function scopeDraw(p){
   x.font='12px ui-monospace,Consolas,monospace';
   x.fillStyle=rgba(bConf>.4?tint:'#8ea5c9',.9);
   x.fillText(msg, cx, cy+iris+30);
+  /* 사진을 쓸 때는 크레딧을 함께 적는다 — CC BY 4.0 의 조건이다. 지우지 말 것. */
   if(bLand<.4){
     x.font='10.5px ui-monospace,Consolas,monospace';
     x.fillStyle=rgba('#5f6d90',.8*(1-bLand/.4));
-    x.fillText('M13 · GLOBULAR CLUSTER · 7.1 kpc', cx, cy+iris+48);
+    x.fillText(_m13 ? 'M13 · GLOBULAR CLUSTER · NOIRLab/NSF/AURA'
+                    : 'M13 · GLOBULAR CLUSTER · 7.1 kpc', cx, cy+iris+48);
   }
 
   /* 발견 — 이름과 등급 */
