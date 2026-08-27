@@ -2036,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-e';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-f';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5284,8 +5284,9 @@ function scopeDraw(p){
        **확대해도 커지지 않는다.** 다가가면 별이 굵어지는 것이 그럴듯해
        보이지만, 실제로는 아무리 확대해도 별은 점이다(원반이 보이려면
        태양계 규모여야 한다). 커지면 사진에서 넘어온 뒤 화면이 콩알로 덮인다.
-       원으로 그리지 않고 사각 점으로 찍는다 — 몇 px 짜리에서는 구분이
-       안 되면서 훨씬 싸다. */
+
+       **사각형으로 찍지 말 것.** 몇 px 에서는 구분이 안 될 줄 알았는데
+       화면에서 사각형이 그대로 보인다(실제 지적). 작아도 둥근 점이어야 한다. */
     const rr=isWin ? Math.max(s.s, s.s+scIn(bZoom)*Math.min(W,H)*0.20) : s.s*.8;
     if(streak>.02&&!isWin){
       const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
@@ -5294,8 +5295,7 @@ function scopeDraw(p){
       x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
     }
     x.fillStyle=rgba(s.c,s.b*starA);
-    if(isWin){ x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill(); }
-    else{ const w=Math.max(1,rr*1.6); x.fillRect(q[0]-w/2,q[1]-w/2,w,w); }
+    x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
   });
 
   /* 표적 */
