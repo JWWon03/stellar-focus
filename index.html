@@ -2036,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-d';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-e';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5279,17 +5279,23 @@ function scopeDraw(p){
     const q=S(s.x,s.y);
     if(q[0]<-80||q[0]>W+80||q[1]<-80||q[1]>H+80) return;
     /* 밝기는 일정하다. 반짝이게 하면 500개가 제각기 뛰어 정신이 사납고,
-       변광성 무리처럼 보인다. 실제 성단 사진도 가만히 있다. */
-    const rr=isWin ? Math.max(s.s, s.s+scIn(bZoom)*Math.min(W,H)*0.20)
-                   : s.s*(1+zf*1.6);
+       변광성 무리처럼 보인다. 실제 성단 사진도 가만히 있다.
+
+       **확대해도 커지지 않는다.** 다가가면 별이 굵어지는 것이 그럴듯해
+       보이지만, 실제로는 아무리 확대해도 별은 점이다(원반이 보이려면
+       태양계 규모여야 한다). 커지면 사진에서 넘어온 뒤 화면이 콩알로 덮인다.
+       원으로 그리지 않고 사각 점으로 찍는다 — 몇 px 짜리에서는 구분이
+       안 되면서 훨씬 싸다. */
+    const rr=isWin ? Math.max(s.s, s.s+scIn(bZoom)*Math.min(W,H)*0.20) : s.s*.8;
     if(streak>.02&&!isWin){
       const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
       x.strokeStyle=rgba(s.c,s.b*.5*streak*starA);
-      x.lineWidth=rr*1.1; x.lineCap='round';
+      x.lineWidth=Math.max(.6,rr); x.lineCap='round';
       x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
     }
     x.fillStyle=rgba(s.c,s.b*starA);
-    x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
+    if(isWin){ x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill(); }
+    else{ const w=Math.max(1,rr*1.6); x.fillRect(q[0]-w/2,q[1]-w/2,w,w); }
   });
 
   /* 표적 */
