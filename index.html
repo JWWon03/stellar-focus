@@ -2036,7 +2036,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.08.31-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5091,7 +5091,7 @@ const SC_CLUSTER=(()=>{
   for(let i=0;i<520;i++){
     const a=r()*TAU, q=Math.pow(r(),1.9), rad=q*1.35, mag=Math.pow(r(),2.2), hue=r();
     st.push({x:Math.cos(a)*rad, y:Math.sin(a)*rad*.92,
-      s:0.5+mag*3.4, b:.22+mag*.78, tw:r()*TAU, tws:.6+r()*2.2,
+      s:0.5+mag*3.4, b:.22+mag*.78,
       c: hue<.16?'#ffd9a8' : hue<.34?'#fff0d0' : hue<.72?'#ffffff' :
          hue<.90?'#cfe0ff' : '#a8c8ff'});
   }
@@ -5251,16 +5251,17 @@ function scopeDraw(p){
     if(isWin&&bLand>.25) return;              // 착지에서는 천체가 대신한다
     const q=S(s.x,s.y);
     if(q[0]<-80||q[0]>W+80||q[1]<-80||q[1]>H+80) return;
-    const tw=.82+.18*Math.sin(p*40*s.tws+s.tw);
-    const rr=isWin ? Math.max(s.s*tw, s.s+scIn(bZoom)*Math.min(W,H)*0.20)
-                   : s.s*(1+zf*1.6)*tw;
+    /* 밝기는 일정하다. 반짝이게 하면 500개가 제각기 뛰어 정신이 사납고,
+       변광성 무리처럼 보인다. 실제 성단 사진도 가만히 있다. */
+    const rr=isWin ? Math.max(s.s, s.s+scIn(bZoom)*Math.min(W,H)*0.20)
+                   : s.s*(1+zf*1.6);
     if(streak>.02&&!isWin){
       const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
-      x.strokeStyle=rgba(s.c,s.b*tw*.5*streak);
+      x.strokeStyle=rgba(s.c,s.b*.5*streak);
       x.lineWidth=rr*1.1; x.lineCap='round';
       x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
     }
-    x.fillStyle=rgba(s.c,s.b*tw);
+    x.fillStyle=rgba(s.c,s.b);
     x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
   });
 
