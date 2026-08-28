@@ -287,6 +287,35 @@ body.capture #hint{display:none}
 
 /* 토큰 칩 */
 /* 토큰 칩 */
+/* 알림 버튼은 토큰 수 바로 왼쪽에 같은 줄로 붙는다 */
+.trTop{display:flex;align-items:center;gap:7px}
+#btnInbox{
+  position:relative;width:34px;height:34px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txt-2);cursor:pointer;transition:.15s;padding:0
+}
+#btnInbox:hover{color:var(--txt);border-color:var(--line-2)}
+#btnInbox i{
+  position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 8px rgba(255,198,92,.9);display:none
+}
+#btnInbox.unread i{display:block}
+
+/* 알림 목록 */
+.nfList{display:flex;flex-direction:column;gap:8px}
+.nfItem{
+  display:flex;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,255,255,.02);position:relative
+}
+.nfItem.new{border-color:rgba(255,198,92,.4);background:rgba(255,198,92,.05)}
+.nfIcon{font-size:17px;line-height:1.3;flex:0 0 auto;width:22px;text-align:center}
+.nfItem.f .nfIcon{color:var(--gold)}
+.nfItem.b .nfIcon{color:var(--acc)}
+.nfBody{flex:1;min-width:0}
+.nfTtl{font-size:13.5px;font-weight:700;letter-spacing:.01em}
+.nfSub{font-size:11.5px;color:var(--txt-3);margin-top:3px;line-height:1.6}
+.nfSub b{color:var(--txt-2);font-weight:600}
+.nfWhen{font-size:10.5px;color:var(--txt-3);flex:0 0 auto;white-space:nowrap;padding-top:2px}
 #tokenChip{display:flex;align-items:center;gap:6px;padding:7px 11px;font-size:12.5px}
 #tokenChip .lbl{display:none}
 #tokenChip .tk{color:var(--gold);font-size:15px;text-shadow:0 0 12px rgba(255,198,92,.7)}
@@ -1030,7 +1059,19 @@ body.locked #timerPanel input{cursor:not-allowed}
 
 <!-- 우상단: 주 메뉴 -->
 <div class="hud tr">
-  <div id="tokenChip" class="panel"><span class="tk">◈</span><b id="tokenCount">0</b><span class="lbl">토큰</span></div>
+  <!-- 완료 팝업은 7초 뒤 저절로 닫힌다. 놓친 것을 여기서 다시 본다. -->
+  <div class="trTop">
+    <button class="panel" id="btnInbox" title="알림">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18.4 15.6c0-.9-.7-1.6-.9-3.6-.2-1.7 0-2.6-.4-3.9C16.5 6 14.4 4.6 12 4.6
+                 S7.5 6 6.9 8.1c-.4 1.3-.2 2.2-.4 3.9-.2 2-.9 2.7-.9 3.6h12.8z"/>
+        <path d="M12 2.6v2"/><path d="M10.2 18.2a1.9 1.9 0 0 0 3.6 0"/>
+      </svg>
+      <i id="inboxDot"></i>
+    </button>
+    <div id="tokenChip" class="panel"><span class="tk">◈</span><b id="tokenCount">0</b><span class="lbl">토큰</span></div>
+  </div>
   <button class="menuToggle" id="btnMenuToggle" title="메뉴 접기/펼치기">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </button>
@@ -1348,6 +1389,22 @@ body.locked #timerPanel input{cursor:not-allowed}
   </div>
 </div>
 
+<!-- ============ 모달: 알림 ============ -->
+<div class="mask" id="mInbox">
+  <div class="modal" style="max-width:420px">
+    <div class="mHead">
+      <div style="flex:1"><h2>알림</h2></div>
+      <button class="mClose" data-close="mInbox">✕</button>
+    </div>
+    <div class="mBody" id="inboxBody"></div>
+    <div class="mFoot">
+      <button class="mini danger" id="btnInboxClear">모두 지우기</button>
+      <div class="spacer"></div>
+      <button class="cbtn primary" data-close="mInbox">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 모달: 확인 다이얼로그 ============ -->
 <div class="mask" id="mAsk">
   <div class="modal" style="max-width:380px">
@@ -1574,6 +1631,23 @@ function pushSession(startMs,ms){
   (S.ses[k]=S.ses[k]||[]).push([st,len]);
   S.ses[k].sort((a,b)=>a[0]-b[0]);
 }
+/* ---- 완료 알림 ----
+   팝업(showTokenPopup)은 7초 뒤 저절로 닫히므로, 자리를 비운 사이에 지나가면
+   무엇을 받았는지 알 길이 없었다. 그것만 남겨 두고 나중에 볼 수 있게 한다.
+   무한정 쌓으면 저장 키와 클라우드 푸시가 무거워지므로 최근 것만 둔다. */
+const NOTIF_MAX=50;
+function cleanNotif(a){
+  if(!Array.isArray(a))return [];
+  return a.filter(n=>n&&typeof n==='object'&&isFinite(n.t)&&n.t>0)
+          .sort((x,y)=>y.t-x.t)
+          .slice(0,NOTIF_MAX);
+}
+/** 알림을 하나 남긴다. 최신이 앞이다. */
+function pushNotif(n){
+  S.notif=cleanNotif([Object.assign({t:Date.now()},n)].concat(S.notif||[]));
+}
+const unreadNotif=()=>(S.notif||[]).filter(n=>n.t>(S.notifSeen|0)).length;
+
 /** 오늘부터 거슬러 올라가며 연속으로 집중한 날 수.
     오늘 아직 안 했다고 연속이 끊긴 것은 아니므로 어제부터 센다. */
 function focusStreak(log){
@@ -2036,7 +2110,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.08.31-g';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-a';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2069,6 +2143,9 @@ function freshState(){
     /* 날짜별 세션 구간. 'YYYY-MM-DD' → [[시작분,길이분],…].
        log 는 총량만 알아 24시간 띠를 그릴 수 없으므로 따로 남긴다. */
     ses:{},
+    /* 완료 알림 기록. 팝업은 7초 뒤 저절로 닫히므로 놓친 것을 여기서 다시 본다.
+       최신이 앞이고 NOTIF_MAX 개만 남긴다. seen 이후에 온 것이 '읽지 않음'. */
+    notif:[], notifSeen:0,
     sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false
   };
 }
@@ -2092,6 +2169,8 @@ function load(raw0){
     S.stats=Object.assign({sessions:0,focusMs:0,day:'',dayMs:0},o.stats||{});
     S.log=cleanLog(o.log);
     S.ses=cleanSes(o.ses);          // 옛 저장본에는 없다 — 빈 객체로 시작한다
+    S.notif=cleanNotif(o.notif);
+    S.notifSeen=+(o.notifSeen||0)||0;
     // 시스템 구조 보정
     const fs=freshState().sys;
     if(!o.sys) S.sys=fs;
@@ -4465,6 +4544,10 @@ function onPhaseDone(){
     chime(bonus);
     bumpToken();
     nativeDisarm();          // 화면을 보고 있었으니 예약 알림은 필요 없다
+    /* 팝업은 7초 뒤 닫히므로 놓쳤을 때를 위해 남겨 둔다 */
+    pushNotif({k:'focus',gain,bonus:!!bonus,ms:doneMs,
+               day:S.stats.dayMs,total:S.stats.sessions});
+    paintInbox();
     notifyDone(gain,bonus);
     showTokenPopup(gain,bonus,doneMs);
     // 요구사항 9 — 팝업이 떠 있는 동안에도 타이머는 멈추지 않는다
@@ -4473,6 +4556,8 @@ function onPhaseDone(){
   }else{
     // 휴식 끝
     chime(false);
+    pushNotif({k:'break',long:T.phase==='longbreak',round:T.round});
+    paintInbox();
     notifyBreakDone();
     T.phase='idle';
     saveNow();
@@ -6761,6 +6846,56 @@ function hideTokenPopup(){
   cancelAnimationFrame(_popRaf);
   $('#tokenPop').classList.remove('on');
 }
+/* ---- 알림 화면 ----
+   좌상단 기록과 같은 성격이라 읽기만 하는 화면이고, 집중 중에도 막지 않는다. */
+function whenTxt(t){
+  const d=Math.max(0,Date.now()-t), m=Math.floor(d/60000);
+  if(m<1) return '방금';
+  if(m<60) return m+'분 전';
+  const h=Math.floor(m/60);
+  if(h<24) return h+'시간 전';
+  const dd=new Date(t);
+  return `${dd.getMonth()+1}/${dd.getDate()} ${pad(dd.getHours())}:${pad(dd.getMinutes())}`;
+}
+function paintInbox(){
+  const n=unreadNotif();
+  $('#btnInbox').classList.toggle('unread',n>0);
+  $('#btnInbox').title=n>0?`알림 ${n}개`:'알림';
+}
+function renderInbox(){
+  const list=S.notif||[], seen=S.notifSeen|0;
+  $('#inboxBody').innerHTML = list.length ? `<div class="nfList">${list.map(o=>{
+    const isNew=o.t>seen;
+    if(o.k==='break'){
+      return `<div class="nfItem b ${isNew?'new':''}">
+        <div class="nfIcon">☾</div>
+        <div class="nfBody">
+          <div class="nfTtl">${o.long?'긴 휴식이 끝났습니다':'휴식이 끝났습니다'}</div>
+          <div class="nfSub">${o.round?`<b>${o.round}회차</b>까지 완료했습니다`:'다음 집중을 시작할 준비가 되었습니다'}</div>
+        </div>
+        <div class="nfWhen">${whenTxt(o.t)}</div></div>`;
+    }
+    return `<div class="nfItem f ${isNew?'new':''}">
+      <div class="nfIcon">✦</div>
+      <div class="nfBody">
+        <div class="nfTtl">${o.bonus?'긴 집중 완주':'목표 달성'}</div>
+        <div class="nfSub">◈ 가챠 토큰 <b>+${o.gain|0}</b>${o.bonus?' · 보너스':''}
+          ${o.ms?` · ${fmtH(o.ms)} 집중`:''}</div>
+      </div>
+      <div class="nfWhen">${whenTxt(o.t)}</div></div>`;
+  }).join('')}</div>`
+  : `<div class="emptyMsg">아직 알림이 없습니다<br><span style="font-size:11.5px">집중 세션을 완주하면 여기에 쌓입니다</span></div>`;
+  /* 연 순간 모두 읽음 처리 */
+  S.notifSeen=Date.now(); save(); paintInbox();
+}
+$('#btnInbox').onclick=()=>{ renderInbox(); open('mInbox'); };
+$('#btnInboxClear').onclick=async()=>{
+  if(!(S.notif||[]).length){ toast('지울 알림이 없습니다'); return; }
+  if(!await ask('알림을 모두 지울까요?','기록된 알림이 사라집니다. 집중 기록 자체는 그대로입니다.','지우기',true))return;
+  S.notif=[]; S.notifSeen=Date.now(); saveNow();
+  renderInbox(); paintInbox();
+};
+
 function showBreakDone(){
   const T=S.timer;
   $('#doneBody').innerHTML=`
@@ -7369,7 +7504,7 @@ function diffFields(a,b){
   return out;
 }
 function afterAccountSwitch(){
-  syncAdminUI();paintTokens();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
+  syncAdminUI();paintTokens();paintInbox();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
   $('#inCount').value=S.timer.count;$('#inFocus').value=S.timer.focus;
   $('#inBreak').value=S.timer.brk;$('#inLong').value=S.timer.long;$('#inEvery').value=S.timer.every;
   $('#mdCount').classList.toggle('on',S.timer.mode==='count');
@@ -7715,6 +7850,7 @@ function boot(){
   document.body.classList.toggle('menuOpen',!!S.menuOpen);
 
   paintTokens();
+  paintInbox();                    // 자리를 비운 사이 쌓인 알림이 있으면 점을 켠다
   VIEW.zoom=VIEW.zoomTo=fitZoom();
   updateViewUI();
 
