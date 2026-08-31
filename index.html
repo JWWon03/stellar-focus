@@ -490,8 +490,6 @@ body.capture #hint{display:none}
 
 .btnRow{display:flex;gap:8px}
 .btnRow .cbtn{flex:1;text-align:center;padding:11px 8px;box-shadow:none}
-.tNote{font-size:10.5px;color:var(--txt-3);margin-top:10px;text-align:center;line-height:1.55}
-.tNote b{color:var(--txt-2);font-weight:600}
 
 /* ---------- 모달 ---------- */
 .mask{
@@ -1011,7 +1009,6 @@ body.locked #timerPanel input{cursor:not-allowed}
   .calStat b{font-size:17px}
   .calStat span{font-size:11.5px}
   .calStat em{font-size:9.5px}
-  .tNote{display:none}
   #clock{min-width:150px;padding:9px 12px}
   #clock .time{font-size:22px}
   #clock .sub{display:none}
@@ -1031,7 +1028,6 @@ body.locked #timerPanel input{cursor:not-allowed}
   .cell .m{display:none}
 }
 @media (max-height:620px){
-  #timerPanel .tNote{display:none}
   .big{font-size:34px}
   #timerPanel.run .big{font-size:44px}
 }
@@ -1179,7 +1175,6 @@ body.locked #timerPanel input{cursor:not-allowed}
 
       <div class="stTxt" id="stTxt"></div>
       <div class="tHint" id="tHint">집중 시간 · 최소 10분</div>
-      <div class="tNote" id="tNote"></div>
     </div>
 
     <!-- 구분선 아래 조작 줄. 아이콘은 전부 인라인 SVG —
@@ -2110,7 +2105,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-c';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4538,6 +4533,29 @@ function warn(msg){
   warn._t=setTimeout(()=>t.classList.remove('on','warn'),2600);
 }
 
+/** 집중 중 시점·배율 고정.
+    **세션을 시작할 때와 세션 도중에 앱을 다시 열 때 똑같이 불러야 한다.**
+    `VIEW` 는 저장되지 않아 부팅하면 기본 시점(0.90rad)으로 돌아오는데,
+    집중 중에는 `viewLocked()` 가 Face-on/Edge-on 버튼을 막으므로 되돌릴
+    길이 없다 — 새로고침 한 번이면 세션이 끝날 때까지 엉뚱한 시점으로
+    굳는다. 엄폐 연출에서 "배경만 face-on 이다"라는 보고의 원인이 이것이다. */
+function lockFocusView(){
+  VIEW.follow=null;
+
+  /* **시점을 먼저 정하고 배율을 나중에 잰다.** fitZoom() 은 cos(tiltTo) 로
+     세로 눌림을 반영하므로, 순서를 바꾸면 엉뚱한 시점 기준으로 배율이
+     잡힌다 — 실제로 그래서 벨트 표적이 화면 밖으로 나갔다. */
+  // 식(엄폐)만 궤도면을 옆에서 봐야 천체가 별 앞을 지나는 것이 보인다.
+  // 나머지 셋(벨트 탐사·혜성 근일점·탐사선 항해)은 정면에서 내려다본다.
+  VIEW.tiltTo=(S.intro==='transit')?TILT_EDGE:TILT_FACE; VIEW.azTo=0;
+  // 보간으로 기울어 들어오면 처음 1초가 목표 시점이 아니다. 즉시 맞춘다.
+  VIEW.tilt=VIEW.tiltTo;
+
+  /* 벨트 탐사는 표적이 카이퍼 벨트에 흩어져 있다. 조금이라도 당기면
+     바깥 표적이 화면 밖으로 나가 브래킷만 덩그러니 남는다. fitZoom() 이
+     이미 KB_OUT 까지 담으므로 그대로 쓴다. */
+  VIEW.zoomTo=fitZoom()*((S.intro||'scope')==='scope'?1:1.12);
+}
 function startPhase(kind){
   const T=S.timer;
   readCfg();
@@ -4549,21 +4567,7 @@ function startPhase(kind){
   if(kind==='focus'){
     T._startPhase=phase;
     rollRadarMax();                       // 이번 세션의 표적 수를 정한다
-    VIEW.follow=null;
-
-    /* **시점을 먼저 정하고 배율을 나중에 잰다.** fitZoom() 은 cos(tiltTo) 로
-       세로 눌림을 반영하므로, 순서를 바꾸면 엉뚱한 시점 기준으로 배율이
-       잡힌다 — 실제로 그래서 벨트 표적이 화면 밖으로 나갔다. */
-    // 식(엄폐)은 궤도면을 옆에서 봐야 천체가 별 앞을 지나는 것이 보인다.
-    // 나머지는 관측 장비 화면답게 정면에서 내려다본다.
-    VIEW.tiltTo=(S.intro==='transit')?TILT_EDGE:TILT_FACE; VIEW.azTo=0;
-    // 보간으로 기울어 들어오면 처음 1초가 edge-on 이 아니다. 즉시 맞춘다.
-    VIEW.tilt=VIEW.tiltTo;
-
-    /* 벨트 탐사는 표적이 카이퍼 벨트에 흩어져 있다. 조금이라도 당기면
-       바깥 표적이 화면 밖으로 나가 브래킷만 덩그러니 남는다. fitZoom() 이
-       이미 KB_OUT 까지 담으므로 그대로 쓴다. */
-    VIEW.zoomTo=fitZoom()*((S.intro||'scope')==='scope'?1:1.12);
+    lockFocusView();
   }
   save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
@@ -4824,15 +4828,10 @@ function updateTimerUI(){
   b.innerHTML = TICO.stop;
   b.classList.toggle('gone',!active);
 
-  /* 잠금 안내와 가챠 권유 문구는 뺐다 — 버튼과 화면만 봐도 아는 상태라
-     글자를 더 얹을 필요가 없다. 남기는 것은 이 앱의 핵심인 궤도 한 줄뿐이고,
-     행성이 없으면 그마저 보여 줄 것이 없으므로 통째로 감춘다. */
-  const cnt=S.sys.slots.filter(s=>s.p).length;
-  const note=cnt>0
-    ? `가장 바깥 행성이 <b>1바퀴</b> 돌면 완료<br>궤도 주기 = <b>${currentFocusMin()}분</b> · 행성 ${cnt}기`
-    : '';
-  $('#tNote').innerHTML=note;
-  $('#tNote').style.display=note?'':'none';
+  /* 타이머 위젯의 안내 문구는 #stTxt 한 줄뿐이다 — 휴식·일시정지·회차처럼
+     화면 어디에서도 알 수 없는 것만 남긴다. 궤도 안내('가장 바깥 행성이
+     1바퀴 돌면 완료' · '궤도 주기 = N분 · 행성 N기')는 사용자 요청으로 뺐다.
+     되살리지 말 것. */
 }
 
 /* 완료 사운드 */
@@ -7944,7 +7943,12 @@ function boot(){
   // 재접속 시 만료된 세션 처리
   if(T.running){
     if(Date.now()>=T.endAt){T.running=false;T.remain=0;onPhaseDone();}
-    else T._startPhase=0;
+    else {
+      T._startPhase=0;
+      /* 이어지는 집중 세션이면 시점을 다시 잠근다. 여기엔 접근 연출이
+         없으므로 방위각·배율까지 즉시 맞춰 화면이 튀지 않게 한다. */
+      if(T.phase==='focus'){ lockFocusView(); VIEW.az=VIEW.azTo; VIEW.zoom=VIEW.zoomTo; }
+    }
   }
   updateTimerUI();
 
