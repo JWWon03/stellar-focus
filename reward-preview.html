@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>보상 방식 미리보기 · 가챠 → 직접 지급</title>
+<style>
+/* 본편과 같은 제약: 외부 폰트·스크립트 없음. 이 파일 하나로 동작한다. */
+:root{
+  --bg:#04050b; --panel:#0d1222; --line:rgba(140,175,255,.16); --line-2:rgba(140,175,255,.30);
+  --txt:#e8eefc; --txt-2:#98a6c8; --txt-3:#5f6d90;
+  --acc:#8ab4ff; --gold:#ffc65c; --ok:#6fe6b0; --warn:#ff8a6b;
+  --star:#c9a6ff; --planet:#7fd3e8; --moon:#ffc65c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh;font-size:14px;line-height:1.6;
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button,select,input{font-family:inherit;color:var(--txt)}
+.wrap{max-width:960px;margin:0 auto;padding:24px 18px 70px}
+h1{font-size:20px;font-weight:700;margin-bottom:3px}
+.sub{font-size:12.5px;color:var(--txt-3);margin-bottom:22px}
+h2{font-size:14px;font-weight:700;letter-spacing:.04em;margin:26px 0 10px;
+  padding-top:18px;border-top:1px solid var(--line)}
+h2:first-of-type{border-top:0;padding-top:0}
+p{font-size:13px;color:var(--txt-2);margin-bottom:12px}
+p b{color:var(--txt)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+
+/* 매핑 */
+.maps{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.map{border:1px solid var(--line);border-radius:13px;padding:13px 14px;background:rgba(255,255,255,.02)}
+.map .fx{font-size:13.5px;font-weight:700;margin-bottom:2px}
+.map .why{font-size:11px;color:var(--txt-3);line-height:1.55;margin-bottom:10px;min-height:34px}
+.map select{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:9px;
+  padding:7px 9px;font-size:12.5px;outline:none}
+.map select:focus{border-color:var(--line-2)}
+.map.star{border-color:rgba(201,166,255,.45)}
+.map.planet{border-color:rgba(127,211,232,.45)}
+.map.moon{border-color:rgba(255,198,92,.45)}
+.map.comet{border-color:rgba(111,230,176,.45)}
+.map.none{opacity:.6}
+
+/* 완료 화면 목업 */
+.mock{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.pop{width:300px;border:1px solid var(--line-2);border-radius:18px;padding:18px 18px 16px;
+  background:linear-gradient(170deg,rgba(30,38,66,.96),rgba(12,16,32,.97));position:relative;overflow:hidden}
+.pop .bar{height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin:-6px -6px 12px;overflow:hidden}
+.pop .bar i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--gold),#ff9d4d)}
+.pop .top{display:flex;gap:10px;align-items:flex-start;margin-bottom:13px}
+.pop .ic{font-size:20px;color:var(--gold);line-height:1.2}
+.pop .t{font-size:15px;font-weight:700}
+.pop .s{font-size:11.5px;color:var(--txt-3);margin-top:2px;line-height:1.55}
+.got{display:flex;gap:12px;align-items:center;padding:12px;border-radius:13px;
+  border:1px solid var(--line-2);background:rgba(255,255,255,.03);margin-bottom:12px}
+.got canvas{width:64px;height:64px;flex:0 0 auto}
+.got .nm{font-size:15px;font-weight:700}
+.got .st{font-size:12px;letter-spacing:2px;margin-top:1px}
+.got .kd{font-size:10.5px;color:var(--txt-3);margin-top:3px;letter-spacing:.05em}
+.stats{display:flex;gap:8px}
+.stats div{flex:1;text-align:center;padding:8px 4px;border-radius:10px;border:1px solid var(--line)}
+.stats b{display:block;font-size:14px;font-variant-numeric:tabular-nums}
+.stats span{font-size:9.5px;color:var(--txt-3)}
+.note{flex:1;min-width:240px;font-size:12.5px;color:var(--txt-2);line-height:1.85}
+.note b{color:var(--txt)}
+
+/* 시뮬레이션 */
+.simRow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.simRow label{font-size:12px;color:var(--txt-3)}
+.simRow input[type=range]{width:150px;vertical-align:middle}
+.simRow b{font-variant-numeric:tabular-nums;color:var(--txt)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;color:var(--txt-3);font-weight:700;
+  padding:0 8px 7px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid rgba(140,175,255,.07);font-variant-numeric:tabular-nums}
+td.k{font-weight:700;font-variant-numeric:normal}
+.bar2{height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;min-width:80px}
+.bar2 i{display:block;height:100%}
+.same{color:var(--ok)}
+
+ul{margin:0 0 12px 18px;font-size:12.5px;color:var(--txt-2);line-height:1.85}
+ul b{color:var(--txt)}
+.warnbox{border:1px solid rgba(255,138,107,.35);background:rgba(255,138,107,.06);
+  border-radius:12px;padding:13px 15px;margin-bottom:12px}
+.warnbox .h{font-size:12.5px;font-weight:700;color:#ff9b7d;margin-bottom:5px}
+.warnbox p{font-size:12.5px;color:var(--txt-2);margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>보상 방식 미리보기</h1>
+  <div class="sub">가챠(토큰 → 뽑기) → 세션 완주 시 직접 지급 · <b>본편에는 적용하지 않았습니다</b></div>
+
+  <h2>1. 연출 → 얻는 종류</h2>
+  <p>연출을 고르는 것이 곧 <b>무엇을 모을지 고르는 것</b>이 됩니다. 지금은 연출 선택이
+     순전히 취향인데, 여기에 의미가 생깁니다. 아래에서 바꿔 보세요.</p>
+  <div class="maps" id="maps"></div>
+
+  <div class="warnbox" style="margin-top:14px">
+    <div class="h">혜성을 넣으면 셋은 맞아떨어집니다 — 항성만 남습니다</div>
+    <p>엄폐→행성, 혜성→혜성, 탐사선→위성 은 각각 <b>실제 그 방법으로 발견·연구하는 대상</b>입니다.
+       벨트 탐사도 소천체라 위성과 결이 맞고요.<br>
+       남는 건 <b>항성</b>입니다. 넷 중 어느 것도 별을 알아내는 방법이 아닙니다 —
+       그건 분광 관측이나 시차 측정이 하는 일입니다. 아래 5번을 보세요.</p>
+  </div>
+
+  <h2 style="margin-top:22px">혜성을 넣으면 생기는 일</h2>
+  <div class="card">
+    <ul>
+      <li><b>실존 혜성은 충분합니다.</b> 핼리 · 엔케 · 추류모프-게라시멘코(로제타가 착륙) ·
+        템펠 1(딥임팩트가 충돌) · 빌트 2(스타더스트가 시료 채취) · 헤일-밥 · 햐쿠타케 ·
+        맥노트 · 네오와이즈 · 슈메이커-레비 9(목성에 충돌) · 오무아무아 · 보리소프(성간 천체) …
+        <b>16종쯤</b>은 실측 제원과 함께 만들 수 있습니다.</li>
+      <li><b>연출이 이미 있습니다.</b> <code>fxComet</code> 이 이심 타원 궤도와 이온·먼지 꼬리를
+        이미 그립니다. 그 코드를 배치된 혜성에 그대로 쓸 수 있습니다.</li>
+      <li style="color:#ff9b7d"><b>배치할 자리가 없습니다.</b> 지금 항성계는 행성 슬롯 7개(각 위성 2)와
+        동반성 2개뿐입니다. 혜성은 이심률이 0.6~0.99 라 낮은 이심률로 고정된 기존 슬롯에
+        안 맞습니다. <b>혜성 전용 슬롯을 따로 만들어야 합니다</b>(2~3개 정도).</li>
+      <li>대신 <b>보기에 좋습니다.</b> 긴 타원 궤도가 항성계를 가로지르고, 근일점에 가까워지면
+        꼬리가 자라 별 반대편을 향합니다. 지금 화면에 없는 움직임입니다.</li>
+    </ul>
+  </div>
+
+  <h2>2. 완주하면 이런 화면이 뜹니다</h2>
+  <div class="mock">
+    <div class="pop">
+      <div class="bar"><i></i></div>
+      <div class="top">
+        <div class="ic">✦</div>
+        <div>
+          <div class="t">관측 성공</div>
+          <div class="s" id="mockSub">엄폐 관측으로 새 행성을 찾았습니다</div>
+        </div>
+      </div>
+      <div class="got">
+        <canvas width="128" height="128" id="mockCv"></canvas>
+        <div>
+          <div class="nm" id="mockName">케플러-452b</div>
+          <div class="st" id="mockStars">★★★★☆</div>
+          <div class="kd" id="mockKind">행성 · 도감 12/30</div>
+        </div>
+      </div>
+      <div class="stats">
+        <div><b>25분</b><span>이번 세션</span></div>
+        <div><b>3시간</b><span>오늘 누적</span></div>
+        <div><b>42</b><span>총 세션</span></div>
+      </div>
+    </div>
+    <div class="note">
+      <b>토큰 칸이 사라집니다.</b> 우상단의 <span style="color:var(--gold)">◈ 토큰</span> 표시와
+      가챠 메뉴가 통째로 없어집니다.<br><br>
+      <b>대신 매 세션이 확실한 보상입니다.</b> 지금은 토큰을 받고 따로 가서 뽑아야 하는
+      두 단계인데, 한 단계로 줄어듭니다.<br><br>
+      <b>방금 만든 성단 관측 연출은 살릴 수 있습니다.</b> 뽑기 연출이 아니라
+      <b>발견 연출</b>로 자리를 옮기면 됩니다 — 세션이 끝나면 망원경 시야가
+      열리고 그 자리에서 천체를 발견하는 흐름입니다.
+      <button id="btnRoll" style="margin-top:14px;padding:8px 14px;border-radius:10px;
+        border:1px solid rgba(138,180,255,.5);background:linear-gradient(150deg,rgba(58,90,180,.5),rgba(40,60,140,.4));
+        color:#fff;font-size:12.5px;font-weight:700;cursor:pointer">다른 천체로 바꿔 보기</button>
+    </div>
+  </div>
+
+  <h2>3. 모으는 속도는 어떻게 달라지나</h2>
+  <div class="simRow">
+    <label>하루 세션 <input type="range" id="perDay" min="1" max="8" value="3"><b id="perDayV">3</b>회</label>
+    <label>포모도로 보너스 <input type="checkbox" id="bonus" checked></label>
+  </div>
+  <div class="card"><table>
+    <thead><tr><th>방식</th><th>전부 모으기</th><th>진행</th><th>특징</th></tr></thead>
+    <tbody id="simBody"></tbody>
+  </table></div>
+  <p style="margin-top:10px" id="simNote"></p>
+
+  <h2>4. 없어지는 것 · 생기는 것</h2>
+  <div class="card">
+    <ul>
+      <li><b>없어짐</b> — 토큰, 가챠 화면, 3개 배너, 10연차, 천장(★4 10회·★5 30회),
+          확률표(★5 4%·★4 22%·★3 74%), 관리자 토큰 무제한</li>
+      <li><b>남음</b> — 도감, 등급(★3~5), 중복 없음 규칙, 성단 관측 연출(발견 연출로 이동)</li>
+      <li><b>생김</b> — 연출 선택 = 수집 방향 선택
+          <span style="color:#6fe6b0">(혜성을 넣으면) 혜성 풀 16종 · 혜성 전용 슬롯 ·
+          이심 궤도와 꼬리 렌더링 · <code>S.sys</code> 저장 스키마 변경</span></li>
+    </ul>
+  </div>
+
+  <h2>5. 정해야 할 것</h2>
+  <div class="card">
+    <ul>
+      <li><b>혜성을 어디에 배치하나요?</b>
+        ① <b>혜성 전용 슬롯 2~3개</b>를 만든다(이심 궤도 + 꼬리를 그려야 함 — 손이 가장 많이 감) ·
+        ② 도감에만 넣고 항성계에는 안 띄운다(작지만 "모아서 배치한다"가 반쪽이 됨) ·
+        ③ 카이퍼 벨트 쪽에 붙여 배경처럼 지나가게 한다</li>
+      <li><b>항성은 어떻게 줄까요?</b> (혜성을 넣어도 이건 그대로 남습니다)
+        ① 어느 연출에서든 낮은 확률로 섞어 준다 ·
+        ② <b>항성용 연출을 하나 더 만든다</b>(분광 관측·시차 측정 — 실제로 별을 알아내는 방법) ·
+        ③ 긴 세션(60분↑)이나 포모도로 보너스 회차에만 준다</li>
+      <li><b>등급은 무엇이 정하나요?</b> 지금은 확률표가 정합니다. 없애면
+        ① 그대로 무작위 ·
+        ② <b>집중 시간이 길수록 높은 등급</b>(25분→★3, 45분→★4, 60분↑→★5 가중) ·
+        ③ 연속 기록이 쌓일수록 가중</li>
+      <li><b>그 종류를 다 모았으면?</b> 지금 가챠는 "도감을 모두 완성했습니다"로 막습니다.
+        직접 지급에서는 다른 종류로 흘려보낼지, 아무것도 안 줄지 정해야 합니다.</li>
+      <li><b>기존 사용자의 토큰은?</b> 남은 토큰을 천체로 바꿔 주거나, 전환 시점에
+        한 번 정산해야 합니다. 그냥 없애면 모아 둔 사람이 손해입니다.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function rgba(hex,a){const h=hex.replace('#','');
+  const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+function fnv(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* 본편 수치 그대로 + 혜성은 새로 만들 경우의 예상치 */
+const POOL={star:29, planet:30, moon:28, comet:16};
+const KINDLB={star:'항성', planet:'행성', moon:'위성', comet:'혜성', none:'— 없음 —'};
+const KINDCOL={star:'#c9a6ff', planet:'#7fd3e8', moon:'#ffc65c', comet:'#6fe6b0'};
+
+const FX=[
+  {k:'transit', n:'엄폐(식) 관측',  why:'별 앞을 지나며 밝기를 떨어뜨리는 것을 잡는다. 실제로 외계행성을 찾는 바로 그 방법.', def:'planet'},
+  {k:'comet',   n:'혜성 근일점',    why:'혜성이 가장 가까워지는 순간을 지켜본다. 연출과 대상이 그대로 맞는다.', def:'comet'},
+  {k:'scope',   n:'벨트 탐사',      why:'카이퍼 벨트의 얼음 소천체를 포착한다. 작은 천체를 훑는 관측.', def:'moon'},
+  {k:'probe',   n:'탐사선 항해',    why:'스윙바이로 외행성계 천체까지 날아가 가까이서 본다. 실제로 위성을 가장 많이 밝혀낸 방법.', def:'moon'}
+];
+let MAP={}; FX.forEach(f=>MAP[f.k]=f.def);
+
+function renderMaps(){
+  $('#maps').innerHTML=FX.map(f=>{
+    const v=MAP[f.k];
+    return `<div class="map ${v}">
+      <div class="fx">${f.n}</div>
+      <div class="why">${f.why}</div>
+      <select data-k="${f.k}">
+        ${['planet','moon','star','comet','none'].map(o=>
+          `<option value="${o}"${o===v?' selected':''}>${KINDLB[o]}</option>`).join('')}
+      </select></div>`;
+  }).join('');
+  $('#maps').querySelectorAll('select').forEach(s=>s.onchange=()=>{
+    MAP[s.dataset.k]=s.value; renderMaps(); sim();
+  });
+}
+
+/* ---- 완료 화면 목업 ---- */
+const SAMPLE=[
+  {n:'케플러-452b', t:4, kind:'planet', c1:'#7ea6d8', c2:'#3f5d86', f:{atmos:1}},
+  {n:'유로파',      t:5, kind:'moon',   c1:'#dfe6ee', c2:'#9aa8bb', f:{ice:1}},
+  {n:'토성',        t:5, kind:'planet', c1:'#e3c98d', c2:'#a8843f', f:{bands:1,ring:1}},
+  {n:'타이탄',      t:4, kind:'moon',   c1:'#e0a35c', c2:'#8a5a24', f:{atmos:1}},
+  {n:'시리우스 A',  t:4, kind:'star',   c1:'#dbe7ff', c2:'#8fa8d8', f:{glow:1}},
+  {n:'트라피스트-1e',t:5,kind:'planet', c1:'#c98a6a', c2:'#6d4530', f:{}},
+  {n:'핼리',        t:5, kind:'comet',  c1:'#bfe9ff', c2:'#5d7f96', f:{comet:1}},
+  {n:'추류모프-게라시멘코', t:4, kind:'comet', c1:'#cfd6de', c2:'#5b5f66', f:{comet:1}}
+];
+let si=0;
+function paintSample(b){
+  const c=$('#mockCv'), x=c.getContext('2d'), S=128, R=40;
+  x.clearRect(0,0,S,S);
+  const r=mulberry(fnv(b.n));
+  x.save(); x.translate(S/2,S/2);
+  if(b.f.comet){
+    const nR=R*.26, ang=-2.35;                       // 꼬리는 왼쪽 위(별 반대편)
+    // 먼지 꼬리 — 넓고 휘어진 부채꼴
+    for(let i=0;i<3;i++){
+      const a=ang+(i-1)*.20, L=R*(2.5-i*.22);
+      const g=x.createLinearGradient(0,0,Math.cos(a)*L,Math.sin(a)*L);
+      g.addColorStop(0,rgba(b.c1,.42)); g.addColorStop(1,rgba(b.c1,0));
+      x.strokeStyle=g; x.lineWidth=R*(.34-i*.07); x.lineCap='round';
+      x.beginPath(); x.moveTo(0,0);
+      x.quadraticCurveTo(Math.cos(a+.34)*L*.55, Math.sin(a+.34)*L*.55,
+                         Math.cos(a+.5)*L,      Math.sin(a+.5)*L);
+      x.stroke();
+    }
+    // 이온 꼬리 — 곧고 푸르다
+    const L2=R*2.9, g2=x.createLinearGradient(0,0,Math.cos(ang)*L2,Math.sin(ang)*L2);
+    g2.addColorStop(0,'rgba(150,215,255,.60)'); g2.addColorStop(1,'rgba(150,215,255,0)');
+    x.strokeStyle=g2; x.lineWidth=R*.13;
+    x.beginPath(); x.moveTo(0,0); x.lineTo(Math.cos(ang)*L2,Math.sin(ang)*L2); x.stroke();
+    // 코마
+    const gc=x.createRadialGradient(0,0,nR*.5,0,0,nR*2.6);
+    gc.addColorStop(0,rgba(b.c1,.55)); gc.addColorStop(1,rgba(b.c1,0));
+    x.fillStyle=gc; x.beginPath(); x.arc(0,0,nR*2.6,0,TAU); x.fill();
+    // 핵 — 울퉁불퉁한 작은 얼음 덩어리
+    x.beginPath();
+    for(let i=0;i<9;i++){ const a=i/9*TAU, rr=nR*(.72+r()*.42);
+      const px=Math.cos(a)*rr, py=Math.sin(a)*rr;
+      i?x.lineTo(px,py):x.moveTo(px,py); }
+    x.closePath(); x.fillStyle=b.c2; x.fill();
+    x.fillStyle=rgba(b.c1,.5);
+    x.beginPath(); x.arc(-nR*.28,-nR*.28,nR*.5,0,TAU); x.fill();
+    x.restore(); return;
+  }
+  if(b.f.ring){ x.save(); x.scale(1,.30);
+    [[1.25,1.5,.5],[1.55,1.95,.42]].forEach(([a,c2,al])=>{
+      x.strokeStyle=rgba('#e8dcc0',al); x.lineWidth=R*(c2-a);
+      x.beginPath(); x.arc(0,0,R*(a+c2)/2,0,TAU); x.stroke(); }); x.restore(); }
+  if(b.f.glow){ const g=x.createRadialGradient(0,0,R*.7,0,0,R*2);
+    g.addColorStop(0,rgba(b.c1,.45)); g.addColorStop(1,rgba(b.c1,0));
+    x.fillStyle=g; x.beginPath(); x.arc(0,0,R*2,0,TAU); x.fill(); }
+  x.save(); x.beginPath(); x.arc(0,0,R,0,TAU); x.clip();
+  x.fillStyle=b.c2; x.fillRect(-R,-R,R*2,R*2);
+  if(b.f.bands){ let y=-R; while(y<R){ const h=R*(.1+r()*.22);
+    x.fillStyle=rgba(r()<.5?b.c1:b.c2,.5+r()*.5); x.fillRect(-R,y,R*2,h+1); y+=h; } }
+  else { for(let i=0;i<26;i++){ x.fillStyle=rgba(r()<.5?b.c1:b.c2,.3+r()*.5);
+    x.beginPath(); x.arc((r()-.5)*2*R,(r()-.5)*2*R,R*(.08+r()*.22),0,TAU); x.fill(); } }
+  if(!b.f.glow){ const sh=x.createRadialGradient(-R*.35,-R*.35,R*.1,0,0,R*1.15);
+    sh.addColorStop(0,'rgba(255,255,255,.22)'); sh.addColorStop(.45,'rgba(0,0,0,0)');
+    sh.addColorStop(1,'rgba(0,0,0,.78)'); x.fillStyle=sh; x.fillRect(-R,-R,R*2,R*2); }
+  x.restore(); x.restore();
+}
+function showSample(){
+  const b=SAMPLE[si%SAMPLE.length];
+  paintSample(b);
+  $('#mockName').textContent=b.n;
+  $('#mockStars').textContent='★'.repeat(b.t)+'☆'.repeat(5-b.t);
+  $('#mockStars').style.color=b.t===5?'#ffc65c':b.t===4?'#c396ff':'#8ea5c9';
+  const got=Math.round(POOL[b.kind]*0.4);
+  $('#mockKind').textContent=`${KINDLB[b.kind]} · 도감 ${got}/${POOL[b.kind]}`;
+  // 그 종류를 주는 연출 이름을 찾아 문구에 넣는다
+  const fx=FX.find(f=>MAP[f.k]===b.kind);
+  $('#mockSub').textContent=fx?`${fx.n}으로 새 ${KINDLB[b.kind]}을 찾았습니다`
+                              :`새 ${KINDLB[b.kind]}을 찾았습니다`;
+}
+$('#btnRoll').onclick=()=>{ si++; showSample(); };
+
+/* ---- 수집 속도 ---- */
+function sim(){
+  const per=+$('#perDay').value, bonus=$('#bonus').checked;
+  $('#perDayV').textContent=per;
+  const total=POOL.star+POOL.planet+POOL.moon+POOL.comet;
+  /* 중복이 없으므로 두 방식 다 '천체 하나당 세션 하나'다.
+     포모도로 보너스는 4회차마다 토큰이 2개 → 지금 방식만 조금 빠르다. */
+  const gachaPerSession = bonus ? 1.25 : 1;      // 4회차마다 2개 = 평균 1.25
+  const covered=Object.keys(MAP).filter(k=>MAP[k]!=='none').map(k=>MAP[k]);
+  const kinds={star:0,planet:0,moon:0,comet:0};
+  covered.forEach(k=>kinds[k]++);
+  const missing=Object.keys(kinds).filter(k=>!kinds[k]);
+  const reachable=total-missing.reduce((a,k)=>a+POOL[k],0);
+
+  const rows=[
+    {n:'지금 (가챠)', s:Math.ceil(total/gachaPerSession), reach:total,
+     f:'토큰을 모아 원하는 배너에 몰아 쓸 수 있음 · 10연차 · 천장'},
+    {n:'새 방식 (직접 지급)', s:reachable, reach:reachable,
+     f:'연출을 고르면 그 종류가 확실히 나옴 · 몰아 뽑기 없음'}
+  ];
+  $('#simBody').innerHTML=rows.map(r=>{
+    const days=Math.ceil(r.s/per);
+    const pct=Math.round(r.reach/total*100);
+    return `<tr>
+      <td class="k">${r.n}</td>
+      <td>${r.s}세션 · <b>${days}일</b></td>
+      <td><div class="bar2"><i style="width:${pct}%;background:${pct===100?'var(--ok)':'var(--warn)'}"></i></div>
+          <span style="font-size:10.5px;color:var(--txt-3)">${r.reach}/${total}종 도달 가능</span></td>
+      <td style="font-size:11.5px;color:var(--txt-3)">${r.f}</td></tr>`;
+  }).join('');
+
+  $('#simNote').innerHTML = missing.length
+    ? `<span style="color:var(--warn)">지금 매핑으로는 <b>${missing.map(k=>KINDLB[k]).join('·')}</b>을
+       영영 얻을 수 없습니다 (${missing.reduce((a,k)=>a+POOL[k],0)}종).</span>`
+    : `<b>모으는 속도는 거의 같습니다.</b> 가챠에 중복이 없어서 어차피 천체 하나당 세션 하나이기 때문입니다.
+       바뀌는 것은 <b>속도가 아니라 선택권과 긴장감</b>입니다.`;
+}
+$('#perDay').oninput=sim;
+$('#bonus').onchange=sim;
+
+renderMaps(); showSample(); sim();
+</script>
+</body>
+</html>

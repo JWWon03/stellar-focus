@@ -939,6 +939,19 @@ body.capture #hint{display:none}
   background:linear-gradient(140deg,rgba(255,198,92,.16),rgba(255,150,60,.07));
   border:1px solid rgba(255,198,92,.34)
 }
+/* 얻은 천체 카드 — 예전 토큰 줄(.tpGain) 자리를 쓴다 */
+.tpGot{display:flex;align-items:center;gap:12px;text-align:left;
+  margin:13px 18px 0;padding:9px 12px;border-radius:13px;
+  background:linear-gradient(140deg,rgba(255,198,92,.14),rgba(255,150,60,.05));
+  border:1px solid rgba(255,198,92,.34)}
+.tpGot+.tpGot{margin-top:7px}
+.tpGot canvas{width:54px;height:54px;flex:0 0 auto}
+.tpGot .n{font-size:15px;font-weight:700}
+.tpGot .s{font-size:11.5px;letter-spacing:2px;margin-top:1px}
+.tpGot .k{font-size:10px;color:var(--txt-3);margin-top:3px;letter-spacing:.04em}
+.tpBonus{margin:8px 18px 0;font-size:10.5px;font-weight:700;color:var(--gold);letter-spacing:.03em}
+.tpNone{margin:13px 18px 0;padding:12px;border-radius:12px;font-size:12.5px;color:var(--txt-2);
+  border:1px solid var(--line);background:rgba(255,255,255,.02)}
 .tpGain b{font-size:17px}
 .tpB{font-size:10px;font-weight:700;margin-left:7px;padding:2px 7px;border-radius:20px;
   background:rgba(255,198,92,.22);color:var(--gold)}
@@ -953,6 +966,10 @@ body.capture #hint{display:none}
 }
 .tpOk:hover{background:linear-gradient(160deg,#4874e0,#33499f)}
 .tpAuto{font-size:10px;color:var(--txt-3);margin-top:9px;letter-spacing:.02em}
+
+/* 가챠를 걷어냈다 — 토큰 표시와 가챠 메뉴는 감춘다. 모달과 함수는 관리자
+   도구·회귀 검증이 쓰므로 남아 있다(메뉴에서 닿지 않을 뿐이다). */
+#tokenChip,#btnGacha{display:none}
 
 /* 집중 중 잠금 표시 (요구사항 16) */
 body.locked #btnGacha,body.locked #btnSystem{opacity:.42}
@@ -1632,7 +1649,7 @@ function pushSession(startMs,ms){
   S.ses[k].sort((a,b)=>a[0]-b[0]);
 }
 /* ---- 완료 알림 ----
-   팝업(showTokenPopup)은 7초 뒤 저절로 닫히므로, 자리를 비운 사이에 지나가면
+   카드(showRewardPopup)는 7초 뒤 저절로 닫히므로, 자리를 비운 사이에 지나가면
    무엇을 받았는지 알 길이 없었다. 그것만 남겨 두고 나중에 볼 수 있게 한다.
    무한정 쌓으면 저장 키와 클라우드 푸시가 무거워지므로 최근 것만 둔다. */
 const NOTIF_MAX=50;
@@ -2110,7 +2127,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-b';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r1';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2146,7 +2163,9 @@ function freshState(){
     /* 완료 알림 기록. 팝업은 7초 뒤 저절로 닫히므로 놓친 것을 여기서 다시 본다.
        최신이 앞이고 NOTIF_MAX 개만 남긴다. seen 이후에 온 것이 '읽지 않음'. */
     notif:[], notifSeen:0,
-    sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false
+    sound:true, showName:true, mini:false, invX:false, invY:false, menuOpen:false,
+    /* 완주하면 망원경 시야를 열어 그 자리에서 천체를 발견한다. 끄면 카드로만 알린다. */
+    fxReveal:true
   };
 }
 let S=freshState();
@@ -4593,10 +4612,12 @@ function tickTimer(){
   if(performance.now()-uiT>250){uiT=performance.now();updateTimerUI();}
 }
 
-function onPhaseDone(){
+/** fromBoot 면 발견 연출을 건너뛴다 — 자리를 비운 사이에 끝난 세션이라
+    보고 있지 않았다. 카드와 알림 기록으로만 알린다. */
+function onPhaseDone(fromBoot){
   const T=S.timer;
   if(T.phase==='focus'){
-    // 목표 달성 → 토큰
+    // 목표 달성 → 천체
     let gain=1, bonus=false, next=null;
     const doneMs=T.total;
     S.stats.sessions++;
@@ -4613,20 +4634,33 @@ function onPhaseDone(){
       if(T.useLong && T.round%T.every===0){gain=2;bonus=true;next='longbreak';}
       else next='break';
     }
-    S.tokens+=gain;
+    /* 토큰 대신 천체를 바로 준다. 무엇을 받을지는 연출이 정한다(REWARD).
+       포모도로 보너스 회차는 예전 '토큰 2개' 자리에 **두 종**을 준다. */
+    const got=[];
+    for(let i=0;i<gain;i++){
+      const k=rewardKind(); if(!k) break;
+      const b=takeOne(k);   if(!b) break;
+      got.push({b,kind:k});
+    }
     reveal={on:true,t:0};
     chime(bonus);
-    bumpToken();
     nativeDisarm();          // 화면을 보고 있었으니 예약 알림은 필요 없다
-    /* 팝업은 7초 뒤 닫히므로 놓쳤을 때를 위해 남겨 둔다 */
-    pushNotif({k:'focus',gain,bonus:!!bonus,ms:doneMs,
-               day:S.stats.dayMs,total:S.stats.sessions});
+    /* 카드는 7초 뒤 닫히므로 놓쳤을 때를 위해 남겨 둔다 */
+    pushNotif({k:'focus',bonus:!!bonus,ms:doneMs,
+               day:S.stats.dayMs,total:S.stats.sessions,
+               got:got.map(g=>({id:g.b.id,n:g.b.n,t:g.b.t,kind:g.kind}))});
     paintInbox();
-    notifyDone(gain,bonus);
-    showTokenPopup(gain,bonus,doneMs);
-    // 요구사항 9 — 팝업이 떠 있는 동안에도 타이머는 멈추지 않는다
+    notifyDone(got,bonus);
+    // 요구사항 9 — 카드가 떠 있는 동안에도 타이머는 멈추지 않는다
     if(next) startPhase(next);
-    else {T.phase='idle';saveNow();}
+    else T.phase='idle';
+    saveNow();
+    /* 발견 연출 — 망원경 시야를 열어 그 자리에서 천체를 발견한다.
+       두 종이면 등급이 높은 쪽으로 한 번만 탄다(연속 뽑기와 같은 규칙). */
+    const lead=got.slice().sort((a,b)=>b.b.t-a.b.t)[0];
+    if(lead && !fromBoot && S.fxReveal!==false)
+      scopeStart(lead.b, ()=>showRewardPopup(got,bonus,doneMs));
+    else showRewardPopup(got,bonus,doneMs);
   }else{
     // 휴식 끝
     chime(false);
@@ -4664,9 +4698,11 @@ async function showNotif(title,opt){
   try{ new Notification(title,o); return 'page'; }catch(e){}
   return 'fail';
 }
-function notifyDone(gain,bonus){
+function notifyDone(got,bonus){
+  const names=(got||[]).map(g=>g.b.n).join(' · ');
   showNotif('집중 완료 ✦',{
-    body:`가챠 토큰 +${gain}${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
+    body:names?`${names} 발견${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`
+              :`${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
     tag:'sf-done',renotify:true});
 }
 function notifyBreakDone(){
@@ -4853,10 +4889,6 @@ function chime(bonus){
       o.connect(g);g.connect(AC.destination);o.start(t0);o.stop(t0+1.2);
     });
   }catch(e){}
-}
-function bumpToken(){
-  const c=$('#tokenChip');c.classList.remove('pulse');void c.offsetWidth;c.classList.add('pulse');
-  paintTokens();
 }
 function paintTokens(){
   const inf=isAdmin();
@@ -5092,9 +5124,12 @@ $('#btnCreate').onclick=()=>{
   const nm=$('#inStarName').value.trim();
   if(!nm){toast('중심별의 이름을 입력해 주세요');$('#inStarName').focus();return;}
   S.created=true;S.star.name=nm;S.star.color=pickSel.color;S.star.skin=pickSel.skin;
-  S.tokens=1;                       // 첫 1회 무료
+  /* 첫 천체 하나를 바로 준다. 예전에는 토큰 1개를 줘서 곧장 뽑게 했다 —
+     그 자리다. 없으면 첫 세션을 완주할 때까지 궤도가 비어 있다. */
+  const k0=rewardKind(), b0=k0?takeOne(k0):null;
   saveNow();close('mIntro');
-  paintTokens();updateTimerUI();
+  updateTimerUI();
+  if(b0)toast(`${b0.n} 을(를) 얻었습니다 — 항성계 설정에서 배치해 보세요`);
 };
 $('#inStarName').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnCreate').click();});
 
@@ -5135,6 +5170,30 @@ function remainOf(bn){return POOLS[bn].filter(b=>!S.owned[bn].includes(b.id));}
 function tierCount(bn,t){const p=POOLS[bn].filter(b=>b.t===t);
   return {own:p.filter(b=>S.owned[bn].includes(b.id)).length,all:p.length};}
 
+/* ---- 보상 규칙 — 완주하면 무엇을 얻는가 ----
+   토큰·가챠를 걷어내고 **세션을 완주하면 천체를 바로 준다.** 무엇을 받을지는
+   집중 연출이 정한다 — 연출을 고르는 것이 곧 수집 방향을 고르는 것이 된다.
+   짝은 실제로 그 방법이 밝혀내는 대상에 맞췄다.
+     엄폐(식)  → 행성   실제로 외계행성을 찾는 바로 그 방법
+     혜성      → 행성   임시. 혜성 종류가 생기면 그쪽으로 옮긴다
+     벨트 탐사 → 위성   얼음 소천체라 결이 맞는다
+     탐사선    → 위성   보이저·카시니가 위성을 가장 많이 밝혀냈다
+   **항성은 아직 지급 경로가 없다.** 넷 중 별을 알아내는 방법이 없어서다
+   (그건 분광 관측·시차 측정이 한다). STAR_POOL 29종과 도감은 그대로 두고,
+   항성용 연출을 만들 때 이 표에 한 줄을 더한다. */
+const REWARD={transit:'planet', comet:'planet', scope:'moon', probe:'moon'};
+const FX_LB={none:'관측',scope:'벨트 탐사',comet:'혜성 근일점',transit:'엄폐 관측',probe:'탐사선 항해'};
+const REWARD_KINDS=['planet','moon'];        // 항성이 열리면 여기에 넣는다
+
+/** 이번 완주에서 줄 종류. 그 종류를 다 모았거나 연출이 '없음'이면
+    아직 남은 쪽에서 준다 — 다 모았다고 빈손으로 보내지 않는다. */
+function rewardKind(){
+  const want=REWARD[S.intro||'scope'];
+  if(want&&remainOf(want).length) return want;
+  const left=REWARD_KINDS.filter(k=>remainOf(k).length);
+  return left.length?left[Math.floor(Math.random()*left.length)]:null;
+}
+
 function rollTier(bn){
   const P=S.pity[bn];
   if(P.p5+1>=PITY5) return 5;
@@ -5144,11 +5203,11 @@ function rollTier(bn){
   if(r<RATE[5]+RATE[4])return 4;
   return 3;
 }
-/** 한 장 뽑아 소유 목록에 넣고 그 천체를 돌려준다. 토큰 검사는 호출부에서 한다. */
-function drawOne(bn){
+/** 미보유 풀에서 한 종을 뽑아 소유 목록에 넣는다. 등급은 rollTier 가 정하고
+    천장 카운터도 그대로 돈다 — 가챠를 걷어내도 등급 분포는 같게 둔다. */
+function takeOne(bn){
   const rem=remainOf(bn);
   if(!rem.length) return null;
-  if(!isAdmin()) S.tokens--;                     // 관리자는 토큰을 쓰지 않는다
   let tier=rollTier(bn);
   let cands=rem.filter(b=>b.t===tier);
   if(!cands.length){                        // 해당 등급 소진 → 상위 우선 대체
@@ -5160,6 +5219,12 @@ function drawOne(bn){
   P.p4=tier>=4?0:P.p4+1;
   P.p5=tier>=5?0:P.p5+1;
   return got;
+}
+/* 가챠 경로. 지금은 메뉴에서 닿지 않지만 관리자 도구와 회귀 검증이 쓰므로 남긴다. */
+function drawOne(bn){
+  if(!remainOf(bn).length) return null;
+  if(!isAdmin()) S.tokens--;                     // 관리자는 토큰을 쓰지 않는다
+  return takeOne(bn);
 }
 
 function pull(){
@@ -6880,19 +6945,37 @@ function fmtH(ms){const m=Math.round(ms/60000);return m>=60?`${Math.floor(m/60)}
    모달이 아니라 타이머 진행을 막지 않는다. */
 let _popRaf=0;
 const POP_MS=7000;
-function showTokenPopup(gain,bonus,doneMs){
+const KIND_LB={star:'항성',planet:'행성',moon:'위성'};
+/** 완주 카드. 얻은 천체를 보여 준다 — 예전 토큰 팝업 자리다.
+    모달이 아니라 7초 뒤 저절로 닫히며 그 동안 타이머는 계속 흐른다. */
+function showRewardPopup(got,bonus,doneMs){
+  got=got||[];
   const el=$('#tokenPop');
+  const fx=FX_LB[S.intro||'scope']||'';
+  const sub=got.length
+    ? `${fx?fx+'으로 ':''}새 ${KIND_LB[got[0].kind]||'천체'}를 찾았습니다`
+    : `${esc(S.star.name)} 항성계가 한 바퀴 공전을 마쳤습니다`;
+  const cards=got.length ? got.map((g,i)=>`
+      <div class="tpGot">
+        <canvas width="128" height="128" data-i="${i}"></canvas>
+        <div>
+          <div class="n">${esc(g.b.n)}</div>
+          <div class="s s${g.b.t}">${'★'.repeat(g.b.t)}${'☆'.repeat(5-g.b.t)}</div>
+          <div class="k">${KIND_LB[g.kind]} · 도감 ${S.owned[g.kind].length}/${POOLS[g.kind].length}</div>
+        </div>
+      </div>`).join('')
+    : `<div class="tpNone">도감을 모두 완성했습니다 — 더 얻을 천체가 없습니다</div>`;
   el.innerHTML=`
     <div class="tpCard">
       <div class="tpBar"><i></i></div>
       <div class="tpTop">
         <span class="tpIcon">✦</span>
         <div>
-          <div class="tpTitle">${bonus?'긴 집중 완주':'목표 달성'}</div>
-          <div class="tpSub">${esc(S.star.name)} 항성계가 한 바퀴 공전을 마쳤습니다</div>
+          <div class="tpTitle">${bonus?'긴 집중 완주':'관측 성공'}</div>
+          <div class="tpSub">${sub}</div>
         </div>
       </div>
-      <div class="tpGain">◈ 가챠 토큰 <b>+${gain}</b>${bonus?'<span class="tpB">보너스</span>':''}</div>
+      ${cards}${bonus?'<div class="tpBonus">보너스 회차 · 두 종을 얻었습니다</div>':''}
       <div class="tpStats">
         <div><b>${fmtH(doneMs)}</b><span>이번 세션</span></div>
         <div><b>${fmtH(S.stats.dayMs)}</b><span>오늘 누적</span></div>
@@ -6902,6 +6985,7 @@ function showTokenPopup(gain,bonus,doneMs){
       <div class="tpAuto" id="tpAuto">7초 뒤 자동으로 보관됩니다</div>
     </div>`;
   el.classList.add('on');
+  got.forEach((g,i)=>paintThumb($(`.tpGot canvas[data-i="${i}"]`,el),g.b,g.kind));
   const bar=$('.tpBar i',el), auto=$('#tpAuto');
   const t0=performance.now();
   cancelAnimationFrame(_popRaf);
@@ -6947,11 +7031,15 @@ function renderInbox(){
         </div>
         <div class="nfWhen">${whenTxt(o.t)}</div></div>`;
     }
+    /* got 은 새 방식(천체 지급), gain 은 토큰을 주던 시절의 옛 기록이다 */
+    const gain=(o.got&&o.got.length)
+      ? o.got.map(g=>`<b>${esc(g.n)}</b> ${'★'.repeat(g.t|0)}`).join(' · ')
+      : (o.gain?`◈ 가챠 토큰 <b>+${o.gain|0}</b>`:'완주');
     return `<div class="nfItem f ${isNew?'new':''}">
       <div class="nfIcon">✦</div>
       <div class="nfBody">
-        <div class="nfTtl">${o.bonus?'긴 집중 완주':'목표 달성'}</div>
-        <div class="nfSub">◈ 가챠 토큰 <b>+${o.gain|0}</b>${o.bonus?' · 보너스':''}
+        <div class="nfTtl">${o.bonus?'긴 집중 완주':'관측 성공'}</div>
+        <div class="nfSub">${gain}${o.bonus?' · 보너스':''}
           ${o.ms?` · ${fmtH(o.ms)} 집중`:''}</div>
       </div>
       <div class="nfWhen">${whenTxt(o.t)}</div></div>`;
@@ -7095,6 +7183,7 @@ $('#btnSound').onclick=()=>{
 /* ---- 설정 ---- */
 const SETTINGS=[
   {k:'sound',    t:'완료 사운드',      d:'세션이 끝나면 짧은 종소리를 냅니다'},
+  {k:'fxReveal', t:'완주 발견 연출',   d:'세션을 완주하면 망원경 시야가 열리고 그 자리에서 새 천체를 발견합니다(4.2초, 아무 곳이나 누르면 건너뜁니다). 끄면 카드로만 알려 줍니다'},
   {k:'showName', t:'중심별 이름 표시', d:'중심별 아래에 이름을 띄웁니다. 촬영 중에는 촬영 설정에서 따로 정합니다'},
   {k:'invX',     t:'좌우 드래그 반전', d:'끄면 손으로 붙잡고 돌리는 방향, 켜면 카메라를 돌리는 방향입니다'},
   {k:'invY',     t:'상하 드래그 반전', d:'위아래로 끌었을 때 시점이 기울어지는 방향을 뒤집습니다'},
@@ -7102,11 +7191,15 @@ const SETTINGS=[
 /* 설명은 행에 늘어놓지 않고 ⓘ 로 접어 둔다. SETTINGS 가 그대로 설명의
    출처이므로 문구는 한 군데에만 있다. */
 const INFO_INTRO=
-  `집중하는 동안 계속 재생되고, 남은 시간을 화면으로 읽을 수 있습니다.<br><br>
-   <b>벨트 탐사</b> 표적이 하나씩 줄어 끝에 하나만 남습니다<br>
-   <b>혜성 근일점</b> 화면 밖에서 날아와 끝나는 순간 가장 가까워집니다<br>
-   <b>엄폐(식)</b> 옆에서 본 시점에서 광도 곡선이 완성됩니다<br>
-   <b>탐사선 항해</b> 스윙바이로 카이퍼 벨트까지 갔다가 돌아옵니다`;
+  `집중하는 동안 계속 재생되고, 남은 시간을 화면으로 읽을 수 있습니다.<br>
+   <b>완주하면 그 연출에 맞는 천체를 얻습니다</b> — 무엇을 모을지 여기서 정합니다.<br><br>
+   <b>벨트 탐사</b> 표적이 하나씩 줄어 끝에 하나만 남습니다 · 위성<br>
+   <b>혜성 근일점</b> 화면 밖에서 날아와 끝나는 순간 가장 가까워집니다 · 행성<br>
+   <b>엄폐(식)</b> 옆에서 본 시점에서 광도 곡선이 완성됩니다 · 행성<br>
+   <b>탐사선 항해</b> 스윙바이로 카이퍼 벨트까지 갔다가 돌아옵니다 · 위성<br>
+   <b>없음</b> 연출 없이 궤도만 돕니다 · 남은 종류에서 무작위<br><br>
+   그 종류를 다 모으면 아직 남은 다른 종류를 줍니다.
+   <b>항성은 아직 얻을 수 없습니다</b> — 넷 중 별을 알아내는 방법이 없어서입니다.`;
 function renderSettings(){
   SETTINGS.forEach(o=>INFO[o.k]=o.d);
   INFO.intro=INFO_INTRO;
@@ -7123,6 +7216,7 @@ function renderSettings(){
         <button class="capBtn" data-fx="transit">엄폐(식)</button>
         <button class="capBtn" data-fx="probe">탐사선 항해</button>
       </div>
+      <div class="pickerHint" id="introGain" style="margin-top:9px;text-align:center"></div>
       <div class="setSep">알림과 설치<button class="iBtn" data-info="notify">i</button></div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
@@ -7140,8 +7234,15 @@ function renderSettings(){
     save();
   });
   // 시작 연출 선택 — .capBtn 이라 위의 .setRow 훑기에 안 걸린다
-  const syncIntro=()=>$$('#introPick button').forEach(b=>
-    b.classList.toggle('on',(S.intro||'scope')===b.dataset.fx));
+  /* 연출을 고르는 것이 곧 수집 방향을 고르는 것이므로 무엇을 얻는지 함께 보여 준다 */
+  const syncIntro=()=>{
+    const cur=S.intro||'scope';
+    $$('#introPick button').forEach(b=>b.classList.toggle('on',cur===b.dataset.fx));
+    const k=REWARD[cur];
+    $('#introGain').innerHTML = k
+      ? `완주하면 <b style="color:var(--gold)">${KIND_LB[k]}</b> 을(를) 얻습니다 · 도감 ${S.owned[k].length}/${POOLS[k].length}`
+      : `완주하면 <b style="color:var(--gold)">남은 종류에서 무작위</b>로 얻습니다`;
+  };
   $$('#introPick button').forEach(b=>b.onclick=()=>{
     S.intro=b.dataset.fx; save(); syncIntro();
   });
@@ -7439,7 +7540,7 @@ function fingerprint(o){
   const ids=a=>Array.isArray(a)?a.slice().sort():[];
   const w=o.owned||{};
   return JSON.stringify(canon({
-    c:!!o.created, s:o.star, t:o.tokens, y:o.sys,
+    c:!!o.created, s:o.star, y:o.sys,        // 토큰은 더 이상 정체성이 아니다
     w:{star:ids(w.star),planet:ids(w.planet),moon:ids(w.moon)}
   }));
 }
@@ -7578,7 +7679,6 @@ function diffFields(a,b){
     if(JSON.stringify(canon(pick(a||{})))!==JSON.stringify(canon(pick(b||{}))))out.push(label);
   };
   one('중심별',o=>o.star);
-  one('토큰',o=>o.tokens);
   one('배치',o=>o.sys);
   one('보유 천체',o=>{const w=o.owned||{};const s=x=>Array.isArray(x)?x.slice().sort():[];
     return {star:s(w.star),planet:s(w.planet),moon:s(w.moon)};});
@@ -7943,7 +8043,7 @@ function boot(){
 
   // 재접속 시 만료된 세션 처리
   if(T.running){
-    if(Date.now()>=T.endAt){T.running=false;T.remain=0;onPhaseDone();}
+    if(Date.now()>=T.endAt){T.running=false;T.remain=0;onPhaseDone(true);}
     else T._startPhase=0;
   }
   updateTimerUI();
