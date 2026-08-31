@@ -2110,7 +2110,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-a';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-b';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -2591,11 +2591,34 @@ let W=0,H=0,DPR=1;
    fillRect 한 번이면 같은 그림이다. */
 const BG='#04050b';
 
+/* 집중 연출 중 백킹스토어 상한(픽셀).
+   연출은 매 프레임 **화면 전체**를 훑는다 — 흐림·복사·모눈·노이즈가 전부
+   전면적 연산이라 비용이 픽셀 수에 그대로 붙는다. 태블릿급 8.3M 픽셀에서
+   재보니 한 프레임 116.6ms 중 94.3ms 가 연출이었고, 벨트·천체·궤도선은
+   측정 오차 수준이었다. 그래서 연출 중에는 픽셀 수를 묶는다.
+   관측 장비 화면이라 배경이 원래 흐리고, 선명해야 하는 브래킷·수치는
+   흐림 뒤에 그려지므로 눈에 띄는 손해가 거의 없다. */
+const FX_PIXEL_CAP=2.6e6;
+function targetDPR(){
+  let d=Math.min(2,window.devicePixelRatio||1);
+  if(typeof focusFxMode==='function' && focusFxMode()){
+    d=Math.min(d, Math.max(1, Math.sqrt(FX_PIXEL_CAP/Math.max(1,W*H))));
+  }
+  return d;
+}
 function resize(){
-  DPR=Math.min(2,window.devicePixelRatio||1);
   W=window.innerWidth;H=window.innerHeight;
-  cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
+  DPR=targetDPR();
+  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  cv.style.width=W+'px';cv.style.height=H+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+/** 연출이 켜지고 꺼질 때만 해상도를 다시 잡는다 (매 프레임 확인은 낭비다) */
+let _fxOn=null;
+function syncFxRes(){
+  const on=!!(typeof focusFxMode==='function' && focusFxMode());
+  if(on===_fxOn)return;
+  _fxOn=on; resize();
 }
 window.addEventListener('resize',resize);
 
@@ -3358,19 +3381,63 @@ function optBuf(){
   }
   return _optCv;
 }
+/* 흐림 버퍼의 긴 변 상한. 화면이 커져도 여기서 멈춘다. */
+const OPT_MAX=1100;
+let _optSm=null;
+function optSmall(w,h){
+  if(!_optSm) _optSm=document.createElement('canvas');
+  if(_optSm.width!==w||_optSm.height!==h){ _optSm.width=w; _optSm.height=h; }
+  return _optSm;
+}
+/* 관측 장비 화면 — 지정한 창만 선명하고 나머지는 흐리다.
+
+   **여기가 이 앱에서 가장 비싼 한 곳이다.** 예전에는 매 프레임 화면 전체를
+   통째로 복사하고, 전체 해상도에 흐림을 걸고, 다시 전체를 그렸다. 태블릿급
+   8.3M 픽셀에서 흐림 한 번이 152ms, 일반 그리기가 47ms 였다 — 그것을 세 번
+   했으니 프레임이 통째로 무너지고 기기가 뜨거워진다.
+
+   둘을 고쳤다.
+   ① **흐림은 저해상도로 만든다.** 흐림은 저주파라 줄여서 만들어 늘려도
+      눈에 띄지 않는다. 8.3M 픽셀에서 152ms → 79ms.
+   ② **전체 복사를 없앴다.** 살릴 곳은 작은 사각형 몇 개뿐인데 화면 전체를
+      떠 두고 있었다. 이제 그 영역만 뜬다. */
 function applyScopeOptics(rects){
-  const buf=optBuf(), bx=buf.getContext('2d');
-  bx.setTransform(1,0,0,1,0,0);
-  bx.clearRect(0,0,buf.width,buf.height);
-  bx.drawImage(cv,0,0);
+  const px=cv.width, py=cv.height;
+
+  // ① 흐린 배경을 작게 만든다. 줄인 만큼 흐림 반경도 줄여야 같은 그림이 된다.
+  const k=Math.max(1, Math.max(px,py)/OPT_MAX);
+  const sw=Math.max(2,Math.round(px/k)), sh=Math.max(2,Math.round(py/k));
+  const sm=optSmall(sw,sh), sx=sm.getContext('2d');
+  sx.setTransform(1,0,0,1,0,0);
+  sx.clearRect(0,0,sw,sh);
+  sx.filter='blur('+Math.max(0.5,(2.4*DPR)/k).toFixed(2)+'px)';
+  sx.drawImage(cv,0,0,sw,sh);
+  sx.filter='none';
+
+  // ② 선명하게 남길 영역만 미리 떠 둔다 (버퍼는 한 번만 할당된다)
+  const boxes=[];
+  if(rects&&rects.length){
+    const buf=optBuf(), bx=buf.getContext('2d');
+    bx.setTransform(1,0,0,1,0,0);
+    rects.forEach(r=>{
+      let x,y,w,h;
+      if(r.r){ x=(r.x-r.r)*DPR; y=(r.y-r.r)*DPR; w=r.r*2*DPR; h=r.r*2*DPR; }
+      else   { x=r.x*DPR; y=r.y*DPR; w=r.w*DPR; h=r.h*DPR; }
+      x=clamp(Math.floor(x),0,px); y=clamp(Math.floor(y),0,py);
+      w=clamp(Math.ceil(w),0,px-x); h=clamp(Math.ceil(h),0,py-y);
+      if(w<2||h<2)return;
+      bx.clearRect(x,y,w,h);
+      bx.drawImage(cv,x,y,w,h,x,y,w,h);
+      boxes.push([x,y,w,h]);
+    });
+  }
 
   ctx.save();
   ctx.setTransform(1,0,0,1,0,0);        // 픽셀 단위로 다룬다
-  ctx.clearRect(0,0,cv.width,cv.height);
-  ctx.filter='blur('+(2.4*DPR).toFixed(1)+'px)';
-  ctx.drawImage(buf,0,0);
-  ctx.filter='none';
-  if(rects&&rects.length){
+  ctx.clearRect(0,0,px,py);
+  ctx.drawImage(sm,0,0,px,py);          // 흐린 배경 (확대)
+  if(boxes.length){
+    const buf=optBuf();
     ctx.beginPath();
     rects.forEach(r=>{
       if(r.r){                          // 원형 — 천체를 남길 때는 이쪽이 자연스럽다
@@ -3379,7 +3446,7 @@ function applyScopeOptics(rects){
       }else ctx.rect(r.x*DPR,r.y*DPR,r.w*DPR,r.h*DPR);
     });
     ctx.clip();
-    ctx.drawImage(buf,0,0);             // 지정한 창만 선명하게 되살린다
+    boxes.forEach(b=>ctx.drawImage(buf,b[0],b[1],b[2],b[3],b[0],b[1],b[2],b[3]));
   }
   ctx.restore();
 }
@@ -4388,6 +4455,7 @@ function frame(now){
   VIEW.ox  +=(VIEW.oxTo -VIEW.ox )*k;
   VIEW.oy  +=(VIEW.oyTo -VIEW.oy )*k;
   stepStartFx();          // 연출 중에는 시점을 연출이 몬다
+  syncFxRes();            // 연출이 켜지고 꺼질 때 해상도를 다시 잡는다
 
   // 모달은 전면을 덮고 blur(10px) 까지 걸린다. 그 뒤 궤도를 60fps 로 계속
   // 그릴 이유가 없다 — 세 프레임에 한 번만 그리고 나머지는 굽기에 준다.
@@ -4480,16 +4548,22 @@ function startPhase(kind){
   T.phase=kind;T.total=min*60000;T.endAt=Date.now()+T.total;T.remain=T.total;T.running=true;
   if(kind==='focus'){
     T._startPhase=phase;
-    // 요구사항 10 — 시작하면 항성계로 다가간다
-    VIEW.follow=null;VIEW.tiltTo=TILT_DEFAULT;VIEW.zoomTo=fitZoom()*1.12;
-  }
-  if(kind==='focus'){
     rollRadarMax();                       // 이번 세션의 표적 수를 정한다
+    VIEW.follow=null;
+
+    /* **시점을 먼저 정하고 배율을 나중에 잰다.** fitZoom() 은 cos(tiltTo) 로
+       세로 눌림을 반영하므로, 순서를 바꾸면 엉뚱한 시점 기준으로 배율이
+       잡힌다 — 실제로 그래서 벨트 표적이 화면 밖으로 나갔다. */
     // 식(엄폐)은 궤도면을 옆에서 봐야 천체가 별 앞을 지나는 것이 보인다.
     // 나머지는 관측 장비 화면답게 정면에서 내려다본다.
     VIEW.tiltTo=(S.intro==='transit')?TILT_EDGE:TILT_FACE; VIEW.azTo=0;
     // 보간으로 기울어 들어오면 처음 1초가 edge-on 이 아니다. 즉시 맞춘다.
     VIEW.tilt=VIEW.tiltTo;
+
+    /* 벨트 탐사는 표적이 카이퍼 벨트에 흩어져 있다. 조금이라도 당기면
+       바깥 표적이 화면 밖으로 나가 브래킷만 덩그러니 남는다. fitZoom() 이
+       이미 KB_OUT 까지 담으므로 그대로 쓴다. */
+    VIEW.zoomTo=fitZoom()*((S.intro||'scope')==='scope'?1:1.12);
   }
   save();updateTimerUI();updateLockUI();armNotify();
   $('#hint').classList.add('hide');
@@ -4682,19 +4756,17 @@ const TICO={
        +'<rect x="12.9" y="5.8" width="3.5" height="12.4" rx="1.1"/></svg>',
   stop :'<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">'
        +'<rect x="6.3" y="6.3" width="11.4" height="11.4" rx="1.7"/></svg>',
-  /* 종 — 완료 알림 소리. 끄면 사선을 긋는다: 흐리게만 하면 켠 건지 끈 건지
-     밝기 하나로만 갈려 애매하다. */
+  /* 스피커 — 완료 소리. **종으로 그리지 말 것**: 우상단 알림 버튼이 종이라
+     둘이 같은 그림이 되어 구분이 안 된다(실제 지적).
+     끄면 사선을 긋는다 — 밝기 하나로만 갈리면 켠 건지 끈 건지 애매하다. */
   bell :'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
        +'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-       +'<path d="M18.4 15.6c0-.9-.7-1.6-.9-3.6-.2-1.7 0-2.6-.4-3.9C16.5 6 14.4 4.6 12 4.6'
-       +'S7.5 6 6.9 8.1c-.4 1.3-.2 2.2-.4 3.9-.2 2-.9 2.7-.9 3.6h12.8z"/>'
-       +'<path d="M12 2.6v2"/><path d="M10.2 18.2a1.9 1.9 0 0 0 3.6 0"/></svg>',
+       +'<path d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z" fill="currentColor" stroke="none"/>'
+       +'<path d="M15.4 9.3a4 4 0 0 1 0 5.4"/><path d="M17.9 6.9a7.4 7.4 0 0 1 0 10.2"/></svg>',
   bellOff:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" '
        +'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-       +'<path d="M18.4 15.6c0-.9-.7-1.6-.9-3.6-.2-1.7 0-2.6-.4-3.9C16.5 6 14.4 4.6 12 4.6'
-       +'S7.5 6 6.9 8.1c-.4 1.3-.2 2.2-.4 3.9-.2 2-.9 2.7-.9 3.6h12.8z"/>'
-       +'<path d="M12 2.6v2"/><path d="M10.2 18.2a1.9 1.9 0 0 0 3.6 0"/>'
-       +'<path d="M4 3.6l16 16.8"/></svg>'
+       +'<path d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z" fill="currentColor" stroke="none"/>'
+       +'<path d="M16.2 10.2l4.2 3.6M20.4 10.2l-4.2 3.6"/></svg>'
 };
 function paintSound(){
   const b=$('#btnSound');
@@ -7240,7 +7312,16 @@ const ERRMSG={
 };
 
 let cloudT=0, cloudState='idle';
-function setCloudState(s){cloudState=s;paintAccount();}
+/* 계정 창이 열려 있으면 그 안의 문구도 함께 갱신한다.
+   예전에는 HUD 아이콘만 바꿔서, 로그인 직후 연 창이 '동기화 중…' 에서
+   영영 멈춰 있었다(실제 보고). 창을 통째로 다시 그리면 입력 포커스가
+   날아가므로 문구만 바꾼다. */
+const CLOUD_TXT={ok:'동기화 완료',sync:'동기화 중…',err:'동기화 실패 · 다시 시도해 주세요',idle:'대기'};
+function setCloudState(s){
+  cloudState=s; paintAccount();
+  const el=document.querySelector('#acBody .starCard .d');
+  if(el){ el.className='d st-'+s; el.textContent=CLOUD_TXT[s]||''; }
+}
 let _pushPending=false;
 function cloudPush(immediate){
   if(!AUTH||!cloudReady())return;
@@ -7739,7 +7820,7 @@ function renderAccount(){
     $('#acPin').onkeydown=e=>{if(e.key==='Enter')doAuth('login');};
     return;
   }
-  const stTxt={ok:'동기화됨',sync:'동기화 중…',err:'동기화 실패 · 다시 시도해 주세요',idle:'대기'}[cloudState]||'';
+  const stTxt=CLOUD_TXT[cloudState]||'';
   body.innerHTML=`
     <div class="starCard">
       <div style="width:44px;height:44px;border-radius:50%;flex:0 0 auto;
@@ -7819,9 +7900,15 @@ function renderRecord(){
   recCur=new Date(); recY=recCur.getFullYear(); recM=recCur.getMonth();
   renderRecordDay();
 }
-$('#clockTap').onclick=()=>{ renderRecord(); open('mRecord'); };
+/* 집중 중에는 잠근다. guard() 의 공용 문구는 '설정을 변경할 수 없습니다'라
+   읽기만 하는 이 화면에는 맞지 않으므로 문구를 따로 낸다. */
+function openRecord(){
+  if(isLocked()){ warn('집중 중에는 기록을 볼 수 없습니다 · 세션이 끝나면 열립니다'); return; }
+  renderRecord(); open('mRecord');
+}
+$('#clockTap').onclick=openRecord;
 $('#clockTap').onkeydown=e=>{
-  if(e.key==='Enter'||e.key===' '){ e.preventDefault(); renderRecord(); open('mRecord'); }
+  if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openRecord(); }
 };
 $('#recCal').onclick=()=>{ recY=recCur.getFullYear(); recM=recCur.getMonth(); renderRecordCal(); };
 /* 화살표는 달력에서는 하루 보기로, 하루 보기에서는 창을 닫는다 */
