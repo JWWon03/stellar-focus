@@ -2127,7 +2127,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r4';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r5';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5765,6 +5765,30 @@ function rvReadout(x,W,H,lines,color,alpha,ty){
   x.restore();
   return geo;
 }
+/* ---- 판독 완료 표시 ----
+   '발견' 대신 **RESOLVED** 를 쓴다. 점광원이 원반으로 분해되어 보이기
+   시작했다는 뜻이라, 이 연출이 실제로 한 일(점 → 원반 → 표면)과 겹친다.
+   레이더 판독처럼 보이도록 초록 인광 + 자간 + 느린 밝기 맥동을 준다. */
+const RV_GREEN='#4dfba0';
+/** 캔버스에는 자간이 없다(ctx.letterSpacing 은 지원이 갈린다). 글자마다 밀어 그린다. */
+function rvSpaced(x,txt,cx,y,size,sp){
+  x.font=size+'px '+RV_MONO;
+  let w=-sp; for(const ch of txt) w+=x.measureText(ch).width+sp;
+  let px=cx-w/2;
+  for(const ch of txt){ x.fillText(ch,px,y); px+=x.measureText(ch).width+sp; }
+}
+function rvResolved(x,W,H,t,now){
+  if(t<=0)return;
+  const M=Math.min(W,H), size=Math.max(9.5,M*0.0165);
+  const pulse=0.78+0.22*Math.sin(now/620);        // 레이더 갱신처럼 느리게
+  x.save(); x.globalAlpha=scOut(t)*pulse; x.textAlign='left';
+  /* 인광 번짐. globalAlpha 가 그림자에도 걸리므로 맥동의 바닥을 너무
+     낮추면 번짐이 먼저 사라져 평범한 글자로 보인다. */
+  x.shadowColor=rgba(RV_GREEN,.9); x.shadowBlur=size*1.8;
+  x.fillStyle=rgba(RV_GREEN,.95);
+  rvSpaced(x,'RESOLVED',W/2,H-M*0.055,size,size*0.44);
+  x.restore();
+}
 function rvStatus(x,W,H,txt,color){
   x.save(); x.textAlign='center';
   x.font=Math.max(10,Math.min(W,H)*.0215)+'px '+RV_MONO;
@@ -5904,9 +5928,11 @@ function rvScope(x,W,H,p,now,b){
     'SNR '+(6.2+grow*22).toFixed(1)+' dB',
     'RESOLVE '+Math.round(res*100)+'%'
   ],'#ffc440',clamp(scSeg(p,.05,.18)-scSeg(p,.76,.85),0,1));
-  rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
-                : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
-                : p<.88?'RESOLVED':'발견', p<.88?'#ffc440':'#ffc65c');
+  const done=scSeg(p,.84,.94);
+  if(done<=0) rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
+                            : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
+                            : 'RESOLVING…', '#ffc440');
+  else rvResolved(x,W,H,done,now);
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO);
 }
 
