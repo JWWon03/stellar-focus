@@ -2105,7 +2105,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-c';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-d';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3297,9 +3297,14 @@ function stepStartFx(){
 }
 
 /** 집중 중에만, 그리고 세션 내내 켜져 있다 */
+/** 지금 켤 연출. **일시정지해도 꺼지지 않는다** — 조건이
+    `isFocusDark()`·`frame()` 의 진행도 계산과 같아야 한다(`running||remain>0`).
+    예전에는 여기만 `!T.running` 을 봐서, 세우면 연출이 통째로 사라지고
+    화면이 평범한 궤도로 돌아왔다. 진행도(`remainMs()`)는 멈춘 채 남으므로
+    연출은 세운 그 자리에 그대로 서 있는다. */
 function focusFxMode(){
   const T=S.timer;
-  if(!T.running||T.phase!=='focus'||!T.total)return null;
+  if(T.phase!=='focus'||!T.total||!(T.running||T.remain>0))return null;
   const m=S.intro||'scope';
   return m==='none'?null:m;
 }
