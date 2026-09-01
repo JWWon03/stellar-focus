@@ -2127,7 +2127,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r6';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r7';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5722,8 +5722,10 @@ function rvGlobe(x,cx,cy,R,b,blur,alpha){
     const need=R*2*globeFit(SC_GLOBE);
     x.drawImage(g,cx-need/2,cy-need/2,need,need);
   }else{
+    /* hx() 는 색 문자열이 아니라 'r,g,b' 를 돌려준다 — rgba() 안에서만 쓴다.
+       그대로 넘기면 addColorStop 이 던진다(실제로 그랬다). */
     const rg=x.createRadialGradient(cx-R*.3,cy-R*.3,R*.1,cx,cy,R);
-    rg.addColorStop(0,hx(b.c1)); rg.addColorStop(1,hx(b.c2));
+    rg.addColorStop(0,rgba(b.c1,1)); rg.addColorStop(1,rgba(b.c2,1));
     x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,R,0,TAU); x.fill();
   }
   x.restore();
@@ -5780,13 +5782,16 @@ function rvSpaced(x,txt,cx,y,font,sp){
   let px=cx-w/2;
   for(const ch of txt){ x.fillText(ch,px,y); px+=x.measureText(ch).width+sp; }
 }
-function rvResolved(x,W,H,t,now){
+/** LO 를 받으면 천체+글 덩어리의 가운데 아래에, 없으면 화면 아래에 놓는다.
+    화면 맨 아래에 두면 결말의 덩어리와 멀어져 따로 논다. */
+function rvResolved(x,W,H,t,now,LO){
   if(t<=0)return;
   const M=Math.min(W,H);
   const pulse=0.88+0.12*Math.sin(now/760);        // 레이더 갱신처럼 아주 느리게
   x.save(); x.globalAlpha=scOut(t)*pulse; x.textAlign='left';
   x.fillStyle=rgba(RV_GREEN,.6);
-  rvSpaced(x,'RESOLVED',W/2,H-M*0.055,'500 10px '+RV_MONO,3.2);
+  rvSpaced(x,'RESOLVED', LO?LO.midX:W/2, LO?LO.botY:H-M*0.055,
+           '500 10px '+RV_MONO, 3.2);
   x.restore();
 }
 function rvStatus(x,W,H,txt,color){
@@ -5841,50 +5846,54 @@ function rvSideLayout(x,W,H,b){
   const gap=Math.min(M*0.055, avail*0.05);
   const tw=avail-R*2-gap;
   const x0=pad+(avail-(R*2+gap+tw))/2;
-  const nameF=clamp(tw*0.155, 15, M*0.058);
-  return {R, tw, nameF, bodyCx:x0+R, textX:x0+R*2+gap, cy:H/2};
+  const F=clamp(tw*0.155, 15, M*0.058);
+  /* 폰에서는 이름이 21px 남짓이라 비율만 따르면 설명이 8px 이 된다.
+     읽을 수 있는 바닥값을 각각 따로 둔다. */
+  const starF=Math.max(12,F*0.52), enF=Math.max(11,F*0.42),
+        clsF=Math.max(12,F*0.40), dF=Math.max(11.5,F*0.36);
+  const lh=dF*1.62;
+  /* 줄바꿈과 블록 높이를 여기서 미리 잰다 — 이름표뿐 아니라 그 아래 문구도
+     같은 값을 써야 자리가 어긋나지 않는다. */
+  x.save(); x.font=dF+'px Pretendard,system-ui,sans-serif';
+  const desc=rvWrap(x,b.d,tw); x.restore();
+  const h={star:starF*1.5, name:F*1.12, en:enF*1.5, sep:M*0.028,
+           cls:clsF*1.5, gap:M*0.022, desc:desc.length*lh};
+  const textH=h.star+h.name+h.en+h.sep+h.cls+h.gap+h.desc;
+  const cy=H/2;
+  return {R, tw, nameF:F, starF, enF, clsF, dF, lh, desc, h, textH, cy,
+          bodyCx:x0+R, textX:x0+R*2+gap,
+          // 천체와 글을 합친 덩어리의 가로 가운데와 그 아래
+          midX:x0+(R*2+gap+tw)/2,
+          botY:cy+Math.max(R,textH/2)+M*0.085};
 }
 
 /** 왼쪽에 천체, 오른쪽에 이름·분류·설명. 벨트 탐사의 결말만 이 모양이다 —
     표적을 사진 프레임으로 잡아 관측 기록을 남기는 연출이라 카탈로그처럼 읽힌다. */
 function rvNameSide(x,W,H,b,t,LO){
   if(t<=0)return;
-  const M=Math.min(W,H), F=LO.nameF;
-  /* 폰에서는 이름이 21px 남짓이라 비율만 따르면 설명이 8px 이 된다.
-     읽을 수 있는 바닥값을 각각 따로 둔다. */
-  const starF=Math.max(12,F*0.52), enF=Math.max(11,F*0.42),
-        clsF=Math.max(12,F*0.40), dF=Math.max(11.5,F*0.36);
-  const lh=dF*1.62;
-
+  const F=LO.nameF, h=LO.h;
   x.save(); x.globalAlpha=scOut(t); x.textAlign='left';
-  x.font=dF+'px Pretendard,system-ui,sans-serif';
-  const desc=rvWrap(x,b.d,LO.tw);
+  let y=LO.cy-LO.textH/2+LO.starF;
 
-  // 블록 전체 높이를 먼저 재서 천체와 세로 가운데를 맞춘다
-  const hStar=starF*1.5, hName=F*1.12, hEn=enF*1.5, hSep=M*0.028,
-        hCls=clsF*1.5, hGap=M*0.022, hDesc=desc.length*lh;
-  const total=hStar+hName+hEn+hSep+hCls+hGap+hDesc;
-  let y=LO.cy-total/2+starF;
-
-  x.font=starF+'px '+RV_MONO; x.fillStyle=rgba(TIER_COLOR[b.t],1);
-  x.fillText('★'.repeat(b.t)+'☆'.repeat(5-b.t),LO.textX,y); y+=hStar-starF+F*0.92;
+  x.font=LO.starF+'px '+RV_MONO; x.fillStyle=rgba(TIER_COLOR[b.t],1);
+  x.fillText('★'.repeat(b.t)+'☆'.repeat(5-b.t),LO.textX,y); y+=h.star-LO.starF+F*0.92;
 
   x.font='700 '+F+'px Pretendard,system-ui,sans-serif'; x.fillStyle='#eef3ff';
-  x.fillText(b.n,LO.textX,y); y+=hName-F*0.92+enF;
+  x.fillText(b.n,LO.textX,y); y+=h.name-F*0.92+LO.enF;
 
-  x.font=enF+'px '+RV_MONO; x.fillStyle=rgba('#98a6c8',.62);
-  x.fillText(b.en,LO.textX,y); y+=hEn-enF;
+  x.font=LO.enF+'px '+RV_MONO; x.fillStyle=rgba('#98a6c8',.62);
+  x.fillText(b.en,LO.textX,y); y+=h.en-LO.enF;
 
-  y+=hSep*0.5;
+  y+=h.sep*0.5;
   x.strokeStyle=rgba('#ffc440',.42); x.lineWidth=1;
   x.beginPath(); x.moveTo(LO.textX,y); x.lineTo(LO.textX+LO.tw*0.36,y); x.stroke();
-  y+=hSep*0.5+clsF;
+  y+=h.sep*0.5+LO.clsF;
 
-  x.font=clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#ffc440',.92);
-  x.fillText(b.cls,LO.textX,y); y+=hCls-clsF+hGap+dF;
+  x.font=LO.clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#ffc440',.92);
+  x.fillText(b.cls,LO.textX,y); y+=h.cls-LO.clsF+h.gap+LO.dF;
 
-  x.font=dF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#98a6c8',.88);
-  desc.forEach(line=>{ x.fillText(line,LO.textX,y); y+=lh; });
+  x.font=LO.dF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#98a6c8',.88);
+  LO.desc.forEach(line=>{ x.fillText(line,LO.textX,y); y+=LO.lh; });
   x.restore();
 }
 
@@ -5932,7 +5941,7 @@ function rvScope(x,W,H,p,now,b){
   if(done<=0) rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
                             : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
                             : 'RESOLVING…', '#ffc440');
-  else rvResolved(x,W,H,done,now);
+  else rvResolved(x,W,H,done,now,LO);
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO);
 }
 
