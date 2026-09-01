@@ -2122,7 +2122,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r11';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r12';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5383,7 +5383,10 @@ function scopeGlobe(b,lon){
   const lat=isRing?0.46:0;
   if(isRing){
     if(rst.tex) loadRingTex();
-    const R=Math.round(SC_GLOBE*0.94/rst.rout), c=SC_GLOBE/2;
+    /* 고리 바깥 반지름이 R*rout 이므로 **캔버스 절반**에 맞춰야 한다.
+       전체 크기에 곱하고 있어서 고리가 두 배로 커져 잘려 나왔다
+       (토성·천왕성·하우메아 넷 다 그랬다). */
+    const R=Math.round(SC_GLOBE*0.47/rst.rout), c=SC_GLOBE/2;
     if(!_scInner||_scInner.width!==R*2){
       _scInner=document.createElement('canvas'); _scInner.width=_scInner.height=R*2;
     }
@@ -5886,9 +5889,10 @@ function rvSideLayout(x,W,H,b){
 
 /** 왼쪽에 천체, 오른쪽에 이름·분류·설명. 벨트 탐사의 결말만 이 모양이다 —
     표적을 사진 프레임으로 잡아 관측 기록을 남기는 연출이라 카탈로그처럼 읽힌다. */
-function rvNameSide(x,W,H,b,t,LO){
+function rvNameSide(x,W,H,b,t,LO,accent){
   if(t<=0)return;
   const F=LO.nameF, h=LO.h;
+  accent=accent||'#ffc440';           // 그 연출의 색을 따른다
   x.save(); x.globalAlpha=scOut(t); x.textAlign='left';
   let y=LO.cy-LO.textH/2+LO.starF;
 
@@ -5902,11 +5906,11 @@ function rvNameSide(x,W,H,b,t,LO){
   x.fillText(b.en,LO.textX,y); y+=h.en-LO.enF;
 
   y+=h.sep*0.5;
-  x.strokeStyle=rgba('#ffc440',.42); x.lineWidth=1;
+  x.strokeStyle=rgba(accent,.42); x.lineWidth=1;
   x.beginPath(); x.moveTo(LO.textX,y); x.lineTo(LO.textX+LO.tw*0.36,y); x.stroke();
   y+=h.sep*0.5+LO.clsF;
 
-  x.font=LO.clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#ffc440',.92);
+  x.font=LO.clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba(accent,.92);
   x.fillText(b.cls,LO.textX,y); y+=h.cls-LO.clsF+h.gap+LO.dF;
 
   x.font=LO.dF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#98a6c8',.88);
@@ -6015,7 +6019,7 @@ function rvScope(x,W,H,p,now,b){
                             : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
                             : 'RESOLVING…', '#ffc440');
   else rvResolved(x,W,H,done,now,LO);
-  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO);
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#ffc440');
 }
 
 /* ---- 혜성 근일점 → 궤도의 어긋남이 보이지 않는 행성을 가리킨다 ----
@@ -6129,24 +6133,28 @@ function rvTransit(x,W,H,p,now,b){
   }
 
   const cross=scSeg(p,0,.34), grow=scEase(scSeg(p,.38,.70));
-  const bx=lerp(lerp(sx-starR*.75,sx+starR*.75,cross),cx,scEase(scSeg(p,.34,.62)));
-  const R=lerp(M*.036,M*.235,grow), lit=scSeg(p,.62,.86);
+  const bx0=lerp(lerp(sx-starR*.75,sx+starR*.75,cross),cx,scEase(scSeg(p,.34,.62)));
+  const R0=lerp(M*.036,M*.235,grow), lit=scSeg(p,.62,.86);
+  /* 결말은 벨트 탐사와 같은 좌우 배치다 — 천체가 왼쪽으로 물러나고
+     오른쪽에 관측 기록이 뜬다. 천체가 자리를 잡은 뒤에 글이 뜬다. */
+  const LO=rvSideLayout(x,W,H,b), e=scOut(scSeg(p,.84,.96));
+  const bx=lerp(bx0,LO.bodyCx,e), by=lerp(cy,LO.cy,e), R=lerp(R0,LO.R,e);
 
   if(lit<=.02){
-    x.fillStyle='#05070d'; x.beginPath(); x.arc(bx,cy,R,0,TAU); x.fill();
+    x.fillStyle='#05070d'; x.beginPath(); x.arc(bx,by,R,0,TAU); x.fill();
     x.strokeStyle=rgba('#6fe6b0',.30); x.lineWidth=1; x.stroke();
   }else{
-    rvGlobe(x,bx,cy,R,b,0);
+    rvGlobe(x,bx,by,R,b,0);
     if(lit<1){
       /* 밤 쪽을 덮되 **가장자리를 부드럽게**. 직선으로 자르면 종결선이
          아니라 화면을 쓸어내는 와이프처럼 보인다. */
-      x.save(); x.beginPath(); x.arc(bx,cy,R,0,TAU); x.clip();
+      x.save(); x.beginPath(); x.arc(bx,by,R,0,TAU); x.clip();
       const edge=bx-R+(R*2)*lit, soft=R*0.42;
       const g=x.createLinearGradient(edge-soft,0,edge+soft*.35,0);
       g.addColorStop(0,'rgba(5,7,13,0)');
       g.addColorStop(.55,'rgba(5,7,13,.62)');
       g.addColorStop(1,'rgba(5,7,13,.94)');
-      x.fillStyle=g; x.fillRect(edge-soft,cy-R,R*2.6,R*2); x.restore();
+      x.fillStyle=g; x.fillRect(edge-soft,by-R,R*2.6,R*2); x.restore();
     }
   }
 
@@ -6181,10 +6189,12 @@ function rvTransit(x,W,H,p,now,b){
     lit>.2?'ALBEDO    RESOLVED':''
   ],'#6fe6b0',clamp(scSeg(p,.04,.16)-scSeg(p,.76,.85),0,1),
   gy0+ch+M*.085);          // 광도 곡선 아래 — 위에 두면 곡선과 겹친다
-  rvStatus(x,W,H, p<.34?'INGRESS → EGRESS'
-                : p<.62?'광도 곡선에서 반지름을 얻는다'
-                : p<.88?'ALBEDO RESOLVED':'발견', p<.88?'#6fe6b0':'#ffc65c');
-  rvName(x,W,H,b,scSeg(p,.86,1));
+  const done=scSeg(p,.84,.94);
+  if(done<=0) rvStatus(x,W,H, p<.34?'INGRESS → EGRESS'
+                            : p<.62?'광도 곡선에서 반지름을 얻는다'
+                            : 'RESOLVING…', '#6fe6b0');
+  else rvResolved(x,W,H,done,now,LO);
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#6fe6b0');
 }
 
 /* ---- 탐사선 항해 → 찍어 온 사진이 한 줄씩 내려온다 ----
