@@ -54,6 +54,10 @@ body{
   user-select:none;
 }
 button,input,select{font-family:inherit;color:inherit}
+/* 터치에서 브라우저가 더블탭 확대를 기다리느라 탭이 늦게 먹는 것을 막는다.
+   기본값(auto)이면 기기에 따라 300ms 가량 밀려 "한 번 눌러선 안 된다"로
+   느껴진다. 확대는 캔버스의 핀치로만 하므로 버튼에서는 잃을 것이 없다. */
+button,.tTab,.capBtn,.setRow,.iBtn,[role=button]{touch-action:manipulation}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:rgba(140,175,255,.22);border-radius:8px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -2122,7 +2126,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r12';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r14';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5804,13 +5808,16 @@ function rvSpaced(x,txt,cx,y,font,sp){
 }
 /** LO 를 받으면 천체+글 덩어리의 가운데 아래에, 없으면 화면 아래에 놓는다.
     화면 맨 아래에 두면 결말의 덩어리와 멀어져 따로 논다. */
-function rvResolved(x,W,H,t,now,LO){
+/** 판독 완료 도장. 문구는 연출마다 다르다 — 그 관측이 실제로 무엇을
+    끝냈는지가 다르기 때문이다. 색은 넷 다 같은 초록으로 두어 '완료'
+    표시임이 한눈에 읽히게 한다. */
+function rvDone(x,W,H,t,now,LO,txt){
   if(t<=0)return;
   const M=Math.min(W,H);
   const pulse=0.88+0.12*Math.sin(now/760);        // 레이더 갱신처럼 아주 느리게
   x.save(); x.globalAlpha=scOut(t)*pulse; x.textAlign='left';
   x.fillStyle=rgba(RV_GREEN,.6);
-  rvSpaced(x,'RESOLVED', LO?LO.midX:W/2, LO?LO.botY:H-M*0.055,
+  rvSpaced(x,txt, LO?LO.midX:W/2, LO?LO.botY:H-M*0.055,
            '500 10px '+RV_MONO, 3.2);
   x.restore();
 }
@@ -6018,7 +6025,7 @@ function rvScope(x,W,H,p,now,b){
   if(done<=0) rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
                             : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
                             : 'RESOLVING…', '#ffc440');
-  else rvResolved(x,W,H,done,now,LO);
+  else rvDone(x,W,H,done,now,LO,'RESOLVED');
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#ffc440');
 }
 
@@ -6035,6 +6042,10 @@ function rvComet(x,W,H,p,now,b){
   /* 카메라가 보는 지점을 화면 중앙에 놓고 그 둘레로 확대한다.
      translate → scale → translate(-cam) 순서를 지켜야 배율이 중심을 물고 돈다. */
   const camX=lerp(cx,px,pan), camY=lerp(cy,py,pan);
+  /* 결말은 다른 연출과 같은 좌우 배치다. 행성은 카메라 안에서 그리지 않고
+     **화면 좌표로 옮겨** 그린다 — 그래야 배치 자리로 끌어올 수 있다.
+     카메라가 (px,py) 를 어디로 보내는지는 여기서 그대로 계산된다. */
+  const LO=rvSideLayout(x,W,H,b), e=scOut(scSeg(p,.84,.96));
   x.save();
   x.translate(cx,cy); x.scale(zoom,zoom); x.translate(-camX,-camY);
 
@@ -6097,10 +6108,15 @@ function rvComet(x,W,H,p,now,b){
     x.moveTo(px,py-s); x.lineTo(px,py-s*.35); x.moveTo(px,py+s*.35); x.lineTo(px,py+s);
     x.stroke();
   }
-  x.globalAlpha=1;
-  const born=scSeg(p,.56,.88);
-  if(born>0) rvGlobe(x,px,py,lerp(M*.008,M*.205/2.4,scOut(born)),b,16*(1-born));
   x.restore();
+
+  const born=scSeg(p,.56,.88);
+  if(born>0){
+    const rw=lerp(M*.008,M*.205/2.4,scOut(born));       // 월드 반지름
+    const sx0=cx+(px-camX)*zoom, sy0=cy+(py-camY)*zoom; // 카메라가 보내는 화면 자리
+    rvGlobe(x, lerp(sx0,LO.bodyCx,e), lerp(sy0,LO.cy,e),
+               lerp(rw*zoom,LO.R,e), b, 16*(1-born));
+  }
 
   rvChrome(x,W,H,'#ff9b6b',clamp(1-scSeg(p,.82,.95),0,1));
   rvReadout(x,W,H,[
@@ -6109,10 +6125,12 @@ function rvComet(x,W,H,p,now,b){
     scSeg(p,.32,.62)>0?'SOLVING     '+Math.round(scSeg(p,.32,.62)*100)+'%':'',
     born>.55?'PERTURBER   LOCATED':''
   ],'#ff9b6b',clamp(scSeg(p,.04,.16)-scSeg(p,.78,.87),0,1));
-  rvStatus(x,W,H, p<.36?'PERIHELION · 궤도가 어긋난다'
-                : p<.58?'SOLVING FOR PERTURBER'
-                : p<.88?'보이지 않는 질량을 겨눈다':'발견', p<.88?'#ff9b6b':'#ffc65c');
-  rvName(x,W,H,b,scSeg(p,.89,1));
+  const doneC=scSeg(p,.84,.94);
+  if(doneC<=0) rvStatus(x,W,H, p<.36?'PERIHELION · 궤도가 어긋난다'
+                             : p<.58?'SOLVING FOR PERTURBER'
+                             : '보이지 않는 질량을 겨눈다', '#ff9b6b');
+  else rvDone(x,W,H,doneC,now,LO,'PERTURBER CONFIRMED');
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#ff9b6b');
 }
 
 /* ---- 엄폐(식) → 광도 곡선이 그대로 천체가 된다 ---- */
@@ -6193,7 +6211,7 @@ function rvTransit(x,W,H,p,now,b){
   if(done<=0) rvStatus(x,W,H, p<.34?'INGRESS → EGRESS'
                             : p<.62?'광도 곡선에서 반지름을 얻는다'
                             : 'RESOLVING…', '#6fe6b0');
-  else rvResolved(x,W,H,done,now,LO);
+  else rvDone(x,W,H,done,now,LO,'RESOLVED');
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#6fe6b0');
 }
 
@@ -6201,8 +6219,11 @@ function rvTransit(x,W,H,p,now,b){
    실제 탐사선 이미지가 이렇게 도착한다 — 매리너 4호의 첫 화성 사진이 그랬다.
    탐사선 도형은 그리지 않는다(사용자 요청) — 수신 진행만으로 충분히 읽힌다. */
 function rvProbe(x,W,H,p,now,b){
-  const cx=W/2, cy=H*0.50, M=Math.min(W,H), R=M*0.235;
+  const M=Math.min(W,H);
   const rx=scSeg(p,.14,.80);
+  /* 결말은 다른 연출과 같은 좌우 배치다 — 수신이 끝나면 왼쪽으로 물러난다 */
+  const LO=rvSideLayout(x,W,H,b), e=scOut(scSeg(p,.84,.96));
+  const cx=lerp(W/2,LO.bodyCx,e), cy=lerp(H*0.50,LO.cy,e), R=lerp(M*0.235,LO.R,e);
 
   // 아직 안 온 부분 — 잡음. 프레임마다 자리를 밀어 지글거리게 한다.
   x.save();
@@ -6248,10 +6269,11 @@ function rvProbe(x,W,H,p,now,b){
     x.fillStyle=rgba('#8ab4ff',.75); x.fillRect(g.x,by,bw*rx,bh);
     x.restore();
   }
-  rvStatus(x,W,H, p<.14?'RETURN · 신호 포착'
-                : p<.80?'RECEIVING · '+Math.round(rx*100)+'%'
-                : p<.88?'IMAGE COMPLETE':'발견', p<.88?'#8ab4ff':'#ffc65c');
-  rvName(x,W,H,b,scSeg(p,.86,1));
+  const doneP=scSeg(p,.84,.94);
+  if(doneP<=0) rvStatus(x,W,H, p<.14?'RETURN · 신호 포착'
+                             : 'RECEIVING · '+Math.round(rx*100)+'%', '#8ab4ff');
+  else rvDone(x,W,H,doneP,now,LO,'IMAGE COMPLETE');
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#8ab4ff');
 }
 
 const RV={scope:rvScope, comet:rvComet, transit:rvTransit, probe:rvProbe};
@@ -7793,7 +7815,7 @@ $('#btnReset').onclick=async()=>{
   const wasRunning=T.running;
   if(wasRunning) pause();
   const ok=T.phase==='focus'
-    ? await ask('집중 세션을 종료할까요?','지금 종료하면 토큰이 지급되지 않습니다.','종료',true)
+    ? await ask('집중 세션을 종료할까요?','지금 종료하면 천체를 얻지 못합니다.','종료',true)
     : await ask('휴식을 끝낼까요?','타이머가 대기 상태로 돌아갑니다.','종료',true);
   if(ok) resetTimer();
   else if(wasRunning) resume();
