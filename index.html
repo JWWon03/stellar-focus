@@ -2127,7 +2127,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r7';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r8';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5926,8 +5926,13 @@ function rvScope(x,W,H,p,now,b){
     x.beginPath(); x.arc(cx,cy,M*.006,0,TAU); x.fill(); }
   else rvGlobe(x,bx,by,bR,b,24*(1-res));
 
-  const bAl=clamp(1-scSeg(p,.66,.80),0,1);
-  if(bAl>0) scBracket(x,cx,cy,Math.max(M*.10,R*2.5),'#ffc440',.85*bAl,1.6);
+  /* 브래킷은 **표적과 함께 커지지 않는다**(사용자 요청). 포착한 틀은 그
+     자리에 가만히 있고 표적만 배율을 따라 자란다 — 그래야 확대되는 것이
+     읽힌다. 표적이 틀을 채우면 물러난다. */
+  /* 표적이 틀을 채우는 때(0.43 안팎)에는 이미 사라져 있어야 한다 —
+     겹친 채로 남으면 틀이 천체에 잘려 지저분하다. */
+  const bAl=clamp(1-scSeg(p,.30,.43),0,1);
+  if(bAl>0) scBracket(x,cx,cy,M*.22,'#ffc440',.85*bAl,1.6);
 
   rvChrome(x,W,H,'#ffc440',clamp(1-scSeg(p,.80,.95),0,1));
   rvReadout(x,W,H,[
