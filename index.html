@@ -2127,7 +2127,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r8';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r10';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -5713,8 +5713,18 @@ function scBracket(x,cx,cy,s,color,alpha,lw){
 /** 결말의 천체 — 도감과 같은 drawGlobe 를 쓴다.
     텍스처가 아직이면 null 이 와서 간이 원반으로 버틴다.
     blur 는 '해상이 덜 붙었다' 를 나타낸다 — GPU 가속이라 싸다. */
+let _rvTick=0, _rvLastGlobe=null;
 function rvGlobe(x,cx,cy,R,b,blur,alpha){
-  const g=scopeGlobe(b,SC.spin);
+  /* **drawGlobe 는 표시 크기와 무관하게 늘 320px 에 다시 굽는다** — 재보니
+     프레임당 10.5ms 다. 가챠 연출은 마지막 0.4초만 그려서 티가 안 났지만
+     여기서는 4.2초 내내 그린다. 작을 때는 자전(0.16rad/s)이 눈에 띄지
+     않으므로 몇 프레임에 한 번만 굽고 사이에는 직전 것을 그대로 쓴다. */
+  const M=Math.min(innerWidth,innerHeight);
+  const every = R<M*0.08 ? 4 : R<M*0.18 ? 2 : 1;
+  let g;
+  if(!_rvLastGlobe || (_rvTick%every)===0){ g=scopeGlobe(b,SC.spin); if(g)_rvLastGlobe=g; }
+  else g=_rvLastGlobe;
+  _rvTick++;
   x.save();
   if(alpha!==undefined)x.globalAlpha=alpha;
   if(g){
@@ -5897,51 +5907,102 @@ function rvNameSide(x,W,H,b,t,LO){
   x.restore();
 }
 
-/* ---- 벨트 탐사 → 마지막 표적이 곧 발견이다 ---- */
+/* ---- 벨트 탐사 → 마지막 남은 그 표적이 곧 발견이다 ----
+   집중 내내 표적이 하나씩 줄어 끝에 하나만 남는다. 결말은 **그 표적**을
+   그대로 붙들어 배율을 올린다 — 가짜 표적을 새로 만들면 세션 내내 보던
+   것과 결말이 끊긴다. */
+
+/** 완주 직후의 좌표·수치를 얼어붙인다. `phase` 는 세션이 끝나도 계속
+    흐르므로 그때그때 다시 재면 표적이 제자리에 없다. */
+function rvCaptureBelt(g){
+  const b=kbelt(), out=[];
+  /* 처음 한 순간이 집중 화면과 같아 보여야 하므로 성글면 안 된다.
+     2000 개에서 벨트 그리기가 0.4ms 안팎이라 그대로 감당된다. */
+  const stride=Math.max(1,Math.ceil(b.length/2000));
+  for(let i=0;i<b.length;i+=stride){
+    const sc=toScreen(kbPos(b[i]),g);
+    if(sc.x<-40||sc.x>W+40||sc.y<-40||sc.y>H+40)continue;
+    out.push({x:sc.x, y:sc.y, r:Math.max(.5,b[i].sz*1.5),
+              big:b[i].sz>1.25});
+  }
+  return out;
+}
+function rvCaptureTarget(){
+  const b=kbelt();
+  if(!b||!b.pick||!b.pick.length)return null;
+  const o=b[b.pick[0]];                 // radarTargets(1) 이 남기는 바로 그 하나
+  const g=geom(), w=kbPos(o), sc=toScreen(w,g);
+  const rr=Math.hypot(w.x,w.y,w.z)||1e-6, spec=kbSpec(o);
+  return {
+    o, spec, sc:{x:sc.x,y:sc.y},
+    lon:((Math.atan2(w.y,w.x)*180/Math.PI)+360)%360,
+    lat:Math.asin(clamp(w.z/rr,-1,1))*180/Math.PI,
+    au:rr*auPerUnit(),
+    belt:rvCaptureBelt(g)
+  };
+}
+
 function rvScope(x,W,H,p,now,b){
   const cx=W/2, cy=H/2, M=Math.min(W,H);
-  const r=mulberry(0x5EED1);
+  const T=SC.tgt;
   const zoom=lerp(1,7.5,scEase(scSeg(p,.15,.62)));
 
-  for(let i=0;i<420;i++){                        // 카이퍼 벨트 — 배율이 오르면 흩어진다
-    const a=r()*TAU, rad=(.30+Math.sqrt(r())*.66)*M*.46;
-    const bx=cx+Math.cos(a)*rad*zoom*.42, by=cy+Math.sin(a)*rad*zoom*.42*.98;
-    if(bx<-20||bx>W+20||by<-20||by>H+20)continue;
-    x.fillStyle=rgba('#c8d2e0',(.28+r()*.5)*clamp(1.15-zoom/8,0,1));
-    x.beginPath(); x.arc(bx,by,(.5+r()*1.4)*Math.min(2.4,zoom*.5),0,TAU); x.fill();
+  /* 표적을 화면 중앙으로 데려오며 배율을 올리고, 끝에 좌우 배치 자리로
+     옮긴다. **처음 한 순간은 집중 화면과 똑같아야** 이어진다 — 그래서
+     시작 지점이 표적의 그때 화면 좌표다. */
+  const LO=rvSideLayout(x,W,H,b);
+  const T0=T?T.sc:{x:cx,y:cy};
+  const toC=scOut(scSeg(p,.12,.48));
+  const mx=lerp(T0.x,cx,toC), my=lerp(T0.y,cy,toC);
+  const e=scOut(scSeg(p,.84,.96));
+  const bx=lerp(mx,LO.bodyCx,e), by=lerp(my,LO.cy,e);
+
+  // 그때 깔려 있던 벨트를 그대로 옮겨 배율만 올린다
+  if(T&&T.belt){
+    const fade=clamp(1.15-zoom/8,0,1);
+    if(fade>.02){
+      x.save();
+      [false,true].forEach(big=>{
+        x.fillStyle=rgba('#c8d2e0',(big?.72:.42)*fade);
+        x.beginPath();
+        for(let i=0;i<T.belt.length;i++){
+          const q=T.belt[i]; if(!!q.big!==big)continue;
+          const qx=bx+(q.x-T0.x)*zoom, qy=by+(q.y-T0.y)*zoom;
+          if(qx<-8||qx>W+8||qy<-8||qy>H+8)continue;
+          const r=Math.min(3.2,q.r*Math.min(2.2,zoom*.5));
+          x.moveTo(qx+r,qy); x.arc(qx,qy,r,0,TAU);
+        }
+        x.fill();
+      });
+      x.restore();
+    }
   }
-  const others=clamp(1-scSeg(p,0,.14),0,1);      // 놓아 준 표적들
-  if(others>0) [[.28,.30],[.74,.24],[.22,.72],[.80,.68],[.52,.18]].forEach(f=>
-    scBracket(x,W*f[0],H*f[1],M*.075,'#ffc440',.30*others,1.1));
 
   const grow=scEase(scSeg(p,.18,.70)), R=lerp(M*.006,M*.245,grow);
-  const res=scSeg(p,.34,.80);
-  /* 결말에서는 천체가 왼쪽으로 물러나고 오른쪽에 관측 기록이 뜬다.
-     한 덩어리로 화면 가운데에 놓으므로 자리는 rvSideLayout 이 정한다. */
-  /* **천체가 자리를 잡은 뒤에 글이 뜬다.** 같은 구간으로 묶으면 옮겨가는
-     도중에 글자가 나타나 천체와 겹친다. */
-  const LO=rvSideLayout(x,W,H,b), e=scOut(scSeg(p,.84,.96));
-  const bx=lerp(cx,LO.bodyCx,e), by=lerp(cy,LO.cy,e), bR=lerp(R,LO.R,e);
+  const res=scSeg(p,.34,.80), bR=lerp(R,LO.R,e);
   if(grow<.02){ x.fillStyle=rgba('#ffc440',.95);
-    x.beginPath(); x.arc(cx,cy,M*.006,0,TAU); x.fill(); }
+    x.beginPath(); x.arc(bx,by,M*.006,0,TAU); x.fill(); }
   else rvGlobe(x,bx,by,bR,b,24*(1-res));
 
   /* 브래킷은 **표적과 함께 커지지 않는다**(사용자 요청). 포착한 틀은 그
      자리에 가만히 있고 표적만 배율을 따라 자란다 — 그래야 확대되는 것이
-     읽힌다. 표적이 틀을 채우면 물러난다. */
-  /* 표적이 틀을 채우는 때(0.43 안팎)에는 이미 사라져 있어야 한다 —
-     겹친 채로 남으면 틀이 천체에 잘려 지저분하다. */
+     읽힌다. 표적이 틀을 채우는 때(0.43 안팎)에는 이미 사라져 있어야 한다. */
   const bAl=clamp(1-scSeg(p,.30,.43),0,1);
-  if(bAl>0) scBracket(x,cx,cy,M*.22,'#ffc440',.85*bAl,1.6);
+  if(bAl>0) scBracket(x,bx,by,M*.22,'#ffc440',.85*bAl,1.6);
 
   rvChrome(x,W,H,'#ffc440',clamp(1-scSeg(p,.80,.95),0,1));
-  rvReadout(x,W,H,[
-    'KB-2291    TARGET LOCKED',
-    'λ 214.8°   β +2.1°',
-    'D  '+Math.round(320+grow*180)+' km   d 41.6 AU',
-    'SNR '+(6.2+grow*22).toFixed(1)+' dB',
+  // 수치는 집중 화면이 보여 주던 그 표적의 실제 값이다
+  rvReadout(x,W,H, T?[
+    T.o.id+'   TARGET LOCKED',
+    'λ'+T.lon.toFixed(1)+'°  β'+(T.lat>=0?'+':'')+T.lat.toFixed(1)+'°',
+    T.au.toFixed(1)+' AU   ⌀'+T.spec.km+' km',
+    'SNR '+T.spec.snr.toFixed(1)+' dB',
+    'RESOLVE '+Math.round(res*100)+'%'
+  ]:[
+    'TARGET LOCKED',
     'RESOLVE '+Math.round(res*100)+'%'
   ],'#ffc440',clamp(scSeg(p,.05,.18)-scSeg(p,.76,.85),0,1));
+
   const done=scSeg(p,.84,.94);
   if(done<=0) rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
                             : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
@@ -6195,7 +6256,12 @@ function revealDraw(p){
 /** 완주 발견 연출을 연다. fx 는 집중 연출 키(scope|comet|transit|probe).
     연출이 '없음'이면 여기까지 오지 않는다 — onPhaseDone 이 카드만 띄운다. */
 function revealStart(body,fx,onDone){
-  SC={ body, onDone, fx:RV[fx]?fx:'scope', tg:[], win:0,
+  const k=RV[fx]?fx:'scope';
+  /* 벨트 탐사는 **마지막 남은 그 표적**을 그대로 이어받는다. phase 는
+     세션이 끝나도 계속 흐르므로 지금 좌표를 얼어붙여 두어야 한다. */
+  const tgt=(k==='scope')?rvCaptureTarget():null;
+  _rvTick=0; _rvLastGlobe=null;
+  SC={ body, onDone, fx:k, tgt, tg:[], win:0,
        t0:performance.now(), last:performance.now(), spin:0,
        held:false, dismiss:0, done:false };
   /* 텍스처 굽기를 **지금** 예약한다. 결말에야 부르면 그때부터 굽기 시작이라
