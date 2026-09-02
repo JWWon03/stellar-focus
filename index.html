@@ -2126,7 +2126,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r14';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r15';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3337,7 +3337,202 @@ function drawFocusFx(ctx,now){
   if(m==='scope')        fxRadar(ctx,prog,now);
   else if(m==='transit') fxTransit(ctx,prog,now);
   else if(m==='probe')   fxProbe(ctx,prog,now);
+  else if(m==='spectro') fxSpectro(ctx,prog,now);
   else                   fxComet(ctx,prog,now);
+}
+
+/* ---- 분광 관측 ----
+   빛을 펼쳐 흡수선을 읽는다. **실제로 별을 분류하는 바로 그 방법**이고,
+   `STAR_POOL` 의 `cls`('G형 주계열성' · 'M형 적색왜성')가 그 결과다.
+
+   화면이 셋이다 — 관측자가 실제로 보는 구성이다.
+     ① 원본 프레임   분광기가 받은 그대로. 흡수선이 검은 세로줄로 파인다
+     ② 1D 스펙트럼   거기서 뽑은 플럭스 대 파장 그래프. 흡수선은 골이다
+     ③ 분광형 후보   표준성과 맞춰 좁혀 간다 (template matching)
+
+   **강한 선부터 떠오른다.** SNR 이 √노출시간으로 자라므로 깊은 선
+   (Ca II K · Hα)이 먼저 잡음을 뚫고 약한 철선이 나중에 나온다.
+   남은 시간 = 아직 잡음을 못 뚫은 선의 수. */
+const SP_LINES=[
+  {nm:393.4,el:'Ca II K',depth:.72},{nm:396.8,el:'Ca II H',depth:.66},
+  {nm:656.3,el:'H α',    depth:.52},{nm:589.0,el:'Na D',   depth:.48},
+  {nm:486.1,el:'H β',    depth:.44},{nm:517.3,el:'Mg b',   depth:.40},
+  {nm:430.8,el:'G band', depth:.36},{nm:434.0,el:'H γ',    depth:.32},
+  {nm:410.2,el:'H δ',    depth:.26},{nm:422.7,el:'Ca I',   depth:.22},
+  {nm:438.4,el:'Fe I',   depth:.19},{nm:527.0,el:'Fe I',   depth:.16},
+  {nm:495.8,el:'Fe I',   depth:.13},{nm:610.3,el:'Ca I',   depth:.11}
+];
+const SP_NM0=380, SP_NM1=700;
+const SP_TYPES=['O','B','A','F','G','K','M'];
+const SP_COL='#c9a6ff';
+
+/** 이번 세션이 겨눈 항성. `rollRadarMax()` 와 같은 자리에서 정해지고
+    같은 씨앗(`endAt`)을 쓰므로 새로고침해도 같은 별이 나온다.
+    **집중 내내 본 스펙트럼이 곧 받을 별의 것**이라야 결말과 이어진다. */
+let _spTgt=null;
+function rollSpectroTarget(){
+  const rem=remainOf('star');
+  if(!rem.length){ _spTgt=null; return null; }
+  const seed=(S.timer&&S.timer.endAt)||0;
+  _spTgt=rem[Math.floor(mulberry(fnv('spectro#'+seed))()*rem.length)];
+  return _spTgt;
+}
+function spectroTarget(){ return _spTgt; }
+
+/** `cls` 에서 분광형 글자를 뽑는다. 초거성·백색왜성·펄서처럼 OBAFGKM
+    한 글자로 안 떨어지는 것은 null 을 돌려주고 분류명을 그대로 쓴다. */
+function spLetter(b){
+  const m=b&&b.cls&&b.cls.match(/^([OBAFGKM])형/);
+  return m?m[1]:null;
+}
+/** 노출이 쌓인 정도(0~1) → 지금 몇 개의 선이 잡음을 뚫었는가.
+    SNR ∝ √t 이고, 선은 깊이가 잡음보다 커질 때 보인다. */
+function spState(expo){
+  const snr=1.2+Math.sqrt(Math.max(0,expo))*26;
+  const noise=1.35/snr;
+  let n=0; SP_LINES.forEach(L=>{ if(L.depth>noise*2.6) n++; });
+  return {n,snr,noise};
+}
+function spNmColor(nm){
+  let r=0,g=0,b=0;
+  if(nm<440){r=-(nm-440)/60;b=1;}
+  else if(nm<490){g=(nm-440)/50;b=1;}
+  else if(nm<510){g=1;b=-(nm-510)/20;}
+  else if(nm<580){r=(nm-510)/70;g=1;}
+  else if(nm<645){r=1;g=-(nm-645)/65;}
+  else {r=1;}
+  const f=nm>645?.3+.7*(700-nm)/55:nm<420?.3+.7*(nm-380)/40:1;
+  return [Math.round(255*Math.pow(Math.max(0,r)*f,.8)),
+          Math.round(255*Math.pow(Math.max(0,g)*f,.8)),
+          Math.round(255*Math.pow(Math.max(0,b)*f,.8))];
+}
+
+/** 계측 화면 세 판. 집중 연출과 발견 연출이 함께 쓴다.
+    (x0,y0,w) 를 받아 그 폭에 맞춰 쌓고, 쓴 높이를 돌려준다. */
+function spPanels(c,x0,y0,w,expo,alpha,tgt){
+  const st=spState(expo), found=Math.min(SP_LINES.length,st.n);
+  const nmToX=nm=>x0+w*(nm-SP_NM0)/(SP_NM1-SP_NM0);
+  c.save(); c.globalAlpha=alpha;
+
+  /* ① 원본 프레임 */
+  const fh=Math.max(18,w*0.055);
+  const g=c.createLinearGradient(x0,0,x0+w,0);
+  for(let i=0;i<=24;i++){ const nm=lerp(SP_NM0,SP_NM1,i/24), q=spNmColor(nm);
+    g.addColorStop(i/24,'rgb('+Math.round(140+q[0]*.32)+','+
+      Math.round(140+q[1]*.32)+','+Math.round(140+q[2]*.32)+')'); }
+  c.fillStyle=g; c.fillRect(x0,y0,w,fh);
+  const v=c.createLinearGradient(0,y0,0,y0+fh);
+  v.addColorStop(0,'rgba(4,5,11,.85)'); v.addColorStop(.5,'rgba(4,5,11,0)');
+  v.addColorStop(1,'rgba(4,5,11,.85)');
+  c.fillStyle=v; c.fillRect(x0,y0,w,fh);
+  SP_LINES.forEach((L,i)=>{ if(i>=found)return;
+    c.fillStyle=rgba('#04050b',.55+L.depth*.45);
+    c.fillRect(nmToX(L.nm)-1.2,y0,2.4,fh); });
+  /* 읽기 잡음은 **고정 패턴**이다 — 매 프레임 새로 뽑으면 관측 그래프가
+     아니라 TV 노이즈처럼 보인다. 자리는 그대로 두고 옅어지게만 한다. */
+  const rn0=mulberry(0xF2A17), na=clamp(0.18+st.noise*2.2,0,1);
+  for(let i=0;i<200;i++){
+    const px=x0+rn0()*w, py=y0+rn0()*fh, dark=rn0()<.5, q=rn0();
+    c.fillStyle=rgba(dark?'#000000':'#ffffff',(.05+q*.16)*na);
+    c.fillRect(px,py,1+q*2,1);
+  }
+  c.strokeStyle=rgba(SP_COL,.30); c.lineWidth=1; c.strokeRect(x0,y0,w,fh);
+  c.textAlign='left'; c.font='9px '+RV_MONO; c.fillStyle=rgba('#98a6c8',.45);
+  c.fillText('RAW FRAME · ECHELLE ORDER 34',x0,y0-5);
+
+  /* ② 1D 스펙트럼 */
+  const py0=y0+fh+Math.max(26,w*0.05), ph=Math.max(90,w*0.26);
+  c.strokeStyle=rgba(SP_COL,.22); c.lineWidth=1; c.strokeRect(x0,py0,w,ph);
+  c.setLineDash([2,4]); c.strokeStyle=rgba(SP_COL,.16);
+  [0.25,0.5,0.75].forEach(f=>{ c.beginPath();
+    c.moveTo(x0,py0+ph*f); c.lineTo(x0+w,py0+ph*f); c.stroke(); });
+  c.setLineDash([]);
+  const base=py0+ph*0.22;
+  c.setLineDash([5,4]); c.strokeStyle=rgba('#ffc65c',.32);
+  c.beginPath(); c.moveTo(x0,base); c.lineTo(x0+w,base); c.stroke(); c.setLineDash([]);
+  c.textAlign='right'; c.font='9px '+RV_MONO; c.fillStyle=rgba('#98a6c8',.45);
+  c.fillText('1.0',x0-5,base+3); c.fillText('0.5',x0-5,py0+ph*0.61+3);
+
+  /* 잡음은 한 번 정해지면 그대로다. 노출이 쌓이면 진폭만 준다. */
+  const rn=mulberry(0x5EC7);
+  c.strokeStyle=rgba('#e8eefc',.92); c.lineWidth=1.2;
+  c.beginPath();
+  const N=Math.max(160,Math.round(w/2.4));
+  for(let i=0;i<=N;i++){
+    const t=i/N, nm=lerp(SP_NM0,SP_NM1,t);
+    let f=1;
+    SP_LINES.forEach((L,k)=>{ const d=(nm-L.nm)/2.6;
+      f-=L.depth*Math.exp(-d*d)*(k<found?1:0.25*(1-st.noise)); });
+    f-=(rn()-.5)*st.noise*2.0;
+    const qx=x0+w*t, qy=base+(1-clamp(f,-0.15,1.25))*ph*0.62;
+    i?c.lineTo(qx,qy):c.moveTo(qx,qy);
+  }
+  c.stroke();
+  c.font='9px '+RV_MONO;
+  SP_LINES.forEach((L,i)=>{ if(i>=found)return;
+    const lx=nmToX(L.nm);
+    c.strokeStyle=rgba(SP_COL,.28); c.lineWidth=1;
+    c.beginPath(); c.moveTo(lx,py0+ph*0.06); c.lineTo(lx,base+L.depth*ph*0.62); c.stroke();
+    c.fillStyle=rgba(SP_COL,.72);
+    c.save(); c.translate(lx,py0+ph*0.05); c.rotate(-Math.PI/2);
+    c.textAlign='left'; c.fillText(L.el,0,3); c.restore(); });
+  c.textAlign='center'; c.font='9px '+RV_MONO;
+  [400,450,500,550,600,650,700].forEach(nm=>{
+    const lx=nmToX(nm);
+    c.strokeStyle=rgba('#98a6c8',.28); c.lineWidth=1;
+    c.beginPath(); c.moveTo(lx,py0+ph); c.lineTo(lx,py0+ph+4); c.stroke();
+    c.fillStyle=rgba('#98a6c8',.45); c.fillText(nm,lx,py0+ph+15); });
+  c.fillText('WAVELENGTH (nm)',x0+w/2,py0+ph+29);
+
+  /* ③ 분광형 후보 */
+  const ty=py0+ph+Math.max(44,w*0.075);
+  const letter=spLetter(tgt), conf=clamp(found/SP_LINES.length,0,1);
+  c.textAlign='left'; c.font='9px '+RV_MONO; c.fillStyle=rgba('#98a6c8',.45);
+  c.fillText('TEMPLATE MATCH',x0,ty-16);
+  if(letter){
+    const bw=w/SP_TYPES.length, hit=SP_TYPES.indexOf(letter);
+    c.textAlign='center'; c.font='10px '+RV_MONO;
+    SP_TYPES.forEach((T,i)=>{
+      const d=Math.abs(i-hit);
+      const alive=conf<0.30?1:conf<0.62?(d<=1?1:0.16):(d===0?1:0.09);
+      c.fillStyle=rgba(alive>.5?SP_COL:'#5f6d90',alive);
+      c.fillRect(x0+bw*i+2,ty,bw-4,Math.max(4,w*0.010));
+      c.fillStyle=rgba(alive>.5?'#eef3ff':'#5f6d90',Math.max(.25,alive));
+      c.fillText(T,x0+bw*i+bw/2,ty-4); });
+  }else{
+    // OBAFGKM 한 글자로 안 떨어지는 것들 — 분류명을 그대로 쓴다
+    c.textAlign='left'; c.font='11px '+RV_MONO;
+    c.fillStyle=rgba(SP_COL,conf<.62?.35:.92);
+    c.fillText(conf<.30?'NON-STANDARD':conf<.62?'OFF MAIN SEQUENCE'
+              :((tgt&&tgt.cls)||'—'),x0,ty+8);
+  }
+  c.restore();
+  return {found, st, letter, bottom:ty+Math.max(14,w*0.03)};
+}
+
+/** 집중 연출 — 노출이 쌓이는 25분 */
+function fxSpectro(ctx,prog,now){
+  applyScopeOptics([]);              // 궤도 화면은 통째로 흐린다. 여기선 배경이다
+  drawScopeGrid(ctx,'rgba(201,166,255,.062)');   // col 은 알파가 든 rgba 다
+  drawScopeNoise(ctx);
+  const tgt=spectroTarget();
+  /* 패널은 HUD 아래에 놓는다 — 좌상단 시계 위젯에 가리면 안 된다 */
+  const top=Math.max(H*0.17,($('#clock')?$('#clock').getBoundingClientRect().bottom:0)+26);
+  const w=Math.min(W*0.74,760), x0=(W-w)/2;
+  const r=spPanels(ctx,x0,top+62,w,prog,1,tgt);
+
+  const mm=Math.floor(prog*(S.timer.total/60000)),
+        ss=Math.floor(prog*(S.timer.total/1000))%60;
+  ctx.save(); ctx.textAlign='left';
+  ctx.font='500 10px '+RV_MONO; ctx.fillStyle=rgba(SP_COL,.72);
+  ['SPECTROGRAPH  R=48000',
+   'EXPOSURE   '+mm+'m '+String(ss).padStart(2,'0')+'s',
+   'SNR        '+r.st.snr.toFixed(1),
+   'LINES      '+r.found+'/'+SP_LINES.length
+  ].forEach((t,i)=>ctx.fillText(t,x0,top+i*13));
+  ctx.restore();
+
+  drawScopeReadout('SPECTROSCOPY   ·   흡수선 '+r.found+' / '+SP_LINES.length);
 }
 
 /* ---- 레이더 탐사 ----
@@ -4595,6 +4790,7 @@ function startPhase(kind){
   if(kind==='focus'){
     T._startPhase=phase;
     rollRadarMax();                       // 이번 세션의 표적 수를 정한다
+    rollSpectroTarget();                  // 분광 관측이 겨눌 별을 정한다
     lockFocusView();
   }
   save();updateTimerUI();updateLockUI();armNotify();
@@ -4652,7 +4848,10 @@ function onPhaseDone(fromBoot){
     const got=[];
     for(let i=0;i<gain;i++){
       const k=rewardKind(); if(!k) break;
-      const b=takeOne(k);   if(!b) break;
+      // 분광 관측은 세션 내내 보여 준 그 별을 그대로 준다
+      const want=(k==='star'&&S.intro==='spectro'&&i===0&&spectroTarget())
+        ? spectroTarget().id : null;
+      const b=takeOne(k,want); if(!b) break;
       got.push({b,kind:k});
     }
     reveal={on:true,t:0};
@@ -5189,12 +5388,12 @@ function tierCount(bn,t){const p=POOLS[bn].filter(b=>b.t===t);
      혜성      → 행성   임시. 혜성 종류가 생기면 그쪽으로 옮긴다
      벨트 탐사 → 위성   얼음 소천체라 결이 맞는다
      탐사선    → 위성   보이저·카시니가 위성을 가장 많이 밝혀냈다
-   **항성은 아직 지급 경로가 없다.** 넷 중 별을 알아내는 방법이 없어서다
-   (그건 분광 관측·시차 측정이 한다). STAR_POOL 29종과 도감은 그대로 두고,
-   항성용 연출을 만들 때 이 표에 한 줄을 더한다. */
-const REWARD={transit:'planet', comet:'planet', scope:'moon', probe:'moon'};
-const FX_LB={none:'관측',scope:'벨트 탐사',comet:'혜성 근일점',transit:'엄폐 관측',probe:'탐사선 항해'};
-const REWARD_KINDS=['planet','moon'];        // 항성이 열리면 여기에 넣는다
+     분광 관측 → 항성   실제로 별을 분류하는 바로 그 방법이다 */
+const REWARD={transit:'planet', comet:'planet', scope:'moon', probe:'moon',
+              spectro:'star'};
+const FX_LB={none:'관측',scope:'벨트 탐사',comet:'혜성 근일점',transit:'엄폐 관측',
+             probe:'탐사선 항해',spectro:'분광 관측'};
+const REWARD_KINDS=['planet','moon','star'];
 
 /** 이번 완주에서 줄 종류. 그 종류를 다 모았거나 연출이 '없음'이면
     아직 남은 쪽에서 준다 — 다 모았다고 빈손으로 보내지 않는다. */
@@ -5216,9 +5415,21 @@ function rollTier(bn){
 }
 /** 미보유 풀에서 한 종을 뽑아 소유 목록에 넣는다. 등급은 rollTier 가 정하고
     천장 카운터도 그대로 돈다 — 가챠를 걷어내도 등급 분포는 같게 둔다. */
-function takeOne(bn){
+function takeOne(bn,preferId){
   const rem=remainOf(bn);
   if(!rem.length) return null;
+  /* 분광 관측은 세션 시작 때 이미 대상을 정해 두고 그 별의 스펙트럼을
+     25분 내내 보여 준다. 그러니 그 별을 그대로 줘야 한다 — 등급 굴림은
+     건너뛰되 천장 카운터는 그 별의 등급으로 갱신한다. */
+  if(preferId){
+    const want=rem.find(b=>b.id===preferId);
+    if(want){
+      S.owned[bn].push(want.id);
+      const P0=S.pity[bn];
+      P0.p4=want.t>=4?0:P0.p4+1; P0.p5=want.t>=5?0:P0.p5+1;
+      return want;
+    }
+  }
   let tier=rollTier(bn);
   let cands=rem.filter(b=>b.t===tier);
   if(!cands.length){                        // 해당 등급 소진 → 상위 우선 대체
@@ -6276,7 +6487,41 @@ function rvProbe(x,W,H,p,now,b){
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#8ab4ff');
 }
 
-const RV={scope:rvScope, comet:rvComet, transit:rvTransit, probe:rvProbe};
+/* ---- 분광 관측 → 흡수선이 분광형을 확정한다 ----
+   집중 내내 쌓은 스펙트럼이 그대로 결말이 된다. 관측이 끝나면 계측 화면이
+   물러나고, 방금 분류한 그 별이 앞으로 나온다. */
+function rvSpectro(x,W,H,p,now,b){
+  const M=Math.min(W,H), cx=W/2;
+  const back=clamp(1-scSeg(p,.34,.62),0,1);
+
+  if(back>.02){
+    const w=Math.min(W*0.74,760), x0=(W-w)/2;
+    spPanels(x,x0,H*0.20,w,1,back,b);
+  }
+
+  /* 별이 앞으로 나와 좌우 배치 자리로 옮겨간다 */
+  const LO=rvSideLayout(x,W,H,b), e=scOut(scSeg(p,.84,.96));
+  const grow=scEase(scSeg(p,.34,.80));
+  const R=lerp(M*.02,M*.20,grow);
+  rvGlobe(x, lerp(cx,LO.bodyCx,e), lerp(H*0.52,LO.cy,e), lerp(R,LO.R,e), b, 0);
+
+  rvChrome(x,W,H,SP_COL,clamp(1-scSeg(p,.80,.95),0,1));
+  rvReadout(x,W,H,[
+    'SPECTROGRAPH  R=48000',
+    'LINES      '+SP_LINES.length+'/'+SP_LINES.length,
+    'TYPE       '+((spLetter(b)?spLetter(b)+'형':'특이형')),
+    'CLASS      '+(b.cls||'—')
+  ],SP_COL,clamp(scSeg(p,.04,.16)-scSeg(p,.76,.85),0,1));
+
+  const done=scSeg(p,.84,.94);
+  if(done<=0) rvStatus(x,W,H, p<.34?'흡수선이 모두 잡혔다'
+                            : 'MATCHING TEMPLATES…', SP_COL);
+  else rvDone(x,W,H,done,now,LO,'CLASSIFIED');
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,SP_COL);
+}
+
+const RV={scope:rvScope, comet:rvComet, transit:rvTransit, probe:rvProbe,
+          spectro:rvSpectro};
 
 function revealDraw(p){
   const x=$('#scopeCv').getContext('2d');
@@ -7849,9 +8094,9 @@ const INFO_INTRO=
    <b>혜성 근일점</b> 화면 밖에서 날아와 끝나는 순간 가장 가까워집니다 · 행성<br>
    <b>엄폐(식)</b> 옆에서 본 시점에서 광도 곡선이 완성됩니다 · 행성<br>
    <b>탐사선 항해</b> 스윙바이로 카이퍼 벨트까지 갔다가 돌아옵니다 · 위성<br>
+   <b>분광 관측</b> 별빛을 펼쳐 흡수선을 읽습니다. 깊은 선부터 잡음을 뚫고 올라옵니다 · 항성<br>
    <b>없음</b> 연출 없이 궤도만 돕니다 · 남은 종류에서 무작위<br><br>
-   그 종류를 다 모으면 아직 남은 다른 종류를 줍니다.
-   <b>항성은 아직 얻을 수 없습니다</b> — 넷 중 별을 알아내는 방법이 없어서입니다.`;
+   그 종류를 다 모으면 아직 남은 다른 종류를 줍니다.`;
 function renderSettings(){
   SETTINGS.forEach(o=>INFO[o.k]=o.d);
   INFO.intro=INFO_INTRO;
@@ -7867,6 +8112,7 @@ function renderSettings(){
         <button class="capBtn" data-fx="comet">혜성 근일점</button>
         <button class="capBtn" data-fx="transit">엄폐(식)</button>
         <button class="capBtn" data-fx="probe">탐사선 항해</button>
+        <button class="capBtn" data-fx="spectro">분광 관측</button>
       </div>
       <div class="pickerHint" id="introGain" style="margin-top:9px;text-align:center"></div>
       <div class="setSep">알림과 설치<button class="iBtn" data-info="notify">i</button></div>
@@ -8711,7 +8957,7 @@ function boot(){
   }
   cloudSyncOnBoot();
   registerSW();
-  if(T.running){ armNotify(); rollRadarMax(); }   // 새로고침해도 이어지게
+  if(T.running){ armNotify(); rollRadarMax(); rollSpectroTarget(); }   // 새로고침해도 이어지게
   requestAnimationFrame(frame);
 }
 
