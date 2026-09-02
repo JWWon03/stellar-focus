@@ -279,11 +279,14 @@ function drawSpectro(x,W,H,p,now,mode){
       x.fillStyle=rgba('#04050b',.55+L.depth*.45);
       x.fillRect(lx-1.2,fy,2.4,fh);
     });
-    // 읽기 잡음
-    const rn=mulberry((Math.floor(now/70)*2654435761)>>>0);
-    for(let i=0;i<Math.round(240*(0.25+st.noise*3));i++){
-      x.fillStyle=rgba(rn()<.5?'#000000':'#ffffff',.05+rn()*.16);
-      x.fillRect(gx0+rn()*gw, fy+rn()*fh, 1+rn()*2, 1);
+    /* 읽기 잡음도 고정 패턴이다(실제로도 hot pixel 은 늘 같은 자리다).
+       자리는 그대로 두고 **노출이 쌓이면 옅어지게만** 한다. */
+    const rn=mulberry(0xF2A17);
+    const na=clamp(0.18+st.noise*2.2,0,1);
+    for(let i=0;i<240;i++){
+      const px=gx0+rn()*gw, pyy=fy+rn()*fh, dark=rn()<.5, v=rn();
+      x.fillStyle=rgba(dark?'#000000':'#ffffff',(.05+v*.16)*na);
+      x.fillRect(px, pyy, 1+v*2, 1);
     }
     x.strokeStyle=rgba('#c9a6ff',.30); x.lineWidth=1; x.strokeRect(gx0,fy,gw,fh);
     x.textAlign='left'; x.font='9px '+MONO; x.fillStyle=rgba('#98a6c8',.45);
@@ -315,8 +318,10 @@ function drawSpectro(x,W,H,p,now,mode){
 
     /* 스펙트럼 자체. 잡음은 노출이 쌓일수록 줄고, 검출된 선만 골이 된다.
        한 세션 안에서 같은 모양이라야 하므로 잡음은 결정론적으로 뽑는다. */
+    /* **잡음은 지직거리지 않는다.** 실제 스펙트럼의 잡음은 한 번 정해지면
+       그대로 있고, 노출이 쌓이면 그 진폭이 줄어들 뿐이다. 매 프레임 새로
+       뽑으면 관측 그래프가 아니라 TV 노이즈처럼 보인다. */
     const rn=mulberry(0x5EC7);
-    const jitter=mulberry((Math.floor(now/90)*2246822519)>>>0);
     x.strokeStyle=rgba('#e8eefc',.92); x.lineWidth=1.2;
     x.beginPath();
     const N=260;
@@ -335,7 +340,7 @@ function drawSpectro(x,W,H,p,now,mode){
         const d=(nm-L.nm)/2.6;
         f-=L.depth*Math.exp(-d*d)*0.25*(1-st.noise);
       });
-      f-=(rn()-.5)*st.noise*1.7 + (jitter()-.5)*st.noise*0.5;
+      f-=(rn()-.5)*st.noise*2.0;
       const qx=gx0+gw*t, qy=base+(1-clamp(f,-0.15,1.25))*ph*0.62;
       i?x.lineTo(qx,qy):x.moveTo(qx,qy);
     }
