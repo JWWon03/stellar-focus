@@ -2126,7 +2126,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r15';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r16';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -3363,6 +3363,10 @@ const SP_LINES=[
   {nm:495.8,el:'Fe I',   depth:.13},{nm:610.3,el:'Ca I',   depth:.11}
 ];
 const SP_NM0=380, SP_NM1=700;
+/* 한 번의 판독(readout) 주기. 실제 관측도 노출을 여러 번 나눠 받고 그때마다
+   그래프가 갱신된다 — 매 프레임 새로 뽑으면 관측 그래프가 아니라 TV 노이즈가
+   되고, 아예 고정하면 죽은 그림이 된다. 그 사이가 이 값이다. */
+const SP_READOUT=2200;
 const SP_TYPES=['O','B','A','F','G','K','M'];
 const SP_COL='#c9a6ff';
 
@@ -3454,7 +3458,10 @@ function spPanels(c,x0,y0,w,expo,alpha,tgt){
   c.fillText('1.0',x0-5,base+3); c.fillText('0.5',x0-5,py0+ph*0.61+3);
 
   /* 잡음은 한 번 정해지면 그대로다. 노출이 쌓이면 진폭만 준다. */
-  const rn=mulberry(0x5EC7);
+  /* 잡음은 **판독마다 한 번** 새로 뽑힌다. 진폭은 노출이 쌓일수록 준다 —
+     새 프레임이 들어와 그래프가 다시 그려지는 것으로 읽힌다. */
+  const frame=Math.floor(performance.now()/SP_READOUT);
+  const rn=mulberry((0x5EC7^Math.imul(frame,2654435761))>>>0);
   c.strokeStyle=rgba('#e8eefc',.92); c.lineWidth=1.2;
   c.beginPath();
   const N=Math.max(160,Math.round(w/2.4));
@@ -3519,7 +3526,7 @@ function fxSpectro(ctx,prog,now){
   /* 패널은 HUD 아래에 놓는다 — 좌상단 시계 위젯에 가리면 안 된다 */
   const top=Math.max(H*0.17,($('#clock')?$('#clock').getBoundingClientRect().bottom:0)+26);
   const w=Math.min(W*0.74,760), x0=(W-w)/2;
-  const r=spPanels(ctx,x0,top+62,w,prog,1,tgt);
+  const r=spPanels(ctx,x0,top+78,w,prog,1,tgt);   // 수치 다섯 줄 + RAW FRAME 이름표
 
   const mm=Math.floor(prog*(S.timer.total/60000)),
         ss=Math.floor(prog*(S.timer.total/1000))%60;
@@ -3528,6 +3535,7 @@ function fxSpectro(ctx,prog,now){
   ['SPECTROGRAPH  R=48000',
    'EXPOSURE   '+mm+'m '+String(ss).padStart(2,'0')+'s',
    'SNR        '+r.st.snr.toFixed(1),
+   'FRAME      '+(Math.floor(performance.now()/SP_READOUT)%9000),
    'LINES      '+r.found+'/'+SP_LINES.length
   ].forEach((t,i)=>ctx.fillText(t,x0,top+i*13));
   ctx.restore();

@@ -203,6 +203,10 @@ const LINES=[
   {nm:610.3,el:'Ca I',   depth:.11}
 ];
 const NM0=380, NM1=700;
+/* 한 번의 판독(readout) 주기. 실제 관측도 노출을 여러 번 나눠 받고 그때마다
+   그래프가 갱신된다 — 매 프레임 새로 뽑으면 관측 그래프가 아니라 TV 노이즈가
+   되고, 아예 고정하면 죽은 그림이 된다. 그 사이가 이 값이다. */
+const SP_READOUT=2200;
 /* 분광형 후보 — 관측이 쌓일수록 좁혀진다. 실제로도 표준성 스펙트럼과
    맞춰 보며 좁힌다(template matching). */
 const TYPES=['O','B','A','F','G','K','M'];
@@ -321,7 +325,10 @@ function drawSpectro(x,W,H,p,now,mode){
     /* **잡음은 지직거리지 않는다.** 실제 스펙트럼의 잡음은 한 번 정해지면
        그대로 있고, 노출이 쌓이면 그 진폭이 줄어들 뿐이다. 매 프레임 새로
        뽑으면 관측 그래프가 아니라 TV 노이즈처럼 보인다. */
-    const rn=mulberry(0x5EC7);
+    /* 잡음은 **판독마다 한 번** 새로 뽑힌다. 진폭은 노출이 쌓일수록 준다 —
+       새 프레임이 들어와 그래프가 다시 그려지는 것으로 읽힌다. */
+    const frame=Math.floor(performance.now()/SP_READOUT);
+    const rn=mulberry((0x5EC7^Math.imul(frame,2654435761))>>>0);
     x.strokeStyle=rgba('#e8eefc',.92); x.lineWidth=1.2;
     x.beginPath();
     const N=260;
