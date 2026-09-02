@@ -140,7 +140,7 @@ CDN 스크립트와 웹폰트를 **일절 추가하지 않는다.** 궤도 화�
 2. **집중 시작** `startPhase('focus')` → `endAt = Date.now() + 분*60000` 을 못박고, 시점을 연출에 맞춰 잠그고(`TILT_FACE`, 엄폐만 `TILT_EDGE`), `rollRadarMax()`로 이번 세션의 표적 수를 뽑고, `armNotify()`로 알림을 예약한다.
 3. **흐르는 동안** `frame(now)`가 매 프레임 → `tickTimer()`(만료 검사) → 전역 `phase` 갱신 → 카메라 지수 보간 → `stepStartFx()` → `render(clock)`. 별도 루프는 없다. 집중 연출도 `render()` 맨 끝에 얹힌다.
 4. **완주** `onPhaseDone()` → `S.stats` 누적, `rewardKind()`가 고른 종류에서 `takeOne()`이 천체를 하나(포모도로 보너스면 둘) 준다, `reveal` 웨이브 시작, `chime()`, `notifyDone()`, 그리고 **발견 연출**(`scopeStart`) 뒤에 `showRewardPopup()`. 포모도로면 이어서 휴식 단계로 넘어가고, 그 휴식이 끝나면 `mDone` 이 다음 회차를 권한다.
-5. **가챠는 없다.** `pull()` / `pullMany(n)` / `mGacha` 는 코드에 남아 있지만 메뉴에서 닿지 않는다(관리자 도구·회귀 검증용).
+5. **가챠는 없다.** 코드도 지웠다 — `pull` · `pullMany` · `drawOne` · `renderGacha` · `scopeDraw` · `mGacha` · `mMulti` · 토큰 표시 · M13 텍스처까지. 되살릴 일이 있으면 git 기록에 있다.
 6. **배치** `mSystem`(항성계 설정)에서 `S.sys.slots[i].p` 와 `.m[k]`, `S.sys.comp[]` 를 채운다.
 7. 다음 프레임부터 그 천체가 실제로 궤도를 돈다. 배치된 가장 바깥 행성이 **기준 궤도**가 되어 카이퍼 벨트 위치와 AU 환산까지 따라 움직인다.
 
@@ -322,8 +322,6 @@ S = {
 | id | 무엇 | 어디서 |
 |---|---|---|
 | `mIntro` | 중심별 만들기 (이름·색) | 첫 부팅 자동 |
-| `mGacha` | 가챠 배너·뽑기 — **이 브랜치에서는 메뉴에서 닿지 않는다** | (없음) |
-| `mMulti` | 연속 뽑기 요약 (단발은 모달 없이 망원경 시야에서 끝난다) | `pullMany()` |
 | `mSystem` | 항성계 설정 — 슬롯에 천체 배치 | 우상단 메뉴 |
 | `mPick` | 보관함에서 천체 고르기 | `mSystem` 안 |
 | `mDex` | 도감 (최상위 메뉴다. 가챠 안에 숨기지 말 것) | 우상단 메뉴 |
@@ -349,7 +347,6 @@ S = {
 | 타이머 규칙 | `startPhase` / `tickTimer` / `onPhaseDone` |
 | 확률·천장 | `RATE`, `PITY4/5`, `rollTier()` |
 | **완주 보상** | `REWARD` · `rewardKind()` · `takeOne()` · `onPhaseDone()` · `showRewardPopup()` |
-| 가챠 연출 | `scopeStart` / `scopeDraw` / `scopeGlobe` · `SCOPE_TIER` (등급별 강도) |
 | 저장 스키마 | `freshState()` 와 `load()` 를 **함께** 고친다 |
 | 클라우드 | `cloudPush` / `cloudSyncOnBoot` / `adoptCloud` + `supabase/schema.sql` |
 | HUD·설정 UI | 섹션 11, 그리고 `renderSettings()` |
@@ -411,7 +408,7 @@ S = {
 
 **회전한 요소는 클릭 영역도 회전한다.** 다이얼의 진행률 SVG가 `rotate(-90deg)` 되어 있어 히트 영역이 원래 박스 밖으로 삐져나와 위쪽 입력창을 덮었다. 장식용 요소에 `transform`을 걸면 `pointer-events:none`을 함께 줄 것.
 
-**가챠 연출은 화면 전체를 쓰는 망원경 시야다**(`scopeStart`). 모달이 아니라 그 위에 덮는 `#scopeFx` 이고, 결과 카드 모달(`mPull`)은 없앴다 — 발견한 천체를 시야 안에서 바로 보여 준다.
+**연출 오버레이는 `#scopeFx` 하나다.** 모달이 아니라 그 위에 덮는 전면 캔버스이고, `revealStart()` → `scopeLoop()` → `revealDraw()` 가 돈다. `SC` 가 그 한 판의 상태다.
 
 - **박자 여섯.** 시야 열림(0~.10) · 스캔(.10~.30) · 판정(.30~.58) · 확인(.58~.70) · 줌인(.70~.90) · 발견(.90~1). 성단은 늘 같은 것(M13)을 본다.
 - **등급은 확인 순간에만 실린다.** 표적 수(3~6)·전체 길이(4.2초)·성단이 모두 같아야 마지막까지 등급이 새지 않는다. **개수나 길이로 드러내지 말 것.** ★3은 조용한 초록, ★4는 보라로 바뀌며 충격파 하나, ★5는 금색·충격파 셋·흔들림이다(`SCOPE_TIER`).

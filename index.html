@@ -137,7 +137,6 @@ button,.tTab,.capBtn,.setRow,.iBtn,[role=button]{touch-action:manipulation}
   background:linear-gradient(140deg,rgba(255,198,92,.13),rgba(255,150,60,.05));
   border:1px solid rgba(255,198,92,.3);color:var(--gold)
 }
-body.admin #tokenChip{border-color:rgba(255,198,92,.42)}
 body.admin #tokenCount{color:var(--gold)}
 .admReset{margin-top:10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;
   background:rgba(255,255,255,.02)}
@@ -179,7 +178,6 @@ body.menuOpen .menuStack{max-height:320px;opacity:1;pointer-events:auto;margin-t
 .mBtn span{font-size:12.5px;font-weight:600;letter-spacing:.01em}
 .mBtn:hover{border-color:var(--line-2);background:rgba(26,34,60,.88);color:var(--txt)}
 .mBtn:active{transform:scale(.98)}
-#btnGacha:hover{color:var(--acc-2)}
 #btnSystem:hover{color:var(--gold)}
 /* 도감(흰색)과 설정(회색)은 둘 다 무채색이라 밝기만으로는 구분이 안 된다.
    `.mBtn:hover` 의 기본 색이 이미 #e8eefc(거의 흰색)여서 둘이 그 근처에
@@ -259,7 +257,7 @@ body.capture .capPanel.on{display:block}
 .camBar{gap:7px;flex-direction:column;align-items:stretch}
 .camBar .cbtn{min-width:118px;text-align:center}
 body.capture .hud.tl,body.capture .hud.bl,body.capture .menuStack,
-body.capture #tokenChip,body.capture .zoomBar,body.capture .vBtn,
+body.capture .zoomBar,body.capture .vBtn,
 body.capture .menuToggle{display:none}
 body.capture .camBar{display:flex}
 body.capture .followChip{display:none!important}
@@ -320,13 +318,6 @@ body.capture #hint{display:none}
 .nfSub{font-size:11.5px;color:var(--txt-3);margin-top:3px;line-height:1.6}
 .nfSub b{color:var(--txt-2);font-weight:600}
 .nfWhen{font-size:10.5px;color:var(--txt-3);flex:0 0 auto;white-space:nowrap;padding-top:2px}
-#tokenChip{display:flex;align-items:center;gap:6px;padding:7px 11px;font-size:12.5px}
-#tokenChip .lbl{display:none}
-#tokenChip .tk{color:var(--gold);font-size:15px;text-shadow:0 0 12px rgba(255,198,92,.7)}
-#tokenChip b{font-size:16px;font-variant-numeric:tabular-nums}
-#tokenChip .lbl{color:var(--txt-3);font-size:11px}
-#tokenChip.pulse{animation:tokPulse .9s ease}
-@keyframes tokPulse{0%{box-shadow:0 0 0 0 rgba(255,198,92,.55)}100%{box-shadow:0 0 0 22px rgba(255,198,92,0)}}
 
 /* ---------- 타이머 위젯 ---------- */
 /* 탭 · 본문 · 조작 줄 세 층. 다이얼 원은 없앴다 — 사용자가 그린 배치에 없고,
@@ -969,12 +960,9 @@ body.capture #hint{display:none}
 .tpOk:hover{background:linear-gradient(160deg,#4874e0,#33499f)}
 .tpAuto{font-size:10px;color:var(--txt-3);margin-top:9px;letter-spacing:.02em}
 
-/* 가챠를 걷어냈다 — 토큰 표시와 가챠 메뉴는 감춘다. 모달과 함수는 관리자
-   도구·회귀 검증이 쓰므로 남아 있다(메뉴에서 닿지 않을 뿐이다). */
-#tokenChip,#btnGacha{display:none}
 
 /* 집중 중 잠금 표시 (요구사항 16) */
-body.locked #btnGacha,body.locked #btnSystem{opacity:.42}
+body.locked #btnSystem{opacity:.42}
 body.locked .chk,body.locked .pre,body.locked .field{opacity:.45}
 body.locked #timerPanel input{cursor:not-allowed}
 
@@ -1087,18 +1075,11 @@ body.locked #timerPanel input{cursor:not-allowed}
       </svg>
       <i id="inboxDot"></i>
     </button>
-    <div id="tokenChip" class="panel"><span class="tk">◈</span><b id="tokenCount">0</b><span class="lbl">토큰</span></div>
   </div>
   <button class="menuToggle" id="btnMenuToggle" title="메뉴 접기/펼치기">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </button>
   <div class="menuStack">
-    <button class="mBtn" id="btnGacha" title="가챠 배너">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M2 7h7M3.5 11h6M6 15h5" stroke-linecap="round"/>
-        <path d="M16 4l1.9 4.1L22 10l-4.1 1.9L16 16l-1.9-4.1L10 10l4.1-1.9z" fill="currentColor" stroke="none"/>
-      </svg>
-    </button>
     <button class="mBtn" id="btnSystem" title="항성계 설정">
       <!-- 사용자가 1024px 로 그려 준 그림을 그대로 옮긴 것.
            원본은 궤도가 아주 납작해(장단축비 9%) 19px 로 줄이면 선이 안을
@@ -1277,30 +1258,6 @@ body.locked #timerPanel input{cursor:not-allowed}
 </div>
 
 <!-- ============ 모달: 가챠 ============ -->
-<div class="mask" id="mGacha">
-  <div class="modal wide">
-    <div class="mHead">
-      <div style="flex:1">
-        <h2>천체 가챠</h2>
-        <p>토큰 1개로 1회 추첨 · 이미 보유한 천체는 나오지 않습니다</p>
-      </div>
-      <button class="mClose" data-close="mGacha">✕</button>
-    </div>
-    <div class="tabs">
-      <div class="tab on" data-bn="star">항성<span class="sm" id="cntStar">0/0</span></div>
-      <div class="tab" data-bn="planet">행성<span class="sm" id="cntPlanet">0/0</span></div>
-      <div class="tab" data-bn="moon">위성<span class="sm" id="cntMoon">0/0</span></div>
-    </div>
-    <div class="mBody" id="gachaBody"></div>
-    <div class="mFoot">
-      <div class="spacer" style="font-size:12px;color:var(--txt-3)">보유 토큰 <b id="gToken" style="color:var(--gold)">0</b></div>
-      <button class="cbtn" id="btnPull5">◈ 5연속</button>
-      <button class="cbtn" id="btnPull10">◈ 10연속</button>
-      <button class="cbtn primary" id="btnPull">◈ 1회 뽑기</button>
-    </div>
-  </div>
-</div>
-
 <!-- ============ 모달: 가챠 결과 ============ -->
 <!-- 가챠 연출 — 화면 전체를 쓰는 망원경 시야. 모달이 아니라 그 위에 덮는다. -->
 <div id="scopeFx"><canvas id="scopeCv"></canvas></div>
@@ -1461,20 +1418,6 @@ body.locked #timerPanel input{cursor:not-allowed}
 </div>
 
 <!-- ============ 모달: 연속 뽑기 결과 ============ -->
-<div class="mask" id="mMulti">
-  <div class="modal wide">
-    <div class="mHead">
-      <div style="flex:1"><h2 id="multiTtl">10연속 결과</h2><p id="multiSub"></p></div>
-      <button class="mClose" data-close="mMulti">✕</button>
-    </div>
-    <div class="mBody" id="multiBody"></div>
-    <div class="mFoot">
-      <div class="spacer"></div>
-      <button class="cbtn primary" data-close="mMulti">확인</button>
-    </div>
-  </div>
-</div>
-
 <!-- ============ 모달: 촬영 결과 ============ -->
 <div class="mask" id="mShot">
   <div class="modal" style="max-width:520px">
@@ -2069,11 +2012,6 @@ const MOON_POOL=[
 
 const POOLS={star:STAR_POOL,planet:PLANET_POOL,moon:MOON_POOL};
 const BY_ID={};[...STAR_POOL,...PLANET_POOL,...MOON_POOL].forEach(b=>BY_ID[b.id]=b);
-const BANNER_META={
-  star:  {name:'항성 배너',  sub:'태양·시리우스·베텔게우스 등 실존 항성 29종',      g1:'#2b1b4a',g2:'#0a1030',accent:'#c9a6ff'},
-  planet:{name:'행성 배너',  sub:'태양계 행성과 실제로 발견된 외계행성 30종',        g1:'#123a4d',g2:'#08132a',accent:'#7fd3e8'},
-  moon:  {name:'위성 배너',  sub:'달·유로파·타이탄 등 태양계 실제 위성 28종',       g1:'#3d2a18',g2:'#120d20',accent:'#ffc65c'},
-};
 const TIER_COLOR={3:'#8ea5c9',4:'#c396ff',5:'#ffc65c'};
 const RATE={5:.04,4:.22,3:.74};
 const PITY4=10, PITY5=30;
@@ -2126,7 +2064,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r17';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r18';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -4742,8 +4680,6 @@ function syncAdminUI(){
   document.body.classList.toggle('admin',a);
   $('#inCount').min=limMin('count');
   $('#inFocus').min=limMin('focus');
-  /* 최소값 안내는 #tHint 한 곳에만 있다 — updateTimerUI 가 모드에 맞춰 쓴다 */
-  paintTokens();
 }
 function currentFocusMin(){ return S.timer.mode==='pomo'?S.timer.focus:S.timer.count; }
 
@@ -5108,15 +5044,6 @@ function chime(bonus){
     });
   }catch(e){}
 }
-function paintTokens(){
-  const inf=isAdmin();
-  $('#tokenCount').textContent=inf?'∞':S.tokens;
-  $('#gToken').textContent=inf?'∞':S.tokens;
-  $('#btnPull').disabled=!inf&&S.tokens<1;
-  // 토큰이 충분할 때만 연속 뽑기 버튼을 보여준다
-  $('#btnPull5').style.display =(inf||S.tokens>=5) ?'':'none';
-  $('#btnPull10').style.display=(inf||S.tokens>=10)?'':'none';
-}
 
 /* ==========================================================================
    6. 모달 헬퍼
@@ -5381,7 +5308,6 @@ function showHint(html){
 /* ==========================================================================
    8. 가챠
    ========================================================================== */
-let curBanner='star';
 
 function ownedOf(bn){return S.owned[bn];}
 function remainOf(bn){return POOLS[bn].filter(b=>!S.owned[bn].includes(b.id));}
@@ -5450,52 +5376,8 @@ function takeOne(bn,preferId){
   P.p5=tier>=5?0:P.p5+1;
   return got;
 }
-/* 가챠 경로. 지금은 메뉴에서 닿지 않지만 관리자 도구와 회귀 검증이 쓰므로 남긴다. */
-function drawOne(bn){
-  if(!remainOf(bn).length) return null;
-  if(!isAdmin()) S.tokens--;                     // 관리자는 토큰을 쓰지 않는다
-  return takeOne(bn);
-}
 
-function pull(){
-  if(pulling){warn('연출이 끝난 뒤에 뽑을 수 있습니다');return;}
-  const bn=curBanner;
-  if(!remainOf(bn).length){toast('이 배너의 도감을 모두 완성했습니다');return;}
-  if(!isAdmin()&&S.tokens<1){warn('토큰이 부족합니다 — 집중 세션을 완료해 주세요');return;}
-  const got=drawOne(bn);
-  saveNow();paintTokens();renderGacha();
-  showPull(got,bn);
-}
 
-/** 연속 뽑기 — 연출은 **가장 높은 등급으로 한 번만** 보여 주고,
-    닫으면 지금까지처럼 결과 요약을 띄운다. */
-function pullMany(n){
-  if(pulling){warn('연출이 끝난 뒤에 뽑을 수 있습니다');return;}
-  const bn=curBanner, left=remainOf(bn).length;
-  if(!left){toast('이 배너의 도감을 모두 완성했습니다');return;}
-  if(!isAdmin()&&S.tokens<n){warn(`토큰이 ${n}개 필요합니다`);return;}
-  const cnt=Math.min(n,left), got=[];
-  for(let i=0;i<cnt;i++){const g=drawOne(bn);if(g)got.push(g);}
-  saveNow();paintTokens();renderGacha();
-  chime(got.some(b=>b.t===5));
-  const best=Math.max.apply(null,got.map(b=>b.t));
-  const star=got.filter(b=>b.t===best)[0];      // 연출에 세울 한 천체
-  buildMulti(got,bn,n,cnt,best);
-  scopeStart(star,()=>open('mMulti'));
-}
-function buildMulti(got,bn,n,cnt,best){
-  $('#multiTtl').textContent=`${n}연속 결과`;
-  $('#multiSub').textContent=cnt<n
-    ? `남은 천체가 ${cnt}종뿐이라 ${cnt}회만 진행했습니다 · 최고 ★${best}`
-    : `최고 등급 ★${best} · ${BANNER_META[bn].name}`;
-  $('#multiBody').innerHTML=`<div class="dexGrid">${got.map(b=>
-    `<div class="dex t${b.t}" data-id="${b.id}" style="cursor:pointer">
-       <div class="newTag2">NEW</div>
-       <canvas width="120" height="120"></canvas>
-       <div class="n">${b.n}</div><div class="s s${b.t}">${'★'.repeat(b.t)}</div>
-     </div>`).join('')}</div>`;
-  paintDexCards($('#multiBody'),bn);
-}
 
 /* ==========================================================================
    가챠 연출 — 성단 관측
@@ -5512,22 +5394,14 @@ function buildMulti(got,bn,n,cnt,best){
    표적 수(3~6)·전체 길이·성단은 등급과 무관하다. 개수나 길이로 드러내면
    시작하자마자 등급이 새어 나간다.
    ========================================================================== */
+/* 연출이 도는 동안 참이다. 예전에는 뽑기 버튼을 잠그는 데 썼고, 지금은
+   연출이 겹쳐 돌지 않는지 확인하는 표시로만 남아 있다. */
 let pulling=false, _scopeRaf=0;
-function setPulling(v){
-  pulling=v;
-  $('#btnPull').disabled=v||(!isAdmin()&&S.tokens<1);
-  $('#btnPull5').disabled=v||(!isAdmin()&&S.tokens<5);
-  $('#btnPull10').disabled=v||(!isAdmin()&&S.tokens<10);
-}
+function setPulling(v){ pulling=v; }
 
 const SCOPE_DUR=4200;                 // 등급과 무관하게 같다
 const SCOPE_SPIN=0.16;                // rad/s — 도감과 비슷하게 느긋하게
 const SCOPE_GREEN='#6fe6b0';
-const SCOPE_TIER={
-  3:{flash:.14, shock:0, shake:0, wash:.03, pulses:1, label:'CONFIRMED'},
-  4:{flash:.30, shock:1, shake:3, wash:.08, pulses:2, label:'RARE SPECTRUM'},
-  5:{flash:.52, shock:3, shake:9, wash:.15, pulses:3, label:'UNCATALOGUED OBJECT'}
-};
 const scLerp=(a,b,t)=>a+(b-a)*t;
 const scSeg=(p,a,b)=>clamp((p-a)/(b-a),0,1);
 const scOut=t=>1-Math.pow(1-t,3);
@@ -5538,55 +5412,13 @@ const SC_B={open:[0,.10], scan:[.10,.30], judge:[.30,.58],
 
 /* 성단은 늘 같은 것을 본다 — 우리 관측소의 표준 시야다.
    중심으로 갈수록 빽빽하고, 대부분 어둡고 몇 개만 밝다. */
-const SC_CLUSTER=(()=>{
-  const r=mulberry(20260827), st=[];
-  for(let i=0;i<520;i++){
-    const a=r()*TAU, q=Math.pow(r(),1.9), rad=q*1.35, mag=Math.pow(r(),2.2), hue=r();
-    st.push({x:Math.cos(a)*rad, y:Math.sin(a)*rad*.92,
-      s:0.5+mag*3.4, b:.22+mag*.78,
-      c: hue<.16?'#ffd9a8' : hue<.34?'#fff0d0' : hue<.72?'#ffffff' :
-         hue<.90?'#cfe0ff' : '#a8c8ff'});
-  }
-  return st;
-})();
 /* 실제 M13 사진 (NOIRLab/NSF/AURA · CC BY 4.0).
    **사진만으로는 안 된다** — 줌인이 46배까지 파고들어 사진은 뭉개지고,
    표적은 그려진 픽셀이 아니라 좌표를 가진 별에 붙어야 한다. 그래서
    사진은 바탕으로 깔고 그 위에 절차적 별을 얹은 뒤, 줌이 시작되면
    사진을 걷고 절차적 별이 흐름을 이어받는다.
    파일이 없으면 조용히 절차적 성단만으로 돈다. */
-let _m13=null, _m13Tried=false;
-function loadM13(){
-  if(_m13Tried)return; _m13Tried=true;
-  const im=new Image();
-  im.onload=()=>{_m13=im;};
-  im.onerror=()=>{_m13=null;};
-  im.src='textures/m13.jpg';
-}
-const SC_NEB=(()=>{const r=mulberry(77),o=[];
-  for(let i=0;i<7;i++)o.push({x:(r()-.5)*1.5,y:(r()-.5)*1.4,
-    r:.35+r()*.6, c:r()<.5?'#3a5a9e':'#5a3f8e', a:.05+r()*.07});
-  return o;})();
 
-/* 표적을 고른다. 브래킷과 이름표까지 시야 안에 들어오도록 0.62 안쪽에서만 뽑고,
-   서로 붙지 않게 가장 멀리 떨어진 후보를 고른다. */
-function scPickTargets(seed){
-  const r=mulberry(seed);
-  const n=3+Math.floor(r()*4);
-  const cand=SC_CLUSTER.filter(s=>s.b>.5 && Math.hypot(s.x,s.y)<0.62);
-  const out=[];
-  for(let k=0;k<n && cand.length;k++){
-    let best=null,bestD=-1;
-    for(let t=0;t<40;t++){
-      const c=cand[Math.floor(r()*cand.length)];
-      const d=out.length?Math.min.apply(null,out.map(o=>Math.hypot(o.star.x-c.x,o.star.y-c.y))):9;
-      if(d>bestD){bestD=d;best=c;}
-    }
-    out.push({star:best, x:best.x, y:best.y, id:'OBJ-'+String(1000+Math.floor(r()*8999))});
-    cand.splice(cand.indexOf(best),1);
-  }
-  return out;
-}
 
 /* 발견한 천체를 도감과 같은 방식으로 그린다.
    비용이 제곱으로 늘므로 320px 에 구워 확대한다(본편 도감도 300px 이다).
@@ -5625,24 +5457,6 @@ function scopeGlobe(b,lon){
 
 /* 연출 한 판의 상태 */
 let SC=null;
-function scopeStart(body,onDone){
-  const cv=$('#scopeCv');
-  const seed=(Date.now()^fnv(body.id))>>>0;
-  const tg=scPickTargets(seed);
-  SC={ body, onDone, tg, win:Math.floor(mulberry(seed*31|0)()*tg.length),
-       t0:performance.now(), last:performance.now(), spin:0,
-       held:false, dismiss:0, done:false };
-  loadM13();                      // 처음 뽑을 때 한 번만 받는다
-  /* 텍스처 굽기를 **지금** 예약한다. 발견 순간에야 부르면 그때부터 굽기
-     시작이라 천체가 없는 빈 화면이 스친다. 여기서 걸어 두면 연출이 흐르는
-     4.2초 동안 시간 분할로 다 구워진다. */
-  readyTexture(body,SC_GLOBE);
-  $('#scopeFx').classList.add('on');
-  setPulling(true);
-  scopeResize();
-  cancelAnimationFrame(_scopeRaf);
-  _scopeRaf=requestAnimationFrame(scopeLoop);
-}
 function scopeResize(){
   const cv=$('#scopeCv');
   const d=Math.min(2,window.devicePixelRatio||1);
@@ -5671,7 +5485,7 @@ function scopeLoop(now){
   SC.spin+=(now-SC.last)/1000*SCOPE_SPIN;
   const dt=now-SC.last; SC.last=now;
   const p=Math.min((now-SC.t0)/SCOPE_DUR,1);
-  if(SC.fx) revealDraw(p); else scopeDraw(p);   // 완주 발견 / 가챠
+  revealDraw(p);
   if(p>=1) SC.held=true;
   if(SC.dismiss>0){
     SC.dismiss+=dt/380;
@@ -5683,232 +5497,6 @@ function scopeLoop(now){
   _scopeRaf=requestAnimationFrame(scopeLoop);
 }
 
-function scopeDraw(p){
-  const x=$('#scopeCv').getContext('2d');
-  const W=innerWidth, H=innerHeight, cx=W/2, cy=H/2;
-  const b=SC.body, tier=b.t, T=SCOPE_TIER[tier], tint=TIER_COLOR[tier];
-  const win=SC.tg[SC.win];
-  const bOpen=scSeg(p,...SC_B.open), bScan=scSeg(p,...SC_B.scan), bJudge=scSeg(p,...SC_B.judge);
-  const bConf=scSeg(p,...SC_B.conf), bZoom=scSeg(p,...SC_B.zoom), bLand=scSeg(p,...SC_B.land);
-
-  x.fillStyle='#000'; x.fillRect(0,0,W,H);
-  const EYE=Math.min(W,H)*0.44;
-  const iris=EYE*scOut(bOpen);
-  if(iris<1) return;
-
-  const shake=(bConf>0&&bConf<1)?Math.sin(bConf*Math.PI*6)*(1-bConf)*T.shake:0;
-
-  x.save();
-  x.beginPath(); x.arc(cx+shake*.4,cy+shake*.2,iris,0,TAU); x.clip();
-
-  /* 확인 단계에서 **먼저 조준을 붙이고** 그다음 배율을 올린다.
-     중심이 어긋난 채 배율을 올리면 그 어긋남이 그대로 증폭된다. */
-  const zf=scIn(bZoom)*.75+scInOut(bLand)*.25;
-  const scale=EYE*0.92*(1+zf*zf*46);
-  const drift=(1-bConf)*0.035, lock=scInOut(bConf);
-  const camX=scLerp(Math.sin(p*2.1)*drift, win.x, lock);
-  const camY=scLerp(Math.cos(p*1.7)*drift*.7, win.y, lock);
-  const S=(fx,fy)=>[cx+(fx-camX)*scale+shake*.4, cy+(fy-camY)*scale+shake*.2];
-
-  /* 사진을 바탕에 깐다. 줌 앞 절반에 걷어낸다 — 그 뒤로는 확대가 심해
-     사진이 뭉개지고, 절차적 별이 흐름을 이어받는다. */
-  const photoA=_m13?(1-clamp(bZoom/.5,0,1)):0;
-  if(photoA>.01){
-    const span=2.8*scale, q=S(0,0);
-    x.globalAlpha=photoA;
-    x.drawImage(_m13,q[0]-span/2,q[1]-span/2,span,span);
-    x.globalAlpha=1;
-  }else{
-    SC_NEB.forEach(n=>{                       // 사진이 없을 때만 성운기를 그린다
-      const q=S(n.x,n.y), rr=n.r*scale;
-      const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],rr);
-      g.addColorStop(0,rgba(n.c,n.a*(1-zf*.8))); g.addColorStop(1,rgba(n.c,0));
-      x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
-    });
-  }
-  /* 사진이 보이는 동안 절차적 별은 물러난다. 사진이 걷히면 살아나 흐름을 받는다.
-     발견에 들어가면 배경 별을 걷는다 — 결과 화면에는 찾아낸 천체만 남아야
-     이름과 등급이 읽힌다. */
-  const starA=(1-photoA*.68)*(1-clamp(bLand/.6,0,1));
-
-  /* 성단. **후광은 그리지 않는다** — 점마다 빛이 번지면 관측 사진이 아니라
-     애니메이션처럼 보인다. 밝기는 크기와 알파로만 낸다. */
-  const streak=scIn(bZoom);
-  SC_CLUSTER.forEach(s=>{
-    const isWin=(s===win.star);
-    if(isWin&&bLand>.25) return;              // 착지에서는 천체가 대신한다
-    const q=S(s.x,s.y);
-    if(q[0]<-80||q[0]>W+80||q[1]<-80||q[1]>H+80) return;
-    /* 밝기는 일정하다. 반짝이게 하면 500개가 제각기 뛰어 정신이 사납고,
-       변광성 무리처럼 보인다. 실제 성단 사진도 가만히 있다.
-
-       **확대해도 커지지 않는다.** 다가가면 별이 굵어지는 것이 그럴듯해
-       보이지만, 실제로는 아무리 확대해도 별은 점이다(원반이 보이려면
-       태양계 규모여야 한다). 커지면 사진에서 넘어온 뒤 화면이 콩알로 덮인다.
-
-       **사각형으로 찍지 말 것.** 몇 px 에서는 구분이 안 될 줄 알았는데
-       화면에서 사각형이 그대로 보인다(실제 지적). 작아도 둥근 점이어야 한다. */
-    const rr=isWin ? Math.max(s.s, s.s+scIn(bZoom)*Math.min(W,H)*0.20) : s.s*.8;
-    if(streak>.02&&!isWin){
-      const dx=q[0]-cx, dy=q[1]-cy, d=Math.hypot(dx,dy)||1, L=Math.min(d*streak*.55,260);
-      x.strokeStyle=rgba(s.c,s.b*.5*streak*starA);
-      x.lineWidth=Math.max(.6,rr); x.lineCap='round';
-      x.beginPath(); x.moveTo(q[0],q[1]); x.lineTo(q[0]+dx/d*L,q[1]+dy/d*L); x.stroke();
-    }
-    x.fillStyle=rgba(s.c,s.b*starA);
-    x.beginPath(); x.arc(q[0],q[1],rr,0,TAU); x.fill();
-  });
-
-  /* 표적 */
-  SC.tg.forEach((t,k)=>{
-    const isWin=k===SC.win;
-    const acq=scSeg(bScan, k/SC.tg.length*.8, k/SC.tg.length*.8+.28);
-    if(acq<=0) return;
-    const lose=SC.tg.filter((o,i)=>i!==SC.win), li=lose.indexOf(t);
-    const gone=isWin?0:scSeg(bJudge, li/lose.length*.85, li/lose.length*.85+.22);
-    const q=S(t.x,t.y);
-    /* 줌이 시작되면 브래킷은 물러난다 — 끝까지 남으면 천체를 가로막는다 */
-    const fade=1-scIn(clamp(bZoom/.55,0,1));
-    const base=Math.min(W,H)*0.055*(1+scIn(bZoom)*2.2);
-    const size=base*(2.2-1.2*scOut(acq))*(1+gone*.35);
-    const a=(isWin?1:1-gone)*scOut(acq)*fade;
-    if(a<=.01) return;
-    let col='#cfe0ff';
-    if(isWin&&bConf>0) col = bConf<.35 ? SCOPE_GREEN
-      : (tier===3 ? SCOPE_GREEN : mix(SCOPE_GREEN,tint,scOut(scSeg(bConf,.35,.8))));
-    x.strokeStyle=rgba(col,a*(.55+(isWin?bConf*.45:0)));
-    x.lineWidth=1.6+(isWin?bConf*2.6:0); x.lineCap='butt';
-    const L=size*.34;
-    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(u=>{
-      const px=q[0]+u[0]*size, py=q[1]+u[1]*size;
-      x.beginPath();
-      x.moveTo(px-u[0]*L,py); x.lineTo(px,py); x.lineTo(px,py-u[1]*L); x.stroke();
-    });
-    if(isWin&&bConf>0){
-      for(let z=0;z<T.pulses;z++){
-        const ph=clamp(bConf*1.4-z*.18,0,1); if(ph<=0||ph>=1)continue;
-        x.strokeStyle=rgba(col,(1-ph)*.55); x.lineWidth=2+(1-ph)*3;
-        x.beginPath(); x.arc(q[0],q[1],size*(1+ph*2.4),0,TAU); x.stroke();
-      }
-    }
-    if(zf<.12){                                  // 진 표적은 문구 없이 꺼진다
-      x.font='11px ui-monospace,Consolas,monospace'; x.textAlign='left';
-      x.fillStyle=rgba(col,a*.9*(1-zf/.12));
-      x.fillText(isWin&&bConf>.2?(bConf>.5?T.label:'ANALYSING…'):t.id, q[0]+size+6, q[1]-size+11);
-    }
-  });
-
-  /* 발견 — 도감처럼 천천히 자전한다 */
-  if(bLand>0){
-    const q=S(win.x,win.y);
-    const R=Math.min(W,H)*0.20*scOut(bLand);
-    const g=scopeGlobe(b,SC.spin);
-    if(g){
-      const blur=26*(1-scOut(bLand));
-      x.save();
-      if(blur>.3) x.filter='blur('+blur.toFixed(1)+'px)';
-      const need=R*2*globeFit(SC_GLOBE);
-      x.drawImage(g,q[0]-need/2,q[1]-need/2,need,need);
-      x.restore();
-    }
-  }
-
-  /* 확인 — 섬광은 표적 둘레에만. 화면을 전부 덮으면 성단이 묻힌다. */
-  if(bConf>0&&bConf<1){
-    const f=Math.sin(bConf*Math.PI), q=S(win.x,win.y), fr=Math.min(W,H)*.30;
-    const g=x.createRadialGradient(q[0],q[1],0,q[0],q[1],fr);
-    g.addColorStop(0,rgba('#ffffff',f*T.flash));
-    g.addColorStop(.30,rgba(tier===3?SCOPE_GREEN:tint,f*T.flash*.45));
-    g.addColorStop(1,rgba(tier===3?SCOPE_GREEN:tint,0));
-    x.fillStyle=g; x.beginPath(); x.arc(q[0],q[1],fr,0,TAU); x.fill();
-    for(let z=0;z<T.shock;z++){
-      const ph=clamp(bConf*2.1-z*.22,0,1); if(ph<=0||ph>=1)continue;
-      x.strokeStyle=rgba(tint,Math.pow(1-ph,1.8)*.45);
-      x.lineWidth=2.5*(1-ph)+.8;
-      x.beginPath(); x.arc(q[0],q[1],ph*Math.min(W,H)*.42,0,TAU); x.stroke();
-    }
-  }
-  if(bConf>0){
-    x.fillStyle=rgba(tint,T.wash*(bConf>=1?(1-bZoom*.5):bConf));
-    x.fillRect(0,0,W,H);
-  }
-  x.restore();
-
-  /* ── 아이피스 ── */
-  x.save(); x.fillStyle='#000';
-  x.beginPath(); x.rect(0,0,W,H); x.arc(cx,cy,iris,0,TAU,true); x.fill('evenodd');
-  x.restore();
-
-  const vg=x.createRadialGradient(cx,cy,iris*.62,cx,cy,iris);
-  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.72)');
-  x.fillStyle=vg; x.beginPath(); x.arc(cx,cy,iris,0,TAU); x.fill();
-
-  x.strokeStyle=rgba(bConf>.4?tint:'#8ea5c9',.34+bConf*.3);
-  x.lineWidth=2; x.beginPath(); x.arc(cx,cy,iris,0,TAU); x.stroke();
-  x.strokeStyle=rgba('#8ea5c9',.10);
-  x.lineWidth=10; x.beginPath(); x.arc(cx,cy,iris+6,0,TAU); x.stroke();
-
-  const ret=(1-scOut(bZoom))*(1-bLand);
-  if(ret>.02){
-    x.save(); x.globalAlpha=ret;
-    x.strokeStyle=rgba('#8ea5c9',.20); x.lineWidth=1;
-    for(let k=0;k<72;k++){
-      const a=k/72*TAU, big=k%6===0;
-      const r1=iris*(big?.945:.968), r2=iris*.995;
-      x.beginPath();
-      x.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
-      x.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2); x.stroke();
-    }
-    x.strokeStyle=rgba('#8ea5c9',.16);
-    x.beginPath();
-    x.moveTo(cx-iris*.9,cy); x.lineTo(cx-iris*.06,cy);
-    x.moveTo(cx+iris*.06,cy); x.lineTo(cx+iris*.9,cy);
-    x.moveTo(cx,cy-iris*.9); x.lineTo(cx,cy-iris*.06);
-    x.moveTo(cx,cy+iris*.06); x.lineTo(cx,cy+iris*.9);
-    x.stroke();
-    x.restore();
-  }
-
-  /* ── 계기 ── */
-  const lose=SC.tg.length-1;
-  const msg = bLand>0 ? '발견'
-            : bZoom>0 ? 'APPROACHING'
-            : bConf>0 ? T.label
-            : bJudge>0? 'EVALUATING  '+(lose-Math.round((1-bJudge)*lose))+'/'+lose
-            : bScan>0 ? 'ACQUIRING  '+Math.min(SC.tg.length,Math.ceil(bScan*SC.tg.length*1.2))+'/'+SC.tg.length
-            : 'FIELD OPEN';
-  x.textAlign='center';
-  x.font='12px ui-monospace,Consolas,monospace';
-  x.fillStyle=rgba(bConf>.4?tint:'#8ea5c9',.9);
-  x.fillText(msg, cx, cy+iris+30);
-  /* 사진을 쓸 때는 크레딧을 함께 적는다 — CC BY 4.0 의 조건이다. 지우지 말 것. */
-  if(bLand<.4){
-    x.font='10.5px ui-monospace,Consolas,monospace';
-    x.fillStyle=rgba('#5f6d90',.8*(1-bLand/.4));
-    x.fillText(_m13 ? 'M13 · GLOBULAR CLUSTER · NOIRLab/NSF/AURA'
-                    : 'M13 · GLOBULAR CLUSTER · 7.1 kpc', cx, cy+iris+48);
-  }
-
-  /* 발견 — 이름과 등급 */
-  if(bLand>.35){
-    const a=scOut(scSeg(bLand,.35,1)), R=Math.min(W,H)*0.20;
-    x.fillStyle=rgba(tint,a);
-    x.font='700 15px ui-monospace,Consolas,monospace';
-    x.fillText('★'.repeat(b.t)+'☆'.repeat(5-b.t), cx, cy-R-46);
-    x.fillStyle=rgba('#e8eefc',a);
-    x.font='700 30px Pretendard,system-ui,sans-serif';
-    x.fillText(b.n, cx, cy-R-14);
-    x.fillStyle=rgba('#98a6c8',a*.9);
-    x.font='13px Pretendard,system-ui,sans-serif';
-    x.fillText(b.d, cx, cy+R+34);
-  }
-  if(SC.held&&!SC.dismiss){
-    x.fillStyle=rgba('#98a6c8',.35+.25*Math.sin(performance.now()/520));
-    x.font='12px Pretendard,system-ui,sans-serif';
-    x.fillText('화면을 누르면 닫힙니다', cx, H-30);
-  }
-  x.textAlign='left';
-}
 
 /* ==========================================================================
    발견 연출 — 완주하면 그 연출의 결말로 천체가 드러난다
@@ -5922,8 +5510,7 @@ function scopeDraw(p){
      탐사선 항해 귀환한 탐사선이 이미지를 주사선 단위로 내려보낸다
 
    길이는 넷 다 SCOPE_DUR(4.2초)로 같고, 등급은 마지막 구간에만 실린다.
-   가챠 연출(scopeDraw)과 오버레이·루프·탭 처리를 공유한다 — SC.fx 가
-   있으면 이쪽으로 갈린다.
+   오버레이(`#scopeFx`)·루프(`scopeLoop`)·탭 처리를 함께 쓴다.
 
    그리는 순서가 곧 읽히는 순서다: 장면 → rvChrome(모눈·비네트) → 수치 →
    상태 → 이름표. **수치를 겉면보다 먼저 그리면 비네트에 묻힌다.**
@@ -6568,12 +6155,6 @@ function revealStart(body,fx,onDone){
   _scopeRaf=requestAnimationFrame(scopeLoop);
 }
 
-function showPull(b,bn){
-  scopeStart(b,null);
-}
-$('#btnPull').onclick=pull;
-$('#btnPull5').onclick=()=>pullMany(5);
-$('#btnPull10').onclick=()=>pullMany(10);
 
 /** 카드/도감용 썸네일.
     도감에서는 천체 주변으로 퍼지는 빛을 그리지 않는다 — 정사각형 캔버스
@@ -6638,70 +6219,6 @@ function drawRingFlat(ctx,x,y,r,id,part){
   ctx.restore();
 }
 
-function renderGacha(){
-  paintTokens();
-  ['star','planet','moon'].forEach(bn=>{
-    $('#cnt'+bn[0].toUpperCase()+bn.slice(1)).textContent=
-      `${S.owned[bn].length}/${POOLS[bn].length}`;
-  });
-  const bn=curBanner, M=BANNER_META[bn], body=$('#gachaBody');
-  const rem=remainOf(bn), P=S.pity[bn];
-
-  const t5=tierCount(bn,5),t4=tierCount(bn,4),t3=tierCount(bn,3);
-  body.innerHTML=`
-    <div class="bannerArt" id="bArt">
-      <canvas></canvas>
-      <div class="txt"><h3>${M.name}</h3><p>${M.sub}</p></div>
-    </div>
-    <div class="rates">
-      <div class="rate"><div class="s s5">★★★★★</div><div class="p">4%</div><div class="c">${t5.own}/${t5.all} 보유</div></div>
-      <div class="rate"><div class="s s4">★★★★</div><div class="p">22%</div><div class="c">${t4.own}/${t4.all} 보유</div></div>
-      <div class="rate"><div class="s s3">★★★</div><div class="p">74%</div><div class="c">${t3.own}/${t3.all} 보유</div></div>
-    </div>
-    <div class="pityBar"><i style="width:${Math.min(100,P.p4/PITY4*100)}%"></i></div>
-    <div class="pityTxt">${PITY4-P.p4}회 안에 ★4 이상 확정 · ★5 확정까지 ${Math.max(0,PITY5-P.p5)}회</div>
-    <div class="secLbl" style="margin-top:20px">이 배너의 천체 · 보유 ${S.owned[bn].length} / ${POOLS[bn].length}종</div>
-    <div class="dexGrid">${POOLS[bn].slice().sort((a,b)=>
-        (S.owned[bn].includes(b.id)?1:0)-(S.owned[bn].includes(a.id)?1:0) || b.t-a.t
-      ).map(b=>{
-        const own=S.owned[bn].includes(b.id);
-        const placed=own&&isPlaced(b.id);
-        return `<div class="dex ${own?'t'+b.t:'locked'}" ${own?`data-id="${b.id}" style="cursor:pointer"`:''}>
-          ${placed?'<div class="placed">배치됨</div>':''}
-          <canvas width="120" height="120" ${own?'':'data-lock="1"'}></canvas>
-          <div class="n">${own?b.n:'???'}</div>
-          <div class="s s${b.t}">${'★'.repeat(b.t)}</div>
-        </div>`;}).join('')}</div>
-    ${rem.length?'':`<div class="emptyMsg" style="padding:18px 8px 0">이 배너의 모든 천체를 수집했습니다 ✦</div>`}
-  `;
-  // 배너 아트
-  const ac=$('#bArt canvas'), r=$('#bArt').getBoundingClientRect();
-  ac.width=Math.max(360,r.width)*2;ac.height=120*2;
-  const x=ac.getContext('2d');x.scale(2,2);
-  const w=ac.width/2,h=120;
-  const gg=x.createLinearGradient(0,0,w,h);
-  gg.addColorStop(0,M.g1);gg.addColorStop(1,M.g2);
-  x.fillStyle=gg;x.fillRect(0,0,w,h);
-  const rr=mulberry(fnv(bn));
-  for(let i=0;i<70;i++){
-    x.globalAlpha=.15+rr()*.6;x.fillStyle='#fff';
-    x.beginPath();x.arc(rr()*w,rr()*h,rr()>.9?1.3:.6,0,TAU);x.fill();
-  }
-  x.globalAlpha=1;
-  // 대표 천체(★5) 실루엣 — 오른쪽에 배치하고 제목 쪽은 스크림으로 덮는다
-  const sample=POOLS[bn].filter(b=>b.t===5).slice(0,3);
-  sample.forEach((b,i)=>{
-    const bx=w-56-i*72, by=h*.5;
-    if(bn==='star') drawStar(x,bx,by,18,b.c1,.9,performance.now()/1000,Object.assign({haloK:2.4},b.f||{}));
-    else drawBody(x,bx,by,18,b,-2.3,1);
-  });
-  const scrim=x.createLinearGradient(0,0,w*.72,0);
-  scrim.addColorStop(0,rgba(M.g1,.92));
-  scrim.addColorStop(.45,rgba(M.g1,.62));
-  scrim.addColorStop(1,rgba(M.g1,0));
-  x.fillStyle=scrim;x.fillRect(0,0,w*.72,h);
-  paintDexCards(body,bn);
-}
 
 /** 도감/배너 카드의 캔버스를 채우고, 보유분은 상세 보기로 연결한다 */
 function paintDexCards(root,bn){
@@ -7697,12 +7214,6 @@ $('#btnShoot').onclick=()=>{
   }catch(e){_hideGuide=false;warn('촬영에 실패했습니다');}
 };
 
-$$('.tab').forEach(t=>t.onclick=()=>{
-  $$('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
-  curBanner=t.dataset.bn;renderGacha();
-});
-$('#btnGacha').onclick=()=>{if(!S.created||guard())return;renderGacha();open('mGacha');};
-
 /* ==========================================================================
    9. 항성계 설정
    ========================================================================== */
@@ -8593,7 +8104,7 @@ function diffFields(a,b){
   return out;
 }
 function afterAccountSwitch(){
-  syncAdminUI();paintTokens();paintInbox();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
+  syncAdminUI();paintInbox();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
   $('#inCount').value=S.timer.count;$('#inFocus').value=S.timer.focus;
   $('#inBreak').value=S.timer.brk;$('#inLong').value=S.timer.long;$('#inEvery').value=S.timer.every;
   $('#mdCount').classList.toggle('on',S.timer.mode==='count');
@@ -8603,7 +8114,7 @@ function afterAccountSwitch(){
   VIEW.follow=null;VIEW.zoom=VIEW.zoomTo=fitZoom();updateViewUI();
   paintAccount();renderAccount();
   if(!S.created){
-    close('mAccount');close('mSystem');close('mGacha');   // 인트로가 다른 창과 겹치지 않게
+    close('mAccount');close('mSystem');   // 인트로가 다른 창과 겹치지 않게
     open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);
   }
   else close('mIntro');
@@ -8661,7 +8172,6 @@ async function doAdminReset(bn){
   saveNow();
   syncAdminUI();updateTimerUI();renderAccount();
   VIEW.follow=null;VIEW.zoomTo=fitZoom();updateViewUI();
-  if($('#mGacha').classList.contains('on'))renderGacha();
   if($('#mDex').classList.contains('on'))renderDex();
   if($('#mSystem').classList.contains('on'))renderSystem();
   toast(`${label} 도감을 초기화했습니다 · ${n}종 삭제`);
@@ -8944,7 +8454,6 @@ function boot(){
   paintSound();
   document.body.classList.toggle('menuOpen',!!S.menuOpen);
 
-  paintTokens();
   paintInbox();                    // 자리를 비운 사이 쌓인 알림이 있으면 점을 켠다
   VIEW.zoom=VIEW.zoomTo=fitZoom();
   updateViewUI();
