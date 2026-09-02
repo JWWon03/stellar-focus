@@ -1706,16 +1706,16 @@ const STAR_POOL=[
    d:'우리 태양. 평범한 G형 별이지만 지구 생명의 전부다.',
    dd:'은하 기준으로는 아주 흔한 G2V형 주계열성이다. 중심에서 수소 핵융합으로 초당 400만 톤의 질량을 빛으로 바꾸며, 이미 46억 년을 그렇게 태웠고 앞으로 50억 년을 더 탄다. 표면의 흑점은 자기장이 대류를 막아 주변보다 1,500도쯤 차가워진 자리다. 지구에 닿는 빛은 8분 20초 전에 떠난 것이다.',
    st:[['분광형','G2V'],['표면온도','5,778 K'],['반지름','696,000 km'],['나이','46억 년']]},
-  {id:'st_proxima',n:'프록시마 켄타우리',en:'Proxima Centauri',cls:'M형 적색왜성 · 플레어별',t:3,sz:.42,m:0.122,c1:'#ff6b45',c2:'#8f2410',f:{glow:1},
+  {id:'st_proxima',n:'프록시마 센타우리',en:'Proxima Centauri',cls:'M형 적색왜성 · 플레어별',t:3,sz:.42,m:0.122,c1:'#ff6b45',c2:'#8f2410',f:{glow:1},
    d:'태양에서 가장 가까운 별. 그래도 4.2광년이다.',
    dd:'우리에게 가장 가까운 항성이지만 너무 어두워 맨눈으로는 보이지 않는다. 질량이 태양의 8분의 1뿐인 적색왜성이라 연료를 아주 천천히 태우며 수명이 4조 년에 달한다. 대신 성질이 사나워 몇 시간 만에 밝기가 수십 배로 치솟는 플레어를 자주 일으킨다. 이 별을 도는 프록시마 b가 거주가능 영역 안에 있다.',
    st:[['분광형','M5.5Ve'],['거리','4.24광년'],['표면온도','3,042 K'],['수명','약 4조 년']]},
-  {id:'st_acena',n:'알파 켄타우리 A',en:'Alpha Centauri A',cls:'G형 주계열성',t:3,sz:.78,m:1.079,c1:'#fff0b8',c2:'#e0a040',f:{glow:1},
+  {id:'st_acena',n:'알파 센타우리 A',en:'Alpha Centauri A',cls:'G형 주계열성',t:3,sz:.78,m:1.079,c1:'#fff0b8',c2:'#e0a040',f:{glow:1},
    d:'태양과 거의 판박이인 이웃 별.',
-   dd:'분광형도 색도 태양과 사실상 같고 질량만 8% 무겁다. 밤하늘에서 세 번째로 밝지만 실제로는 가까워서 밝을 뿐이다. 알파 켄타우리 B와 80년 주기로 서로를 돌고, 훨씬 멀리서 프록시마가 이 쌍을 도는 삼중성계를 이룬다. 인류가 성간 탐사를 상상할 때 가장 먼저 떠올리는 목적지다.',
+   dd:'분광형도 색도 태양과 사실상 같고 질량만 8% 무겁다. 밤하늘에서 세 번째로 밝지만 실제로는 가까워서 밝을 뿐이다. 알파 센타우리 B와 80년 주기로 서로를 돌고, 훨씬 멀리서 프록시마가 이 쌍을 도는 삼중성계를 이룬다. 인류가 성간 탐사를 상상할 때 가장 먼저 떠올리는 목적지다.',
    st:[['분광형','G2V'],['거리','4.37광년'],['공전 주기','79.9년'],['동반성','2개']]},
-  {id:'st_acenb',n:'알파 켄타우리 B',en:'Alpha Centauri B',cls:'K형 주계열성',t:3,sz:.66,m:0.909,c1:'#ffc978',c2:'#c26a1e',f:{glow:1},
-   d:'알파 켄타우리 A의 짝. 조금 작고 조금 붉다.',
+  {id:'st_acenb',n:'알파 센타우리 B',en:'Alpha Centauri B',cls:'K형 주계열성',t:3,sz:.66,m:0.909,c1:'#ffc978',c2:'#c26a1e',f:{glow:1},
+   d:'알파 센타우리 A의 짝. 조금 작고 조금 붉다.',
    dd:'K형 주황색 왜성으로 짝별보다 어둡고 차갑다. A와의 거리는 태양–토성 정도에서 태양–명왕성 정도까지 주기적으로 변한다. 이런 쌍성계에서도 충분히 안쪽 궤도라면 행성이 안정적으로 존재할 수 있다는 것이 계산으로 확인되어 있다.',
    st:[['분광형','K1V'],['거리','4.37광년'],['표면온도','5,260 K'],['질량','태양의 0.91배']]},
   {id:'st_barnard',n:'바너드별',en:"Barnard's Star",cls:'M형 적색왜성',t:3,sz:.44,m:0.144,c1:'#ff7a4a',c2:'#962c12',f:{glow:1},
@@ -2126,7 +2126,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.01-r16';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.01-r17';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2;
@@ -6001,11 +6001,13 @@ function rvChrome(x,W,H,color,fade){
 const RV_MONO='ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
 /** 왼쪽 위 관측 수치. 이름표가 뜨기 전에 **완전히 걷어야** 한다 — 겹치면 둘 다 못 읽는다. */
 function rvReadout(x,W,H,lines,color,alpha,ty){
-  const M=Math.min(W,H), s=Math.max(10,M*.0205);
-  const geo={x:M*.075, y:ty===undefined?M*.11:ty, lh:s*1.5};
+  /* **집중 연출의 상태 문구(`drawScopeReadout`)와 같은 글씨다** — `500 10px`
+     모노에 옅은 알파. 화면 비율로 키우면 큰 화면에서 20px 이 넘어 투박해진다
+     (사용자 지적). 계측 화면의 글씨는 작고 정갈해야 읽힌다. */
+  const M=Math.min(W,H), s=10, geo={x:M*.075, y:ty===undefined?M*.11:ty, lh:15};
   if(alpha<=0) return geo;
   x.save(); x.globalAlpha=alpha; x.textAlign='left';
-  x.font=s+'px '+RV_MONO; x.fillStyle=rgba(color,.95);
+  x.font='500 '+s+'px '+RV_MONO; x.fillStyle=rgba(color,.66);
   lines.filter(Boolean).forEach((t,i)=>x.fillText(t,geo.x,geo.y+geo.lh*i));
   x.restore();
   return geo;
@@ -6042,8 +6044,8 @@ function rvDone(x,W,H,t,now,LO,txt){
 }
 function rvStatus(x,W,H,txt,color){
   x.save(); x.textAlign='center';
-  x.font=Math.max(10,Math.min(W,H)*.0215)+'px '+RV_MONO;
-  x.fillStyle=rgba(color,.9);
+  x.font='500 10px '+RV_MONO;                 // 집중 연출과 같은 글씨
+  x.fillStyle=rgba(color,.62);
   x.fillText(txt, W/2, H-Math.min(W,H)*.055);
   x.restore();
 }
