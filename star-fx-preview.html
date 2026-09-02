@@ -174,20 +174,40 @@ function field(x,W,H,seed,n,shift){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   후보 A · 분광 관측 — 흡수선이 하나씩 드러난다
-   실제로 별을 분류하는 방법이다. STAR_POOL 의 cls('G형 주계열성')가
-   바로 이 관측의 결과다.
+   후보 A · 분광 관측 — 흡수선이 잡음 위로 하나씩 떠오른다
+
+   실제 관측 화면을 따랐다. 무지개 띠는 교과서용 그림이고, 관측자가
+   실제로 보는 것은 **플럭스 대 파장 그래프**다 — 들쭉날쭉한 선이고
+   흡수선은 아래로 파인 골이다. 그 위에 원본 2D 프레임(회색 띠에 검은
+   세로줄)을 같이 놓는 것이 보통이다.
+
+   **강한 선부터 떠오른다.** SNR 이 √노출시간으로 자라므로 깊은 선
+   (Ca II K · Hα)이 먼저 잡음을 뚫고, 약한 철선이 나중에 나온다.
    ══════════════════════════════════════════════════════════════ */
-/* 실측 파장(nm). 태양형 별에서 실제로 보이는 흡수선들이다. */
+/* 실측 파장(nm)과 태양형(G2V) 별에서의 대략적인 선 깊이.
+   depth 는 연속광 대비 얼마나 파이는가 — 이 순서대로 잡음 위로 떠오른다. */
 const LINES=[
-  {nm:393.4,el:'Ca II K'},{nm:396.8,el:'Ca II H'},{nm:410.2,el:'H δ'},
-  {nm:422.7,el:'Ca I'},  {nm:434.0,el:'H γ'},   {nm:438.4,el:'Fe I'},
-  {nm:486.1,el:'H β'},   {nm:495.8,el:'Fe I'},  {nm:517.3,el:'Mg b'},
-  {nm:527.0,el:'Fe I'},  {nm:589.0,el:'Na D'},  {nm:610.3,el:'Ca I'},
-  {nm:656.3,el:'H α'},   {nm:686.7,el:'O₂'}
+  {nm:393.4,el:'Ca II K',depth:.72},
+  {nm:396.8,el:'Ca II H',depth:.66},
+  {nm:656.3,el:'H α',    depth:.52},
+  {nm:589.0,el:'Na D',   depth:.48},
+  {nm:486.1,el:'H β',    depth:.44},
+  {nm:517.3,el:'Mg b',   depth:.40},
+  {nm:430.8,el:'G band', depth:.36},
+  {nm:434.0,el:'H γ',    depth:.32},
+  {nm:410.2,el:'H δ',    depth:.26},
+  {nm:422.7,el:'Ca I',   depth:.22},
+  {nm:438.4,el:'Fe I',   depth:.19},
+  {nm:527.0,el:'Fe I',   depth:.16},
+  {nm:495.8,el:'Fe I',   depth:.13},
+  {nm:610.3,el:'Ca I',   depth:.11}
 ];
 const NM0=380, NM1=700;
-/** 파장 → 눈에 보이는 색 */
+/* 분광형 후보 — 관측이 쌓일수록 좁혀진다. 실제로도 표준성 스펙트럼과
+   맞춰 보며 좁힌다(template matching). */
+const TYPES=['O','B','A','F','G','K','M'];
+
+/** 파장 → 눈에 보이는 색. 2D 프레임을 옅게 물들이는 데만 쓴다. */
 function nmColor(nm){
   let r=0,g=0,b=0;
   if(nm<440){r=-(nm-440)/60;b=1;}
@@ -201,78 +221,179 @@ function nmColor(nm){
           Math.round(255*Math.pow(Math.max(0,g)*f,.8)),
           Math.round(255*Math.pow(Math.max(0,b)*f,.8))];
 }
+
+/** 노출이 쌓인 정도(0~1) → 지금 몇 개의 선이 잡음을 뚫었는가.
+    SNR ∝ √t 이고, 선은 depth 가 잡음보다 커질 때 보인다. */
+function linesUp(expo){
+  const snr=1.2+Math.sqrt(Math.max(0,expo))*26;   // dB 비슷한 값
+  const noise=1.35/snr;                            // 잡음 진폭
+  let n=0; LINES.forEach(L=>{ if(L.depth>noise*2.6) n++; });
+  return {n, snr, noise};
+}
+
 function drawSpectro(x,W,H,p,now,mode){
   const M=Math.min(W,H), cx=W/2;
   const rev = mode==='reveal';
-  // 결말에서는 스펙트럼이 물러나고 별이 앞으로 나온다
+  const expo = rev ? 1 : p;
   const back = rev ? clamp(1-seg(p,.45,.72),0,1) : 1;
-  const shown = rev ? 1 : p;                 // 관측된 선의 비율
-  const found = Math.round(LINES.length*(rev?1:seg(p,.06,.96)));
+  const st = linesUp(expo);
+  const found = rev ? LINES.length : st.n;
 
-  // 슬릿을 겨눈 대상 별
-  const sy=H*0.20, sR=M*0.026;
-  const cls = rev ? seg(p,.50,.80) : 0;
-  const c1 = cls>0 ? '#fff3d0' : '#e9eef8';
-  star(x,cx,sy,sR*(rev?lerp(1,1.6,ease(seg(p,.45,.8))):1),c1,cls>0?'#ffc861':'#9fb4d8',back*.9+.1);
+  /* ── 슬릿을 겨눈 대상 별 ── */
+  const sy=H*0.155, sR=M*0.024;
+  star(x,cx,sy,sR*(rev?lerp(1,1.5,ease(seg(p,.45,.8))):1),
+       rev&&seg(p,.5,.8)>0?'#fff3d0':'#e9eef8',
+       rev&&seg(p,.5,.8)>0?'#ffc861':'#9fb4d8', back*.9+.1);
   if(back>.02){
     x.save(); x.globalAlpha=back;
-    x.strokeStyle=rgba('#c9a6ff',.5); x.lineWidth=1;
-    x.beginPath(); x.moveTo(cx-M*.06,sy+sR*2.6); x.lineTo(cx+M*.06,sy+sR*2.6); x.stroke();
-    x.beginPath(); x.moveTo(cx,sy+sR*2.6); x.lineTo(cx,H*0.40); x.stroke();  // 슬릿 → 분광기
+    x.strokeStyle=rgba('#c9a6ff',.45); x.lineWidth=1;
+    // 슬릿 — 별빛이 여기로 들어간다
+    x.beginPath(); x.moveTo(cx-M*.055,sy+sR*2.8); x.lineTo(cx+M*.055,sy+sR*2.8); x.stroke();
+    x.beginPath(); x.moveTo(cx,sy+sR*2.8); x.lineTo(cx,H*0.275); x.stroke();
+    x.textAlign='center'; x.font='9px '+MONO; x.fillStyle=rgba('#c9a6ff',.45);
+    x.fillText('SLIT',cx+M*.078,sy+sR*2.8+3);
     x.restore();
   }
 
-  // ── 스펙트럼 띠 ──
-  const bw=W*0.80, bh=M*0.15, bx=(W-bw)/2, by=H*0.42;
+  const gw=W*0.80, gx0=(W-gw)/2;
+  const nmToX=nm=>gx0+gw*(nm-NM0)/(NM1-NM0);
+
+  /* ── ① 원본 2D 프레임 — 회색 띠에 검은 세로줄 ── */
+  const fy=H*0.285, fh=M*0.075;
   if(back>.02){
     x.save(); x.globalAlpha=back;
-    const g=x.createLinearGradient(bx,0,bx+bw,0);
-    for(let i=0;i<=32;i++){ const nm=lerp(NM0,NM1,i/32), c=nmColor(nm);
-      g.addColorStop(i/32,`rgb(${c[0]},${c[1]},${c[2]})`); }
-    x.fillStyle=g; x.fillRect(bx,by,bw,bh);
-    // 아직 노출이 덜 된 만큼 잡음이 낀다
-    const noise=1-shown;
-    if(noise>.01){
-      const rn=mulberry((Math.floor(now/70)*2654435761)>>>0);
-      for(let i=0;i<Math.round(260*noise);i++){
-        x.fillStyle=rgba('#000000',.10+rn()*.35);
-        x.fillRect(bx+rn()*bw, by+rn()*bh, 1+rn()*3, 1+rn()*2);
-      }
-      x.fillStyle=rgba('#04050b',noise*.45); x.fillRect(bx,by,bw,bh);
+    // 연속광 — 색온도를 아주 옅게만 물들인다(실제 화면도 거의 흑백이다)
+    const g=x.createLinearGradient(gx0,0,gx0+gw,0);
+    for(let i=0;i<=24;i++){ const nm=lerp(NM0,NM1,i/24), c=nmColor(nm);
+      g.addColorStop(i/24,`rgb(${Math.round(150+c[0]*.35)},${Math.round(150+c[1]*.35)},${Math.round(150+c[2]*.35)})`); }
+    x.fillStyle=g; x.fillRect(gx0,fy,gw,fh);
+    // 세로로는 슬릿 상이라 위아래가 어둡다
+    const v=x.createLinearGradient(0,fy,0,fy+fh);
+    v.addColorStop(0,'rgba(4,5,11,.85)'); v.addColorStop(.5,'rgba(4,5,11,0)');
+    v.addColorStop(1,'rgba(4,5,11,.85)');
+    x.fillStyle=v; x.fillRect(gx0,fy,gw,fh);
+    // 검출된 선만 세로줄로 파인다
+    LINES.forEach((L,i)=>{
+      if(i>=found)return;
+      const lx=nmToX(L.nm);
+      x.fillStyle=rgba('#04050b',.55+L.depth*.45);
+      x.fillRect(lx-1.2,fy,2.4,fh);
+    });
+    // 읽기 잡음
+    const rn=mulberry((Math.floor(now/70)*2654435761)>>>0);
+    for(let i=0;i<Math.round(240*(0.25+st.noise*3));i++){
+      x.fillStyle=rgba(rn()<.5?'#000000':'#ffffff',.05+rn()*.16);
+      x.fillRect(gx0+rn()*gw, fy+rn()*fh, 1+rn()*2, 1);
     }
-    // 흡수선 — SNR 이 오르면 하나씩 또렷해진다
+    x.strokeStyle=rgba('#c9a6ff',.30); x.lineWidth=1; x.strokeRect(gx0,fy,gw,fh);
+    x.textAlign='left'; x.font='9px '+MONO; x.fillStyle=rgba('#98a6c8',.45);
+    x.fillText('RAW FRAME  ·  ECHELLE ORDER 34',gx0,fy-5);
+    x.restore();
+  }
+
+  /* ── ② 추출한 1D 스펙트럼 — 관측자가 실제로 읽는 화면 ── */
+  const py=H*0.415, ph=M*0.30;
+  if(back>.02){
+    x.save(); x.globalAlpha=back;
+    // 축
+    x.strokeStyle=rgba('#c9a6ff',.22); x.lineWidth=1;
+    x.strokeRect(gx0,py,gw,ph);
+    x.setLineDash([2,4]); x.strokeStyle=rgba('#c9a6ff',.18);
+    [0.25,0.5,0.75].forEach(f=>{ x.beginPath();
+      x.moveTo(gx0,py+ph*f); x.lineTo(gx0+gw,py+ph*f); x.stroke(); });
+    x.setLineDash([]);
+    x.textAlign='right'; x.font='9px '+MONO; x.fillStyle=rgba('#98a6c8',.45);
+    x.fillText('1.0',gx0-5,py+ph*0.22+3);
+    x.fillText('0.5',gx0-5,py+ph*0.61+3);
+    x.save(); x.translate(gx0-M*.055,py+ph/2); x.rotate(-Math.PI/2);
+    x.textAlign='center'; x.fillText('NORMALISED FLUX',0,0); x.restore();
+
+    // 연속광 기준선
+    const base=py+ph*0.22;
+    x.setLineDash([5,4]); x.strokeStyle=rgba('#ffc65c',.35);
+    x.beginPath(); x.moveTo(gx0,base); x.lineTo(gx0+gw,base); x.stroke(); x.setLineDash([]);
+
+    /* 스펙트럼 자체. 잡음은 노출이 쌓일수록 줄고, 검출된 선만 골이 된다.
+       한 세션 안에서 같은 모양이라야 하므로 잡음은 결정론적으로 뽑는다. */
+    const rn=mulberry(0x5EC7);
+    const jitter=mulberry((Math.floor(now/90)*2246822519)>>>0);
+    x.strokeStyle=rgba('#e8eefc',.92); x.lineWidth=1.2;
+    x.beginPath();
+    const N=260;
+    for(let i=0;i<=N;i++){
+      const t=i/N, nm=lerp(NM0,NM1,t);
+      let f=1;
+      // 검출된 선은 가우시안 골로 판다
+      LINES.forEach((L,k)=>{
+        if(k>=found)return;
+        const d=(nm-L.nm)/2.6;
+        f-=L.depth*Math.exp(-d*d);
+      });
+      // 아직 못 뚫은 선도 잡음에 섞여 아주 얕게는 있다
+      LINES.forEach((L,k)=>{
+        if(k<found)return;
+        const d=(nm-L.nm)/2.6;
+        f-=L.depth*Math.exp(-d*d)*0.25*(1-st.noise);
+      });
+      f-=(rn()-.5)*st.noise*1.7 + (jitter()-.5)*st.noise*0.5;
+      const qx=gx0+gw*t, qy=base+(1-clamp(f,-0.15,1.25))*ph*0.62;
+      i?x.lineTo(qx,qy):x.moveTo(qx,qy);
+    }
+    x.stroke();
+
+    // 검출된 선에 이름표
     x.textAlign='center'; x.font='9px '+MONO;
     LINES.forEach((L,i)=>{
-      const t=(L.nm-NM0)/(NM1-NM0), lx=bx+bw*t;
-      const on=i<found ? 1 : 0;
-      if(!on) return;
-      const a=clamp((found-i),0,1);
-      x.fillStyle=rgba('#04050b',.88*a);
-      x.fillRect(lx-1.1, by, 2.2, bh);
-      x.fillStyle=rgba('#c9a6ff',.75*a);
-      x.fillRect(lx-.4, by, .8, bh);
-      if(a>.6){ x.fillStyle=rgba('#c9a6ff',.55*a);
-        x.save(); x.translate(lx,by-5); x.rotate(-Math.PI/2);
-        x.textAlign='left'; x.fillText(L.el,0,3); x.restore(); }
+      if(i>=found)return;
+      const lx=nmToX(L.nm);
+      x.strokeStyle=rgba('#c9a6ff',.30); x.lineWidth=1;
+      x.beginPath(); x.moveTo(lx,py+ph*0.06); x.lineTo(lx,base+L.depth*ph*0.62); x.stroke();
+      x.fillStyle=rgba('#c9a6ff',.75);
+      x.save(); x.translate(lx,py+ph*0.05); x.rotate(-Math.PI/2);
+      x.textAlign='left'; x.fillText(L.el,0,3); x.restore();
     });
-    x.strokeStyle=rgba('#c9a6ff',.35); x.lineWidth=1; x.strokeRect(bx,by,bw,bh);
+
     // 파장 눈금
-    x.textAlign='center'; x.font='9px '+MONO; x.fillStyle=rgba('#98a6c8',.5);
-    [400,500,600,700].forEach(nm=>{
-      const lx=bx+bw*(nm-NM0)/(NM1-NM0);
-      x.beginPath(); x.moveTo(lx,by+bh); x.lineTo(lx,by+bh+4);
-      x.strokeStyle=rgba('#98a6c8',.35); x.stroke();
-      x.fillText(nm+' nm',lx,by+bh+15);
+    x.textAlign='center'; x.font='9px '+MONO;
+    [400,450,500,550,600,650,700].forEach(nm=>{
+      const lx=nmToX(nm);
+      x.strokeStyle=rgba('#98a6c8',.30); x.lineWidth=1;
+      x.beginPath(); x.moveTo(lx,py+ph); x.lineTo(lx,py+ph+4); x.stroke();
+      x.fillStyle=rgba('#98a6c8',.45); x.fillText(nm,lx,py+ph+15);
     });
+    x.fillText('WAVELENGTH (nm)',gx0+gw/2,py+ph+29);
     x.restore();
   }
 
-  // ── 결말: 분류가 확정되고 별이 제 색을 얻는다 ──
+  /* ── ③ 분광형 후보 — 표준성과 맞춰 좁힌다 ── */
+  const ty=H*0.80;
+  if(back>.02){
+    x.save(); x.globalAlpha=back;
+    const bw=gw/TYPES.length;
+    // 검출된 선이 많을수록 후보가 좁아진다 (G 로 수렴)
+    const conf=clamp(found/LINES.length,0,1);
+    x.textAlign='center'; x.font='10px '+MONO;
+    TYPES.forEach((T,i)=>{
+      const d=Math.abs(i-4);                       // G 가 정답
+      const alive = conf < 0.30 ? 1
+                  : conf < 0.62 ? (d<=1?1:0.18)
+                  : (d===0?1:0.10);
+      x.fillStyle=rgba(alive>.5?'#c9a6ff':'#5f6d90', alive);
+      x.fillRect(gx0+bw*i+2, ty, bw-4, M*0.012);
+      x.fillStyle=rgba(alive>.5?'#eef3ff':'#5f6d90', Math.max(.25,alive));
+      x.fillText(T, gx0+bw*i+bw/2, ty-6);
+    });
+    x.textAlign='left'; x.font='9px '+MONO; x.fillStyle=rgba('#98a6c8',.45);
+    x.fillText('TEMPLATE MATCH',gx0,ty-18);
+    x.restore();
+  }
+
+  /* ── 결말: 분류가 확정되고 별이 제 색을 얻는다 ── */
   if(rev && seg(p,.45,1)>0){
     const e=easeOut(seg(p,.84,.96));
-    const R=lerp(M*.042,M*.19,ease(seg(p,.45,.86)));
-    const gx=lerp(cx,W*0.30,e), gy=lerp(H*0.20,H/2,e);
-    star(x,gx,gy,lerp(sR*1.6,R,ease(seg(p,.45,.86))),'#fff3d0','#ffc861',1);
+    const R=lerp(M*.04,M*.185,ease(seg(p,.45,.86)));
+    const bx2=lerp(cx,W*0.30,e), by2=lerp(sy,H/2,e);
+    star(x,bx2,by2,R,'#fff3d0','#ffc861',1);
     const t=seg(p,.92,1);
     if(t>0){
       const a=easeOut(t), F=Math.min(W*.44,M*.058)*0.9;
@@ -295,20 +416,20 @@ function drawSpectro(x,W,H,p,now,mode){
   }
 
   chrome(x,W,H,'#c9a6ff',rev?clamp(1-seg(p,.80,.95),0,1):1);
-  const snr=(3.0+ (rev?1:p)*24).toFixed(1);
+  const mm=Math.floor(expo*25), ss=Math.floor(expo*25*60)%60;
   readout(x,W,H, rev?[
     'SPECTROGRAPH  R=48000',
-    'LINES     '+LINES.length+'/'+LINES.length,
-    'Teff      5344 K',
-    'TYPE      G2V'
+    'LINES      '+LINES.length+'/'+LINES.length,
+    'Teff       5344 K',
+    'TYPE       G2V'
   ]:[
     'SPECTROGRAPH  R=48000',
-    'EXPOSURE  '+Math.floor(p*25)+'m '+String(Math.floor(p*25*60)%60).padStart(2,'0')+'s',
-    'SNR       '+snr+' dB',
-    'LINES     '+found+'/'+LINES.length,
-    'TYPE      '+(found<5?'?':found<10?'~G?':'G2V')
+    'EXPOSURE   '+mm+'m '+String(ss).padStart(2,'0')+'s',
+    'SNR        '+st.snr.toFixed(1),
+    'LINES      '+found+'/'+LINES.length,
+    'TYPE       '+(found<4?'?':found<9?'F–G?':'G2V')
   ],'#c9a6ff', rev?clamp(seg(p,.05,.18)-seg(p,.66,.78),0,1):1,
-     rev?undefined:Math.min(W,H)*.11);
+     rev?undefined:Math.min(W,H)*.045);
 
   if(rev && seg(p,.84,.94)>0){
     x.save(); x.globalAlpha=easeOut(seg(p,.84,.94))*(0.88+0.12*Math.sin(now/760));
@@ -317,8 +438,8 @@ function drawSpectro(x,W,H,p,now,mode){
     x.restore();
   }else{
     status(x,W,H, rev?'흡수선이 분광형을 확정한다'
-                    : found<5?'노출 중 · 선이 아직 잡음에 묻혀 있다'
-                    : 'LINES '+found+'/'+LINES.length+' RESOLVED','#c9a6ff');
+                    : found<4?'노출 중 · 선이 아직 잡음에 묻혀 있다'
+                    : 'LINES '+found+'/'+LINES.length+' DETECTED','#c9a6ff');
   }
 }
 
@@ -438,13 +559,16 @@ function drawParallax(x,W,H,p,now,mode){
 const FX=[
   {k:'spectro', n:'분광 관측', kd:'빛을 펼쳐 흡수선을 읽는다', draw:drawSpectro,
    ttl:'별을 분류하는 바로 그 방법',
-   body:`별빛을 프리즘으로 펼치면 원소가 삼킨 자리에 <b>검은 흡수선</b>이 남습니다.
-     노출이 길어질수록 선이 잡음에서 하나씩 떠오르고, 그 무늬가 분광형을 확정합니다.
-     <b>남은 시간 = 아직 안 드러난 선의 수</b>(14개 중 몇 개).`,
+   body:`화면이 셋입니다 — 위는 분광기가 받은 <b>원본 프레임</b>(회색 띠에 검은 세로줄),
+     가운데는 거기서 뽑아낸 <b>플럭스 대 파장 그래프</b>, 아래는 표준성과 맞춰 좁혀 가는
+     <b>분광형 후보</b>입니다. 노출이 쌓이면 잡음이 줄고 <b>깊은 선부터</b> 골이 되어
+     떠오릅니다(SNR ∝ √t — Ca II K·Hα 가 먼저, 약한 철선이 나중).
+     <b>남은 시간 = 아직 안 뚫린 선의 수</b>(14개 중 몇 개).`,
    why:`STAR_POOL 의 <b>cls</b>('G형 주계열성' · 'M형 적색왜성')가 바로 이 관측의 결과입니다.
      29종의 분류가 전부 여기서 나온 값이라, 얻는 것과 방법이 정확히 맞습니다.`,
-   warn:`기존 넷은 모두 공간을 보는 연출인데 이것만 <b>띠 그래프</b>입니다. 결이 다르다고
-     느끼실 수도 있습니다 — 다만 그래서 항성 전용임이 분명해지기도 합니다.`,
+   warn:`기존 넷은 모두 공간을 보는 연출인데 이것만 <b>계측 그래프</b>입니다. 결이 다르다고
+     느끼실 수도 있습니다 — 다만 그래서 항성 전용임이 분명해지기도 합니다.<br>
+     <b>영상을 못 봐서 실제 화면과 어긋난 데가 있을 수 있습니다.</b> 캡처 한 장 주시면 맞추겠습니다.`,
    done:'CLASSIFIED'},
 
   {k:'parallax', n:'시차 측정', kd:'한 바퀴 돌아야 거리가 나온다', draw:drawParallax,
@@ -504,7 +628,7 @@ function renderDesc(){
     <table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody>
       <tr><td>완료 문구</td><td><b>${f.done}</b></td></tr>
       <tr><td>강조색</td><td><b>${f.k==='spectro'?'보라 (분광)':'금색 (측성)'}</b></td></tr>
-      <tr><td>남은 시간을 읽는 법</td><td><b>${f.k==='spectro'?'드러난 흡수선 수 (n/14)':'그린 호 (n° / 360°)'}</b></td></tr>
+      <tr><td>남은 시간을 읽는 법</td><td><b>${f.k==='spectro'?'잡음을 뚫은 흡수선 수 (n/14)':'그린 호 (n° / 360°)'}</b></td></tr>
     </tbody></table>`;
 }
 $('#sl').oninput=e=>{ playing=false; cancelAnimationFrame(raf);
