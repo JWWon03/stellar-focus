@@ -264,13 +264,24 @@ function cometPos(el,nu){
   const p=el.q*(1+el.e), r=p/(1+el.e*Math.cos(nu));
   return Object.assign({r}, orient(Math.cos(nu)*r, Math.sin(nu)*r, el));
 }
-/** 근일점 둘레를 늘린다. **`t` 가 아니라 평균근점이각을 휘어야 한다** —
-    근일점은 혜성마다 `M0` 만큼 어긋나 있어 `t` 를 휘면 엉뚱한 구간이 늘어난다
-    (핼리가 13.6%→3% 로 되레 줄었다). M=0 이 근일점이다. */
-const WARP_P=2.2;
+/** 근일점 둘레를 늘린다. 규칙 둘을 지켜야 한다.
+
+    ① **`t` 가 아니라 평균근점이각을 휜다.** 근일점은 혜성마다 `M0` 만큼
+       어긋나 있어 `t` 를 휘면 엉뚱한 구간이 늘어난다(핼리가 13.6%→3% 로
+       되레 줄었다). M=0 이 근일점이다.
+    ② **근일점에서 속도가 0 이 되면 안 된다.** 지수 곡선
+       `sign(u)·π·|u|^p` 는 p>1 이면 u=0 에서 기울기가 0 이라 혜성이
+       **딱 멈췄다가 다시 움직인다**(사용자 지적). 재보니 최저 속도가
+       평균의 0.002 배였다. `sinh` 는 원점에서도 기울기가 `a/sinh(a)` 로
+       유한해서 멈추지 않는다 — 최저 0.52~0.80 배다.
+
+    `WARP_A` 가 늘리는 세기다. 2.5 에서 햐쿠타케의 꼬리가 한 바퀴 중
+    7.2% → 16.9% 가 된다. 키우면 더 늘어나지만 원일점 쪽이 급해진다. */
+const WARP_A=2.5;
+const _sh=Math.sinh(WARP_A);
 function warpM(M){
-  const m=((M+Math.PI)%TAU+TAU)%TAU-Math.PI, u=m/Math.PI;
-  return Math.sign(u)*Math.PI*Math.pow(Math.abs(u), WARP_P);
+  const m=((M+Math.PI)%TAU+TAU)%TAU-Math.PI;
+  return Math.PI*Math.sinh(WARP_A*(m/Math.PI))/_sh;
 }
 function cometNu(el,t,warp){
   let M=t*TAU+el.M0;
