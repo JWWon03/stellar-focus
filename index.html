@@ -2194,6 +2194,10 @@ function kindTag(b){
   return k?KIND_LB[k]+' ('+KIND_EN[k]+')':'';
 }
 Object.keys(POOLS).forEach(k=>POOLS[k].forEach(b=>KIND_OF[b.id]=k));
+/* 슬롯 하나가 받을 수 있는 종류. 왜소행성도 실제로 별을 도니 행성 슬롯을
+   함께 쓴다 — 갈라지는 것은 도감과 지급 경로뿐이다.
+   `load()` 의 방어 복구도 이것을 보므로 섹션 1 에 둔다(거기가 더 앞이다). */
+const SLOT_KINDS={star:['star'],planet:['planet','dwarf'],moon:['moon'],comet:['comet']};
 
 /* 분광형에 대응하는 실제 질량(태양질량)을 함께 둔다 */
 const PALETTE=[
@@ -2243,7 +2247,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.14-r21';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.14-r22';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -2332,13 +2336,18 @@ function load(raw0){
         S.sys.slots.push({p:sl.p||null,m});
       }
     }
-    // 존재하지 않는 id 제거
-    KINDS.forEach(k=>S.owned[k]=S.owned[k].filter(id=>BY_ID[id]));
-    S.sys.comp=S.sys.comp.map(id=>BY_ID[id]?id:null);
-    S.sys.comets=S.sys.comets.map(id=>(BY_ID[id]&&KIND_OF[id]==='comet')?id:null);
+    /* 없는 id 를 지우는 것으로는 모자라다 — **종류가 맞는 자리인지도 본다.**
+       id 만 맞으면 통과시키면 혜성이 행성 목록에 남고 위성이 행성 슬롯에 앉는다
+       (망가진 저장본을 먹여 보니 실제로 그랬다). 종류가 다섯이고 행성 슬롯을
+       둘이 나눠 쓰게 된 뒤로는 이 확인이 필요하다.
+       **왜소행성 이관보다 뒤에 와야 한다** — 앞에 두면 옛 저장본의 명왕성이
+       `owned.planet` 에서 종류 불일치로 지워져 통째로 사라진다. */
+    KINDS.forEach(k=>S.owned[k]=S.owned[k].filter(id=>KIND_OF[id]===k));
+    S.sys.comp=S.sys.comp.map(id=>KIND_OF[id]==='star'?id:null);
+    S.sys.comets=S.sys.comets.map(id=>KIND_OF[id]==='comet'?id:null);
     S.sys.slots.forEach(sl=>{
-      if(!BY_ID[sl.p])sl.p=null;
-      sl.m=sl.m.map(id=>(BY_ID[id]&&sl.p)?id:null);
+      if(SLOT_KINDS.planet.indexOf(KIND_OF[sl.p])<0) sl.p=null;
+      sl.m=sl.m.map(id=>(KIND_OF[id]==='moon'&&sl.p)?id:null);
     });
   }catch(e){console.warn('load fail',e);S=freshState();}
 }
@@ -2977,9 +2986,15 @@ function alignRevs(el){
   return (E-el.e*Math.sin(E)-el.M0)/TAU;
 }
 /** 중심별의 표면을 만들 가상 천체. 스킨이 있으면 그 항성을 그대로 쓴다. */
+let _ctrId=null;
 function centralStarBody(lk){
   if(lk.skinBody) return lk.skinBody;
   const id='__ctr_'+lk.color.replace('#','');
+  /* 색마다 가상 천체가 하나씩 생기는데 아무도 비우지 않았다. 색상환을
+     만지작거리면 BY_ID 와 절차적 텍스처가 그만큼 불어난다 — 40색이 20MB 였다.
+     쓰는 곳이 궤도 렌더 한 군데뿐이라 색은 늘 하나다. 앞의 것은 버린다. */
+  if(_ctrId&&_ctrId!==id) dropCtrBody(_ctrId);
+  _ctrId=id;
   return BY_ID[id]||(BY_ID[id]={id,n:'중심별',c1:lk.color,c2:shade(lk.color,.55),
                                 m:lk.mass,f:{},sz:1});
 }
@@ -7162,6 +7177,18 @@ function onSpriteReady(id,fn){ _spriteWait.push({id,fn}); }
 function invalidateSprites(id){
   Object.keys(_sprite).forEach(k=>{ if(k.indexOf(id+'@')===0) delete _sprite[k]; });
 }
+/** 중심별의 가상 천체를 통째로 버린다 — 굽던 것·큐·캐시·스프라이트까지.
+    캐시들이 여기 아래에 선언돼 있어 이 함수도 여기 둔다(TDZ). */
+function dropCtrBody(id){
+  delete BY_ID[id];
+  const pre=id+'@';
+  Object.keys(_procCache).forEach(k=>{ if(k.indexOf(pre)===0) delete _procCache[k]; });
+  Object.keys(_texPri).forEach(k=>{ if(k.indexOf(pre)===0) delete _texPri[k]; });
+  for(let i=_texQ.length-1;i>=0;i--) if(_texQ[i].indexOf(pre)===0) _texQ.splice(i,1);
+  if(_bake&&_bake.b&&_bake.b.id===id) _bake=null;      // 굽던 중이면 그 자리에서 버린다
+  for(let i=_spriteQ.length-1;i>=0;i--) if(_spriteQ[i].indexOf(pre)===0) _spriteQ.splice(i,1);
+  invalidateSprites(id);
+}
 /* 자전 속도 — 위성은 대부분 조석 고정이라 공전 1회에 자전 1회다.
    행성은 훨씬 빠르지만 그대로 쓰면 어지러워 적당히 눌렀다. */
 function spinRate(b){ return b.id.slice(0,3)==='mn_'?1:6; }
@@ -7397,9 +7424,6 @@ function isPlaced(id){
   if(S.sys.comp.includes(id))return true;
   return S.sys.slots.some(sl=>sl.p===id||sl.m.includes(id));
 }
-/* 슬롯 하나가 받을 수 있는 종류.
-   왜소행성도 실제로 별을 도니 행성 슬롯을 함께 쓴다 — 갈라지는 것은 도감과 지급 경로뿐이다. */
-const SLOT_KINDS={star:['star'],planet:['planet','dwarf'],moon:['moon'],comet:['comet']};
 function unplacedOf(bn){
   const out=[];
   (SLOT_KINDS[bn]||[bn]).forEach(k=>(S.owned[k]||[]).forEach(id=>{
@@ -8138,15 +8162,40 @@ function canon(v){
   Object.keys(v).sort().forEach(k=>{ const x=canon(v[k]); if(x!==null)o[k]=x; });
   return o;
 }
+/** 비교하기 전에 양쪽을 지금 스키마로 맞춘다.
+    클라우드에 있는 기록은 이 브랜치 이전 것일 수 있다 — 왜소행성이 아직
+    `owned.planet` 에 들어 있고 `sys.comets` 가 아예 없다. 날것끼리 비교하면
+    **같은 항성계인데도 부팅할 때마다 "어느 쪽을 쓸까요?" 가 뜬다.**
+    `load()` 의 이관과 같은 규칙이라야 하므로 한쪽을 고치면 다른 쪽도 볼 것. */
+function syncShape(o){
+  const arr=a=>Array.isArray(a)?a.slice():[];
+  const w=(o&&o.owned)||{};
+  const own={}; KINDS.forEach(k=>own[k]=arr(w[k]));
+  const dw=new Set(DWARF_POOL.map(b=>b.id));
+  own.planet.forEach(id=>{ if(dw.has(id)&&own.dwarf.indexOf(id)<0) own.dwarf.push(id); });
+  own.planet=own.planet.filter(id=>!dw.has(id));
+  const src=(o&&o.sys)||{};
+  const comp=arr(src.comp).slice(0,MAX_COMP);
+  while(comp.length<MAX_COMP)comp.push(null);
+  const comets=arr(src.comets).slice(0,MAX_COMET);
+  while(comets.length<MAX_COMET)comets.push(null);
+  const slots=[];
+  for(let i=0;i<MAX_PLANET;i++){
+    const sl=arr(src.slots)[i]||{};
+    const m=arr(sl.m).slice(0,MAX_MOON);
+    while(m.length<MAX_MOON)m.push(null);
+    slots.push({p:sl.p||null,m});
+  }
+  return {owned:own, sys:{comp,slots,comets}};
+}
 /** 항성계의 "정체성"만 본다. 기록(stats)과 타이머 런타임은 뺀다 —
     기록이 조금 다르다고 어느 쪽을 버릴지 물어볼 일은 아니다. 그건 합친다. */
 function fingerprint(o){
   if(!o)return '';
-  const ids=a=>Array.isArray(a)?a.slice().sort():[];
-  const w=o.owned||{};
+  const sh=syncShape(o);
   return JSON.stringify(canon({
-    c:!!o.created, s:o.star, y:o.sys,        // 토큰은 더 이상 정체성이 아니다
-    w:KINDS.reduce((a,k)=>(a[k]=ids(w[k]),a),{})
+    c:!!o.created, s:o.star, y:sh.sys,       // 토큰은 더 이상 정체성이 아니다
+    w:KINDS.reduce((a,k)=>(a[k]=sh.owned[k].slice().sort(),a),{})
   }));
 }
 /** 기록은 물어보지 않고 큰 쪽으로 합친다 */
@@ -8266,8 +8315,9 @@ function adoptCloud(serverData){
 }
 /* 되돌아가지 않는 값만 센다. 토큰은 뽑으면 줄어서 진행도가 못 된다. */
 function progress(o){
-  const w=(o&&o.owned)||{}, n=a=>Array.isArray(a)?a.length:0;
-  return { own:n(w.star)+n(w.planet)+n(w.moon),
+  /* 다섯 종류를 다 센다. 셋만 세면 왜소행성·혜성만 늘어난 쪽이 앞선 줄 모른다 */
+  const sh=syncShape(o);
+  return { own:KINDS.reduce((a,k)=>a+sh.owned[k].length,0),
            ses:((o&&o.stats&&o.stats.sessions)|0) };
 }
 /** a 가 b 를 포함하는가 (모두 크거나 같고, 하나라도 큼) */
@@ -8284,9 +8334,9 @@ function diffFields(a,b){
     if(JSON.stringify(canon(pick(a||{})))!==JSON.stringify(canon(pick(b||{}))))out.push(label);
   };
   one('중심별',o=>o.star);
-  one('배치',o=>o.sys);
-  one('보유 천체',o=>{const w=o.owned||{};const s=x=>Array.isArray(x)?x.slice().sort():[];
-    return {star:s(w.star),planet:s(w.planet),moon:s(w.moon)};});
+  one('배치',o=>syncShape(o).sys);
+  one('보유 천체',o=>{const w=syncShape(o).owned;
+    return KINDS.reduce((a,k)=>(a[k]=w[k].slice().sort(),a),{});});
   return out;
 }
 function afterAccountSwitch(){
