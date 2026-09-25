@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>혜성 발견 연출 후보 · 궤도 확정 vs 핵 해상</title>
+<style>
+/* 본편과 같은 제약: 외부 폰트·스크립트 없음. 이 파일 하나로 동작한다. */
+:root{
+  --bg:#04050b; --panel:#0d1222; --line:rgba(140,175,255,.16); --line-2:rgba(140,175,255,.32);
+  --txt:#e8eefc; --txt-2:#98a6c8; --txt-3:#5f6d90;
+  --acc:#8ab4ff; --gold:#ffc65c; --ok:#6fe6b0; --warn:#ff9b7d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);min-height:100vh;font-size:14px;line-height:1.6;
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button,input{font-family:inherit;color:var(--txt);touch-action:manipulation}
+.wrap{max-width:700px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:19px;font-weight:700;margin-bottom:3px}
+.sub{font-size:12.5px;color:var(--txt-3);margin-bottom:16px}
+.lead{font-size:12.5px;color:var(--txt-3);margin-bottom:11px}
+
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:560px){ .pair{grid-template-columns:1fr} }
+.pane{position:relative;border-radius:14px;overflow:hidden;background:#04050b;
+  border:1px solid var(--line)}
+.pane canvas{display:block;width:100%;aspect-ratio:1/1}
+.cap{padding:8px 2px 0;font-size:12px;font-weight:700}
+.cap em{display:block;font-style:normal;font-size:10px;font-weight:500;color:var(--txt-3);margin-top:1px}
+
+.ctl{display:flex;align-items:center;gap:11px;margin-top:12px}
+.play{width:40px;height:40px;flex:0 0 auto;border-radius:11px;cursor:pointer;
+  background:linear-gradient(160deg,#3b63c9,#2a3f8f);border:1px solid rgba(160,190,255,.4);
+  display:grid;place-items:center}
+.play svg{width:16px;height:16px;fill:#fff}
+input[type=range]{flex:1;accent-color:var(--acc)}
+.pct{font-size:11.5px;color:var(--txt-3);font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+
+.beats{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:9px}
+.beat{padding:6px 3px;border-radius:8px;font-size:9.5px;text-align:center;
+  border:1px solid var(--line);color:var(--txt-3);background:rgba(255,255,255,.02);
+  line-height:1.3;transition:.15s}
+.beat.on{border-color:var(--line-2);color:var(--txt);background:rgba(138,180,255,.10)}
+.beatRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;margin-top:13px}
+.card h3{font-size:13px;font-weight:700;margin-bottom:7px}
+.card p{font-size:12.5px;color:var(--txt-2);margin-bottom:9px}
+.card p:last-child{margin-bottom:0}
+.card b{color:var(--txt)}
+.why{font-size:11.5px;color:var(--ok);border-left:2px solid rgba(111,230,176,.4);
+  padding-left:9px;margin:9px 0}
+.warn{font-size:11.5px;color:var(--warn);border-left:2px solid rgba(255,138,107,.45);
+  padding-left:9px;margin:9px 0}
+.note{font-size:11.5px;color:var(--txt-3);line-height:1.75;margin-top:20px;
+  border-top:1px solid var(--line);padding-top:14px}
+.note b{color:var(--txt-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>혜성 발견 연출 후보</h1>
+  <div class="sub">4단계 · 혜성 근일점의 결말 · <b>본편에는 적용하지 않았습니다</b></div>
+  <div class="lead">지금 결말은 <b>해왕성을 찾은 이야기</b>(궤도 잔차 → 보이지 않는 행성)입니다.
+    혜성을 주게 되었으니 다시 써야 합니다. 길이는 본편과 같은 <b>4.2초</b>입니다.</div>
+
+  <div class="pair">
+    <div><div class="pane"><canvas id="cvA"></canvas></div>
+      <div class="cap">A · 궤도 확정<em>관측점 셋에서 궤도가 풀린다 · ORBIT DETERMINED</em></div></div>
+    <div><div class="pane"><canvas id="cvB"></canvas></div>
+      <div class="cap">B · 핵 해상<em>코마가 걷히고 핵이 드러난다 · NUCLEUS RESOLVED</em></div></div>
+  </div>
+
+  <div class="ctl">
+    <button class="play" id="play"><svg id="playIco" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+    <input type="range" id="sl" min="0" max="1000" value="0">
+    <span class="pct" id="pct">0%</span>
+  </div>
+  <div class="beatRow">
+    <div class="beats" id="beatA"></div>
+    <div class="beats" id="beatB"></div>
+  </div>
+
+  <div class="card">
+    <h3>A · 궤도 확정</h3>
+    <p>들어오는 궤적에 <b>관측점 셋</b>이 찍히고, 그 셋을 지나는 타원이 풀려 나옵니다.
+      흔들리던 해가 자리를 잡으면 <b>제원이 하나씩 확정</b>되고, 그제야 혜성이 앞으로 나옵니다.</p>
+    <div class="why">실제로 그렇습니다. 새 혜성은 위치 관측 <b>3점 이상</b>에서 궤도가 풀리고,
+      그래야 주기 혜성인지 다시 안 오는지를 압니다.</div>
+    <p><b>화면에 뜨는 숫자가 진짜입니다.</b> 축척은 눌렀지만 실측값은 도감 제원표에
+      그대로 있어서, 핼리라면 <b>q 0.586 AU · e 0.967 · P 75.3년</b> 이 그대로 뜹니다.</p>
+    <p>나머지 넷은 전부 <b>천체의 모습</b>을 밝히는데 이것만 <b>궤도</b>를 밝힙니다 —
+      혜성은 궤도가 곧 정체성이라 겹치지 않습니다.</p>
+  </div>
+
+  <div class="card">
+    <h3>B · 핵 해상</h3>
+    <p>근일점에서 코마와 꼬리가 한껏 부풀었다가, 배율이 오르면서
+      <b>코마가 걷히고</b> 그 안의 울퉁불퉁한 핵이 드러납니다.</p>
+    <div class="warn">실제로는 반대입니다. 근일점에서 코마는 핵을 <b>가립니다</b> —
+      핵을 제대로 본 것은 탐사선이 지나가며 찍었을 때뿐입니다(핼리 · 지오토 · 596 km).</div>
+    <p>대신 집중 내내 본 것(다가오는 혜성)과 <b>곧바로 이어집니다</b>.
+      그리고 3단계에서 넣은 <b>실측 삼축 치수</b>의 핵 모양이 주인공이 됩니다.</p>
+    <div class="warn">벨트 탐사·엄폐의 결말과 <b>구조가 같습니다</b> — 배율을 올려 천체를
+      해상하는 것. 완료 문구만 다릅니다.</div>
+  </div>
+
+  <div class="note">
+    <b>무대 구성을 보는 용도입니다.</b> 핵 표면은 간단한 절차적 그림으로 대신했고,
+    본편에 넣으면 도감과 같은 <code>drawGlobe</code> 로 실측 삼축비를 반영해 그립니다.<br><br>
+    <b>공용 규칙은 둘 다 지켰습니다</b> — 좌우 배치(왼쪽 천체·오른쪽 글),
+    수치는 이름표가 뜨기 전에 완전히 걷기, 완료 문구는 <code>500 10px</code> 모노에
+    초록·자간만(인광 번짐 없음), 천체가 자리를 잡은 뒤에 글이 뜨기.
+  </div>
+</div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+function rgba(hex,a){const h=hex.replace('#','');
+  const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+function fnv(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ══ 본편의 결말 공용 헬퍼 (그대로 옮김) ══════════════════════ */
+const scSeg=(p,a,b)=>clamp((p-a)/(b-a),0,1);
+const scOut=t=>1-Math.pow(1-t,3);
+const scEase=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const RV_MONO='ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+const RV_GREEN='#86d9ab';
+const ACC='#ff9b6b';                       // 혜성 연출의 색
+
+/* 핼리 — 본편 COMET_POOL 의 값 그대로 */
+const B={ id:'cm_halley', n:'핼리', en:'1P/Halley', cls:'주기 혜성 · 핼리형',
+  q:0.586, ecc:0.967, per:75.3, c1:'#56514c', c2:'#23201d',
+  d:'76년마다 돌아오는, 이름을 가진 최초의 혜성.' };
+const KIND_TAG='혜성 (Comet)';
+
+function rvChrome(x,W,H,color,fade){
+  const M=Math.min(W,H), step=M/16;
+  x.save(); x.strokeStyle=rgba(color,.052*fade); x.lineWidth=1; x.beginPath();
+  for(let gx=step/2;gx<W;gx+=step){x.moveTo(gx,0);x.lineTo(gx,H);}
+  for(let gy=step/2;gy<H;gy+=step){x.moveTo(0,gy);x.lineTo(W,gy);}
+  x.stroke(); x.restore();
+  const g=x.createRadialGradient(W/2,H/2,M*.30,W/2,H/2,Math.max(W,H)*.66);
+  g.addColorStop(0,'rgba(4,5,11,0)'); g.addColorStop(1,'rgba(4,5,11,.82)');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.save(); x.strokeStyle=rgba(color,.28*fade+.12); x.lineWidth=1.2;
+  const m=M*.035, L=M*.045;
+  [[m,m,1,1],[W-m,m,-1,1],[m,H-m,1,-1],[W-m,H-m,-1,-1]].forEach(q=>{
+    x.beginPath(); x.moveTo(q[0]+q[2]*L,q[1]); x.lineTo(q[0],q[1]);
+    x.lineTo(q[0],q[1]+q[3]*L); x.stroke(); });
+  x.restore();
+}
+function rvReadout(x,W,H,lines,color,alpha,ty){
+  const M=Math.min(W,H), geo={x:M*.075, y:ty===undefined?M*.11:ty, lh:15};
+  if(alpha<=0) return geo;
+  x.save(); x.globalAlpha=alpha; x.textAlign='left';
+  x.font='500 10px '+RV_MONO; x.fillStyle=rgba(color,.66);
+  lines.filter(Boolean).forEach((t,i)=>x.fillText(t,geo.x,geo.y+geo.lh*i));
+  x.restore(); return geo;
+}
+function rvSpaced(x,txt,cx,y,font,sp){
+  x.font=font;
+  let w=-sp; for(const ch of txt) w+=x.measureText(ch).width+sp;
+  let px=cx-w/2;
+  for(const ch of txt){ x.fillText(ch,px,y); px+=x.measureText(ch).width+sp; }
+}
+function rvDone(x,W,H,t,now,LO,txt){
+  if(t<=0)return;
+  const M=Math.min(W,H), pulse=0.88+0.12*Math.sin(now/760);
+  x.save(); x.globalAlpha=scOut(t)*pulse; x.textAlign='left';
+  x.fillStyle=rgba(RV_GREEN,.6);
+  rvSpaced(x,txt, LO?LO.midX:W/2, LO?LO.botY:H-M*0.055, '500 10px '+RV_MONO, 3.2);
+  x.restore();
+}
+function rvStatus(x,W,H,txt,color){
+  x.save(); x.textAlign='center'; x.font='500 10px '+RV_MONO;
+  x.fillStyle=rgba(color,.62);
+  x.fillText(txt, W/2, H-Math.min(W,H)*.055); x.restore();
+}
+function rvWrap(x,text,maxW){
+  const out=[];
+  (text||'').split(/\s+/).filter(Boolean).forEach(w=>{
+    if(!out.length){ out.push(w); return; }
+    const t=out[out.length-1]+' '+w;
+    if(x.measureText(t).width<=maxW) out[out.length-1]=t; else out.push(w);
+  });
+  return out;
+}
+function rvSideLayout(x,W,H,b){
+  const M=Math.min(W,H), pad=M*0.05, avail=W-pad*2;
+  const R=Math.min(avail*0.20, M*0.19);
+  const gap=Math.min(M*0.055, avail*0.05);
+  const tw=avail-R*2-gap;
+  const x0=pad+(avail-(R*2+gap+tw))/2;
+  const F=clamp(tw*0.155, 15, M*0.058);
+  const starF=Math.max(12,F*0.52), enF=Math.max(11,F*0.42),
+        clsF=Math.max(12,F*0.40), dF=Math.max(11.5,F*0.36);
+  const lh=dF*1.62;
+  x.save(); x.font=dF+'px Pretendard,system-ui,sans-serif';
+  const desc=rvWrap(x,b.d,tw); x.restore();
+  const h={star:starF*1.5, name:F*1.12, en:enF*1.5, sep:M*0.028,
+           cls:clsF*1.5, gap:M*0.022, desc:desc.length*lh};
+  const textH=h.star+h.name+h.en+h.sep+h.cls+h.gap+h.desc;
+  const cy=H/2;
+  return {R, tw, nameF:F, starF, enF, clsF, dF, lh, desc, h, textH, cy,
+          bodyCx:x0+R, textX:x0+R*2+gap,
+          midX:x0+(R*2+gap+tw)/2, botY:cy+Math.max(R,textH/2)+M*0.085};
+}
+function rvNameSide(x,W,H,b,t,LO,accent){
+  if(t<=0)return;
+  const F=LO.nameF, h=LO.h;
+  x.save(); x.globalAlpha=scOut(t); x.textAlign='left';
+  let y=LO.cy-LO.textH/2+LO.starF;
+  x.font=LO.starF+'px '+RV_MONO; x.fillStyle=rgba('#98a6c8',.72);
+  x.fillText(KIND_TAG,LO.textX,y); y+=h.star-LO.starF+F*0.92;
+  x.font='700 '+F+'px Pretendard,system-ui,sans-serif'; x.fillStyle='#eef3ff';
+  x.fillText(b.n,LO.textX,y); y+=h.name-F*0.92+LO.enF;
+  x.font=LO.enF+'px '+RV_MONO; x.fillStyle=rgba('#98a6c8',.62);
+  x.fillText(b.en,LO.textX,y); y+=h.en-LO.enF;
+  y+=h.sep*0.5;
+  x.strokeStyle=rgba(accent,.42); x.lineWidth=1;
+  x.beginPath(); x.moveTo(LO.textX,y); x.lineTo(LO.textX+LO.tw*0.36,y); x.stroke();
+  y+=h.sep*0.5+LO.clsF;
+  x.font=LO.clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba(accent,.92);
+  x.fillText(b.cls,LO.textX,y); y+=h.cls-LO.clsF+h.gap+LO.dF;
+  x.font=LO.dF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba('#98a6c8',.88);
+  LO.desc.forEach(line=>{ x.fillText(line,LO.textX,y); y+=LO.lh; });
+  x.restore();
+}
+
+/** 혜성 핵 — 본편은 drawGlobe(실측 삼축비 + 크레이터)로 그린다.
+    여기서는 무대를 보는 용도라 간단한 요철 구로 대신한다. */
+function nucleus(x,cx,cy,R,alpha,spin){
+  if(R<=0)return;
+  const r=mulberry(fnv('cm_halley'));
+  x.save(); if(alpha!==undefined)x.globalAlpha=alpha;
+  x.save();
+  x.translate(cx,cy); x.scale(1,0.78);                 // 실측 15×8×8 km
+  x.beginPath(); x.arc(0,0,R,0,TAU); x.clip();
+  /* 빛을 받는 쪽부터 칠한다. 알베도 0.04 라 전체는 어둡지만, 그늘만 있으면
+     화면에서 사라진다 — 본편 `drawGlobe` 도 종결선으로 형태를 읽힌다. */
+  const base=x.createRadialGradient(-R*.34,-R*.34,R*.05,0,0,R*1.05);
+  base.addColorStop(0,B.c1); base.addColorStop(.55,rgba(B.c1,.55)); base.addColorStop(1,B.c2);
+  x.fillStyle=base; x.fillRect(-R,-R,R*2,R*2);
+  for(let i=0;i<130;i++){
+    const a=r()*TAU, d=Math.sqrt(r())*R, rad=R*(0.05+r()*r()*0.20);
+    const px=Math.cos(a+spin)*d, py=Math.sin(a)*d;
+    const face=clamp(1-(px+py+R*.7)/(R*2.2),0,1);      // 빛 쪽이 밝다
+    x.fillStyle=rgba(r()<.5?'#efe6d6':B.c2, (0.10+r()*0.22)*(0.35+face*0.9));
+    x.beginPath(); x.arc(px,py,rad,0,TAU); x.fill();
+  }
+  const sh=x.createRadialGradient(-R*.34,-R*.34,R*.06,0,0,R*1.12);
+  sh.addColorStop(0,'rgba(255,248,232,.18)');
+  sh.addColorStop(.40,'rgba(0,0,0,0)');
+  sh.addColorStop(1,'rgba(0,0,0,.80)');
+  x.fillStyle=sh; x.fillRect(-R,-R,R*2,R*2);
+  x.restore(); x.restore();
+}
+
+/** 코마 + 꼬리 둘. 반태양 방향은 화면 왼쪽 위로 잡았다. */
+function coma(x,cx,cy,R,act,alpha,now){
+  if(alpha<=0||act<=0)return;
+  const ux=-0.62, uy=-0.78;                            // 반태양 방향
+  const qx=-uy, qy=ux;
+  const ionL=R*(3+14*act);
+  x.save(); x.globalAlpha=alpha; x.lineCap='round';
+  // 먼지 꼬리 — 휜다
+  for(let L=0;L<5;L++){
+    const w=(L/4)*2-1, pts=[];
+    for(let k=0;k<=20;k++){
+      const t2=k/20, bend=t2*t2*0.55*(1+w*0.2);
+      const ax=ux*Math.cos(bend)-uy*Math.sin(bend), ay=ux*Math.sin(bend)+uy*Math.cos(bend);
+      const push=ionL*0.62*Math.pow(t2,0.85), spread=push*0.12*w;
+      pts.push({x:cx+ax*push+qx*spread, y:cy+ay*push+qy*spread});
+    }
+    const fade=1-Math.abs(w)*0.55, e0=pts[0], e1=pts[pts.length-1];
+    const gd=x.createLinearGradient(e0.x,e0.y,e1.x,e1.y), a1=0.22*act*fade;
+    gd.addColorStop(0,'rgba(255,232,190,'+a1.toFixed(3)+')');
+    gd.addColorStop(.45,'rgba(255,220,168,'+(a1*0.62).toFixed(3)+')');
+    gd.addColorStop(1,'rgba(240,205,150,0)');
+    x.beginPath(); pts.forEach((q,i)=>i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y));
+    x.strokeStyle=gd; x.lineWidth=Math.max(2,R*0.42*(0.4+act))*fade; x.stroke();
+  }
+  // 이온 꼬리 — 곧게
+  for(let i=0;i<4;i++){
+    const off=(i-1.5)/4;
+    x.beginPath();
+    for(let k=0;k<=24;k++){
+      const t2=k/24, wob=Math.sin(now/900+i*2.1+t2*5.5)*ionL*0.03*t2;
+      x[k?'lineTo':'moveTo'](cx+ux*ionL*t2+qx*(off*ionL*0.10*t2+wob),
+                             cy+uy*ionL*t2+qy*(off*ionL*0.10*t2+wob));
+    }
+    const gi=x.createLinearGradient(cx,cy,cx+ux*ionL,cy+uy*ionL);
+    const a0=(0.18+0.5*act)*(1-Math.abs(off)*1.1);
+    gi.addColorStop(0,'rgba(214,236,255,'+a0.toFixed(3)+')');
+    gi.addColorStop(.45,'rgba(150,196,255,'+(a0*0.34).toFixed(3)+')');
+    gi.addColorStop(1,'rgba(120,170,255,0)');
+    x.strokeStyle=gi; x.lineWidth=Math.max(1,R*0.11*(0.5+act)); x.stroke();
+  }
+  x.restore();
+  const cr=R*(1.5+4.2*act);
+  const cg=x.createRadialGradient(cx,cy,0,cx,cy,cr);
+  cg.addColorStop(0,'rgba(255,255,255,'+(alpha*(0.30+0.42*act)).toFixed(3)+')');
+  cg.addColorStop(.35,'rgba(205,235,255,'+(alpha*(0.20*act+0.05)).toFixed(3)+')');
+  cg.addColorStop(1,'rgba(170,215,255,0)');
+  x.fillStyle=cg; x.beginPath(); x.arc(cx,cy,cr,0,TAU); x.fill();
+}
+
+/* ══ A · 궤도 확정 ═══════════════════════════════════════════ */
+const BEATS_A=[['시야','0~12%'],['관측점 셋','12~40%'],['궤도가 풀린다','40~62%'],
+               ['제원 확정','62~80%'],['천체·이름표','80~100%']];
+/** 타원 한 점 — 흔들리던 해가 자리를 잡는다 */
+function ellipsePt(nu,wob,cx,cy,M){
+  const e=lerp(0.55,0.86,1-wob), a=M*0.30*(1+wob*0.10);
+  const r=a*(1-e*e)/(1+e*Math.cos(nu));
+  const rot=-0.55+wob*0.35;
+  const px=Math.cos(nu)*r, py=Math.sin(nu)*r*0.62;
+  return [cx+px*Math.cos(rot)-py*Math.sin(rot), cy+px*Math.sin(rot)+py*Math.cos(rot)];
+}
+function drawA(x,W,H,p,now){
+  const cx=W*0.52, cy=H*0.50, M=Math.min(W,H);
+  const LO=rvSideLayout(x,W,H,B);
+  const back=clamp(1-scSeg(p,.80,.92),0,1);          // 결말에서 무대가 걷힌다
+  const wob=clamp(1-scSeg(p,.40,.68),0,1);           // 해가 흔들리는 정도
+
+  x.save(); x.globalAlpha=back;
+  // 별밭
+  const r=mulberry(0x51fa);
+  for(let i=0;i<90;i++){
+    const sx=r()*W, sy=r()*H, s=0.4+r()*1.2;
+    x.fillStyle='rgba(200,214,240,'+(0.10+r()*0.30).toFixed(2)+')';
+    x.fillRect(sx,sy,s,s);
+  }
+  // 풀린 궤도 — 40% 부터 그려 나온다
+  const solve=scEase(scSeg(p,.40,.68));
+  if(solve>0){
+    x.strokeStyle=rgba(ACC,.34*solve); x.lineWidth=1.3;
+    x.setLineDash(wob>0.02?[5,6]:[]);
+    x.beginPath();
+    const span=TAU*solve;
+    for(let k=0;k<=160;k++){
+      const nu=-Math.PI+span*k/160;
+      const q=ellipsePt(nu,wob*Math.sin(now/220)*0.5+wob*0.5,cx,cy,M);
+      k?x.lineTo(q[0],q[1]):x.moveTo(q[0],q[1]);
+    }
+    x.stroke(); x.setLineDash([]);
+  }
+  // 관측점 셋 — 하나씩 찍힌다
+  const EP=[-2.25,-1.72,-1.22];
+  EP.forEach((nu,i)=>{
+    const t=scSeg(p, .12+i*0.09, .22+i*0.09);
+    if(t<=0)return;
+    const q=ellipsePt(nu,0,cx,cy,M);
+    const s=M*0.028;
+    x.globalAlpha=back*t;
+    x.strokeStyle=rgba('#6fe6b0',.9); x.lineWidth=1.4;
+    x.beginPath();
+    x.moveTo(q[0]-s,q[1]); x.lineTo(q[0]-s*.35,q[1]);
+    x.moveTo(q[0]+s*.35,q[1]); x.lineTo(q[0]+s,q[1]);
+    x.moveTo(q[0],q[1]-s); x.lineTo(q[0],q[1]-s*.35);
+    x.moveTo(q[0],q[1]+s*.35); x.lineTo(q[0],q[1]+s);
+    x.stroke();
+    x.fillStyle=rgba('#e8f6ff',.95);
+    x.beginPath(); x.arc(q[0],q[1],M*0.006,0,TAU); x.fill();
+    x.font='500 9px '+RV_MONO; x.fillStyle=rgba('#6fe6b0',.72); x.textAlign='left';
+    x.fillText('t'+(i+1), q[0]+s*1.2, q[1]+3);
+    x.globalAlpha=back;
+  });
+  x.restore();
+
+  // 천체 — 자리를 잡은 뒤에 글이 뜬다(0.84→0.96 / 0.92→1).
+  // A 는 궤도가 주인공이라 코마를 아주 옅게만 둔다.
+  const move=scEase(scSeg(p,.84,.96));
+  const born=scSeg(p,.72,.92);
+  if(born>0){
+    const q0=ellipsePt(-0.9,0,cx,cy,M);
+    const R=lerp(M*0.014, LO.R, move);
+    const bx=lerp(q0[0],LO.bodyCx,move), by=lerp(q0[1],LO.cy,move);
+    const al=clamp(born*1.4,0,1);
+    coma(x, bx, by, R, 0.18*(1-move), al*(1-move)*0.5, now);
+    nucleus(x, bx, by, R, al, now/5200);
+  }
+
+  rvChrome(x,W,H,ACC,clamp(1-scSeg(p,.82,.95),0,1));
+  /* 확정된 제원은 **실측값 그대로**다 — 축척은 눌렀지만 `st` 의 값은 진짜다.
+     굴러 멈추듯 흔들리다 확정된다. */
+  const el3=(lab,val,at)=>{
+    const t=scSeg(p,at,at+.05);
+    if(t<=0) return '';
+    return lab+(t<1 ? (Math.random()*9.99).toFixed(3) : val);
+  };
+  rvReadout(x,W,H,[
+    'ASTROMETRY  1P/HALLEY',
+    'EPOCHS      '+Math.min(3,Math.floor(scSeg(p,.12,.40)*3.999))+' / 3',
+    solve>0?'SOLUTION    '+Math.round(solve*100)+'%':'',
+    el3('q           ', B.q.toFixed(3)+' AU', .62),
+    el3('e           ', B.ecc.toFixed(3),     .67),
+    el3('P           ', B.per.toFixed(1)+' yr',.72)
+  ],ACC,clamp(scSeg(p,.04,.16)-scSeg(p,.76,.85),0,1));
+  const done=scSeg(p,.84,.94);
+  if(done<=0) rvStatus(x,W,H, p<.40?'ASTROMETRY · 위치를 세 번 잰다'
+                             : p<.62?'SOLVING ORBIT'
+                             : '궤도가 자리를 잡는다', ACC);
+  else rvDone(x,W,H,done,now,LO,'ORBIT DETERMINED');
+  rvNameSide(x,W,H,B,scSeg(p,.92,1),LO,ACC);
+}
+
+/* ══ B · 핵 해상 ═════════════════════════════════════════════ */
+const BEATS_B=[['시야','0~12%'],['배율이 오른다','12~45%'],['코마가 걷힌다','45~70%'],
+               ['핵이 해상','70~88%'],['천체·이름표','84~100%']];
+function drawB(x,W,H,p,now){
+  const cx=W*0.50, cy=H*0.48, M=Math.min(W,H);
+  const LO=rvSideLayout(x,W,H,B);
+  const back=clamp(1-scSeg(p,.82,.94),0,1);
+  const zoom=lerp(1,5.2,scEase(scSeg(p,.12,.62)));
+  const peel=scEase(scSeg(p,.45,.74));               // 코마가 걷힌다
+  const move=scEase(scSeg(p,.84,.96));
+
+  x.save(); x.globalAlpha=back;
+  const r=mulberry(0x77ab);
+  for(let i=0;i<80;i++){
+    const sx=r()*W, sy=r()*H, s=0.4+r()*1.1;
+    x.fillStyle='rgba(200,214,240,'+(0.08+r()*0.26).toFixed(2)+')';
+    x.fillRect(sx,sy,s,s);
+  }
+  x.restore();
+
+  const R0=M*0.010, R=lerp(R0*zoom, LO.R, move);
+  const bx=lerp(cx,LO.bodyCx,move), by=lerp(cy,LO.cy,move);
+  // 코마와 꼬리 — 걷히면서 사라진다
+  coma(x,bx,by,R, lerp(0.95,0.08,peel), back*(1-peel*0.86), now);
+  /* **핵에는 `back` 을 곱하면 안 된다.** 무대(별밭·모눈)는 걷히지만 본체는
+     좌우 배치 자리로 옮겨 가 끝까지 남는다 — 곱했더니 마지막에 사라졌다. */
+  nucleus(x,bx,by,R, clamp(scSeg(p,.30,.62)*1.2,0,1), now/5200);
+  // 해상 눈금 — 핵이 드러나는 순간 크기를 잰다
+  const meas=clamp(scSeg(p,.70,.80)-scSeg(p,.86,.94),0,1);
+  if(meas>0){
+    x.save(); x.globalAlpha=meas; x.strokeStyle=rgba('#6fe6b0',.8); x.lineWidth=1.2;
+    x.beginPath(); x.moveTo(bx-R,by+R*1.35); x.lineTo(bx+R,by+R*1.35);
+    x.moveTo(bx-R,by+R*1.22); x.lineTo(bx-R,by+R*1.48);
+    x.moveTo(bx+R,by+R*1.22); x.lineTo(bx+R,by+R*1.48);
+    x.stroke();
+    x.font='500 9px '+RV_MONO; x.fillStyle=rgba('#6fe6b0',.8); x.textAlign='center';
+    x.fillText('15 × 8 km', bx, by+R*1.72);
+    x.restore();
+  }
+
+  rvChrome(x,W,H,ACC,clamp(1-scSeg(p,.84,.96),0,1));
+  rvReadout(x,W,H,[
+    'PHOTOMETRY  1P/HALLEY',
+    'MAGNIFY     ×'+zoom.toFixed(1),
+    peel>0?'COMA        −'+Math.round(peel*100)+'%':'',
+    peel>.6?'ALBEDO      0.04':''
+  ],ACC,clamp(scSeg(p,.04,.16)-scSeg(p,.76,.85),0,1));
+  const done=scSeg(p,.84,.94);
+  if(done<=0) rvStatus(x,W,H, p<.45?'PERIHELION · 코마가 부푼다'
+                             : p<.70?'RESOLVING THROUGH COMA'
+                             : '핵이 드러난다', ACC);
+  else rvDone(x,W,H,done,now,LO,'NUCLEUS RESOLVED');
+  rvNameSide(x,W,H,B,scSeg(p,.92,1),LO,ACC);
+}
+
+/* ══ 구동 ═══════════════════════════════════════════════════ */
+const PANES=[{cv:'cvA',fn:drawA,beats:BEATS_A,el:'beatA'},
+             {cv:'cvB',fn:drawB,beats:BEATS_B,el:'beatB'}];
+let P=0, playing=true, raf=0, last=0;
+function fit(){
+  PANES.forEach(o=>{ const c=$('#'+o.cv), R=c.getBoundingClientRect();
+    const d=Math.min(devicePixelRatio||1,2);
+    c.width=Math.round(R.width*d); c.height=Math.round(R.height*d);
+    c.getContext('2d').setTransform(d,0,0,d,0,0); c._w=R.width; c._h=R.height; });
+}
+addEventListener('resize',()=>{fit();paint();});
+PANES.forEach(o=>{ $('#'+o.el).innerHTML=o.beats.map(b=>
+  `<div class="beat"><b>${b[0]}</b><br>${b[1]}</div>`).join(''); });
+function paint(){
+  const now=performance.now();
+  PANES.forEach(o=>{ const c=$('#'+o.cv), x=c.getContext('2d');
+    x.fillStyle='#04050b'; x.fillRect(0,0,c._w,c._h);
+    o.fn(x,c._w,c._h,P,now);
+    // 구간 표시
+    const bs=[...$('#'+o.el).children];
+    const edges=o.beats.map(b=>parseFloat(b[1].split('~')[0])/100);
+    let idx=0; edges.forEach((e,i)=>{ if(P>=e) idx=i; });
+    bs.forEach((el,i)=>el.classList.toggle('on',i===idx));
+  });
+  $('#pct').textContent=Math.round(P*100)+'%';
+}
+function loop(now){
+  if(!playing)return;
+  if(!last)last=now;
+  P=(P+(now-last)/4200)%1; last=now;        // 본편과 같은 4.2초
+  $('#sl').value=Math.round(P*1000);
+  paint(); raf=requestAnimationFrame(loop);
+}
+$('#play').onclick=()=>{
+  playing=!playing; last=0;
+  $('#playIco').innerHTML=playing?'<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>':'<path d="M7 4l13 8-13 8z"/>';
+  if(playing) raf=requestAnimationFrame(loop); else cancelAnimationFrame(raf);
+};
+$('#sl').oninput=e=>{ P=e.target.value/1000; last=0; paint(); };
+fit(); paint(); raf=requestAnimationFrame(loop);
+window.__drawA=drawA; window.__drawB=drawB;   // 녹화용
+</script>
+</body>
+</html>
