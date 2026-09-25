@@ -2247,7 +2247,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.14-r23';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.14-r24';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -2832,9 +2832,9 @@ function kepler(M,e){
   return E;
 }
 /** 궤도 요소 + 누적 회전수 → 3D 위치 (케플러 1·2법칙) */
-function orbitPos(el,revs,scale){
-  const s=scale===undefined?1:scale;
-  const E=kepler(el.M0+revs*TAU,el.e);
+/** 이심근점이각 E 에서의 월드 좌표.
+    `orbitPos`(평균근점이각이 시간에 비례)와 `cometPos`(그 M 을 휜다)가 나눠 쓴다. */
+function elemAt(el,E,s){
   const x0=el.a*(Math.cos(E)-el.e);
   const y0=el.a*Math.sqrt(1-el.e*el.e)*Math.sin(E);
   const cw=Math.cos(el.peri),sw=Math.sin(el.peri);
@@ -2843,6 +2843,9 @@ function orbitPos(el,revs,scale){
   const z=y*si; y*=ci;
   const cn=Math.cos(el.node),sn=Math.sin(el.node);
   return {x:(x*cn-y*sn)*s, y:(x*sn+y*cn)*s, z:z*s};
+}
+function orbitPos(el,revs,scale){
+  return elemAt(el, kepler(el.M0+revs*TAU,el.e), scale===undefined?1:scale);
 }
 
 /** 3D 월드 → 투영 좌표(단위계). depth가 클수록 카메라에 가깝다.
@@ -3251,6 +3254,7 @@ function sceneBodies(g){
       if(!mid)return;
       const mb=BY_ID[mid];
       const mEl=moonEl(i,k);
+      /* 이 자리는 아래 혜성 블록과 무관하다 — 편집 시 섞지 말 것 */
       const mScale=(pr*(2.6+k*1.5))/(g.R*VIEW.zoom);   // 화면상 위성 궤도 크기
       const mrevs=capAlign?alignRevs(mEl):revs*(5.4-k*1.9);
       const mp=orbitPos(mEl,mrevs,mScale);
@@ -3261,6 +3265,25 @@ function sceneBodies(g){
                 spinLon:mrevs*spinRate(mb)*TAU});
     });
   }
+
+  /* 혜성 — 벨트와 마찬가지로 기준 궤도 단위라 `beltRef()` 를 곱한다.
+     장반경이 크면 케플러 3법칙대로 느리게 돈다. */
+  const aRefW=beltRef();
+  S.sys.comets.forEach((cid,i)=>{
+    if(!cid)return;
+    const b=BY_ID[cid]; if(!b)return;
+    const el=cometEl(cid);
+    /* 촬영 일렬 정렬에서는 시간 휘기를 쓰지 않는다 — 어차피 공전이 멈추고,
+       다른 천체와 같은 황경에 놓는 것이 목적이다. */
+    const p=capAlign ? Object.assign(orbitPos(el,alignRevs(el),aRefW),{r:0,nu:0})
+                     : cometAt(el, cometRevs(el), aRefW);
+    const rUnit=(p.r||Math.hypot(p.x,p.y))/aRefW;
+    out.push({key:'cm'+i, kind:'comet', ci:i, body:b, name:b.n, world:p,
+              scr:toScreen(p,g), r:Math.max(2.2,g.R*VIEW.zoom*.026*b.sz),
+              lit:litAt(el.a), el, nu:p.nu||0,
+              act:capAlign?cometAct(el,rUnit):cometAct(el,rUnit),
+              spinLon:phase*TAU});
+  });
   return out;
 }
 
@@ -3308,6 +3331,19 @@ function render(t){
     strokeOrbit(orbitEl(i),g,0,1,orbitSegs(orbitEl(i).a,g));
   }
   ctx.setLineDash([]);
+  /* 혜성 궤도 — 아주 납작한 타원이라 행성 궤도보다 옅게 깐다 */
+  S.sys.comets.forEach(cid=>{
+    if(!cid||!BY_ID[cid])return;
+    const el=cometEl(cid), aRefW=beltRef();
+    ctx.strokeStyle='rgba(168,208,255,.16)';
+    ctx.beginPath();
+    const N=Math.max(48,Math.min(160,orbitSegs(el.a,g,aRefW)*1.5|0));
+    for(let k=0;k<=N;k++){
+      const s2=toScreen(cometAtNu(el,-Math.PI+TAU*k/N,aRefW),g);
+      k?ctx.lineTo(s2.x,s2.y):ctx.moveTo(s2.x,s2.y);
+    }
+    ctx.stroke();
+  });
   // 동반성 궤도 — 각 별은 자기가 속한 질량중심 둘레를 돈다.
   // 안쪽 쌍성은 움직이는 내부 질량중심을, 바깥 동반성은 계 전체 질량중심을 돈다.
   const sp=starPositions();
@@ -3418,6 +3454,8 @@ function render(t){
           ctx.drawImage(sc,o.scr.x-k,o.scr.y-k,k*2,k*2);ctx.restore();
         }
       }
+    }else if(o.kind==='comet'){
+      drawComet(ctx,o,primary.scr,g,t);
     }else{
       drawBody(ctx,o.scr.x,o.scr.y,o.r,o.body,la,o.lit,{spinLon:o.spinLon});
     }
@@ -3431,6 +3469,153 @@ function render(t){
     drawCaptureGuide(ctx);
     drawNameHandle(ctx);
   }
+}
+
+/* ==========================================================================
+   혜성
+   벨트와 마찬가지로 **기준 궤도(`beltRef()`) 단위**로 다룬다 — 행성이 늘어
+   기준 궤도가 밀리면 혜성 궤도도 함께 밀린다.
+
+   실측 장반경을 그대로 쓸 수 없다. 엔케 2.21 AU 와 맥노트 1710 AU 가 774배
+   차이라 하나는 중심별에 붙고 하나는 화면 밖 35배 거리로 나간다. 그래서
+   **족이 화면 예산을 정하고** 그 안에서 **근일점의 순서와 벌어진 정도를
+   실측대로** 지킨다. q 가 족 안에서 100배까지 벌어지므로 log 로 순위를 매긴다.
+   실제 값은 `st` 에 그대로 남는다.
+   ========================================================================== */
+const CM_BUDGET={                     // 기준 궤도 = 1.0 단위
+  jup :{q:[0.08,0.38], Q:[0.72,0.98]},   // 행성들 사이에서 돈다
+  hal :{q:[0.10,0.16], Q:[1.25,1.50]},   // 벨트까지 나갔다 온다
+  long:{q:[0.055,0.13],Q:[1.70,1.88]}    // 벨트(1.62)를 넘어간다
+};
+/* **원일점 상한은 화면이 정한다.** `fitZoom()` 은 가로로 `W*0.46` 안에 벨트를
+   담으므로 화면 가장자리가 월드 1.98 이다(창 모양과 무관하게 이 값이 묶는다).
+   장주기를 2.30 으로 두었더니 맥노트가 한 바퀴의 19~21% 를 화면 밖에서 보냈다.
+   **혜성을 `fitZoom()` 에 넣는 것으로는 못 고친다** — 폰에서 줌이 0.41 까지
+   내려가 하한 0.5 에 걸리고, 그러면 벨트가 잘린다(재본 값). */
+/* 족마다 실측 q·장반경의 최소·최대. **풀에 혜성을 더하면 이 범위가 달라져
+   그 족의 다른 혜성 궤도도 움직인다** — 더하기 전에 재 볼 것. */
+const CM_FAM={};
+COMET_POOL.forEach(b=>{
+  const f=CM_FAM[b.fam]||(CM_FAM[b.fam]={q:[1e9,-1e9],a:[1e9,-1e9]});
+  const a=b.q/(1-b.ecc);
+  if(b.q<f.q[0])f.q[0]=b.q; if(b.q>f.q[1])f.q[1]=b.q;
+  if(a<f.a[0])f.a[0]=a;     if(a>f.a[1])f.a[1]=a;
+});
+function cmRank(v,lo,hi){ return hi<=lo?0.5:(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo)); }
+const _cmEl={};
+/** 혜성의 궤도 요소. 기준 궤도 단위라 쓸 때 `beltRef()` 를 곱한다. */
+function cometEl(id){
+  if(_cmEl[id]) return _cmEl[id];
+  const b=BY_ID[id], bud=CM_BUDGET[b.fam]||CM_BUDGET.jup, f=CM_FAM[b.fam];
+  const q=bud.q[0]+(bud.q[1]-bud.q[0])*cmRank(b.q, f.q[0], f.q[1]);
+  const Q=bud.Q[0]+(bud.Q[1]-bud.Q[0])*cmRank(b.q/(1-b.ecc), f.a[0], f.a[1]);
+  const r=mulberry(fnv('comet#'+id));
+  /* 실제 혜성은 궤도면이 제멋대로다(핼리는 162도). 그대로 쓰면 궤도가 계
+     바깥으로 솟아 읽히지 않으므로 ±18도까지만 준다 — 행성(±4.6도)보다는
+     확실히 기울어 혜성임이 드러난다. */
+  return _cmEl[id]={ q, Q, a:(q+Q)/2, e:(Q-q)/(Q+q),
+    inc:(r()-0.5)*0.62, node:r()*TAU, peri:r()*TAU, M0:r()*TAU };
+}
+
+/* **시간을 휘지 않으면 꼬리를 거의 못 본다.** 케플러 제2법칙대로면 근일점에서
+   확 빨라져 순식간에 지나간다 — 햐쿠타케가 한 바퀴 중 7.2% 뿐이었다.
+   근일점(M=0) 둘레를 늘려 16.9% 로 만든다.
+
+   - **`revs` 가 아니라 평균근점이각을 휜다.** 근일점은 혜성마다 `M0` 만큼
+     어긋나 있어 진행도를 휘면 엉뚱한 구간이 늘어난다(핼리가 13.6%→3% 였다).
+   - **근일점에서 속도가 0 이 되면 안 된다.** 지수 곡선은 원점 기울기가 0 이라
+     혜성이 딱 멈췄다 움직인다 — 최저 속도가 평균의 0.002배였다. `sinh` 는
+     원점 기울기가 `a/sinh(a)` 로 유한해 최저 0.52~0.80배다. */
+const CM_WARP=2.5, _cmSh=Math.sinh(CM_WARP);
+function cometM(el,revs){
+  const M=el.M0+revs*TAU;
+  const m=((M+Math.PI)%TAU+TAU)%TAU-Math.PI;        // -π..π, 0 이 근일점
+  return Math.PI*Math.sinh(CM_WARP*(m/Math.PI))/_cmSh;
+}
+/** 지금 혜성이 몇 바퀴째인가. 케플러 3법칙 — 장반경이 클수록 느리다. */
+function cometRevs(el){ return phase*Math.pow(1/el.a,1.5); }
+/** 위치와 중심별까지의 거리를 함께 낸다. scale 은 보통 `beltRef()` 다. */
+function cometAt(el,revs,scale){
+  const s=scale===undefined?1:scale;
+  const E=kepler(cometM(el,revs), el.e);
+  const p=elemAt(el,E,s);
+  p.r=el.a*(1-el.e*Math.cos(E))*s;
+  p.nu=2*Math.atan2(Math.sqrt(1+el.e)*Math.sin(E/2), Math.sqrt(1-el.e)*Math.cos(E/2));
+  return p;
+}
+/** 진근점이각으로 직접. 먼지 꼬리는 '지나온 궤도'를 거슬러야 해서 필요하다. */
+function cometAtNu(el,nu,scale){
+  const E=2*Math.atan2(Math.sqrt(1-el.e)*Math.sin(nu/2), Math.sqrt(1+el.e)*Math.cos(nu/2));
+  return elemAt(el,E,scale===undefined?1:scale);
+}
+/** 활동도 0~1. 근일점의 6배 안쪽에서 켜진다 — 실제로도 얼음이 녹기
+    시작하는 거리 안쪽에서만 코마와 꼬리가 생긴다. */
+function cometAct(el,rUnit){
+  const on=Math.min(el.Q, el.q*6);
+  return Math.pow(clamp((on-rUnit)/(on-el.q),0,1), 1.4);
+}
+
+/** 핵 + 코마 + 꼬리 둘. 집중 연출의 `fxComet` 과 같은 생김새를 쓰되
+    궤도 화면 축척에 맞춘다.
+    - **이온 꼬리는 반태양 방향으로 곧게** 뻗는다 (태양풍이 민다)
+    - **먼지 꼬리는 지나온 궤도에서 뿌려진 먼지**라 뒤처지며 휜다
+    - 끝을 뭉툭하게 자르면 빗자루로 보인다 — 그라디언트로 없앤다 */
+function drawComet(cx2,o,starScr,g,t){
+  const s=o.scr, act=o.act, el=o.el;
+  const dx=s.x-starScr.x, dy=s.y-starScr.y, dl=Math.hypot(dx,dy)||1;
+  const ux=dx/dl, uy=dy/dl, qx=-uy, qy=ux;
+  const M=Math.min(W,H), lit=o.lit;
+  if(act>0.01){
+    const ionL=M*(0.02+0.34*act);
+    cx2.save(); cx2.lineCap='round'; cx2.globalAlpha=lit;
+    // 먼지 꼬리
+    const dustL=ionL*0.62;
+    for(let L=0;L<5;L++){
+      const w=(L/4)*2-1, pts=[];
+      for(let k=0;k<=18;k++){
+        const age=k/18;
+        const c=toScreen(cometAtNu(el, o.nu-age*0.55*(1-act*0.4), beltRef()), g);
+        const bx=c.x-starScr.x, by=c.y-starScr.y, bl=Math.hypot(bx,by)||1;
+        const push=dustL*Math.pow(age,0.85), spread=push*0.12*w;
+        pts.push({x:c.x+bx/bl*push+(-by/bl)*spread, y:c.y+by/bl*push+(bx/bl)*spread});
+      }
+      const fade=1-Math.abs(w)*0.55, e0=pts[0], e1=pts[pts.length-1];
+      const gd=cx2.createLinearGradient(e0.x,e0.y,e1.x,e1.y), a1=0.20*act*fade;
+      gd.addColorStop(0,'rgba(255,232,190,'+a1.toFixed(3)+')');
+      gd.addColorStop(.45,'rgba(255,220,168,'+(a1*0.62).toFixed(3)+')');
+      gd.addColorStop(1,'rgba(240,205,150,0)');
+      cx2.beginPath(); pts.forEach((q,i)=>i?cx2.lineTo(q.x,q.y):cx2.moveTo(q.x,q.y));
+      cx2.strokeStyle=gd; cx2.lineWidth=Math.max(2,M*0.014*(0.4+act))*fade; cx2.stroke();
+    }
+    // 이온 꼬리
+    for(let i=0;i<4;i++){
+      const off=(i-1.5)/4;
+      cx2.beginPath();
+      for(let k=0;k<=22;k++){
+        const q=k/22, wob=Math.sin(t*1.1+i*2.1+q*5.5)*ionL*0.035*q;
+        const X=s.x+ux*ionL*q+qx*(off*ionL*0.10*q+wob);
+        const Y=s.y+uy*ionL*q+qy*(off*ionL*0.10*q+wob);
+        k?cx2.lineTo(X,Y):cx2.moveTo(X,Y);
+      }
+      const gi=cx2.createLinearGradient(s.x,s.y,s.x+ux*ionL,s.y+uy*ionL);
+      const a0=(0.16+0.48*act)*(1-Math.abs(off)*1.1);
+      gi.addColorStop(0,'rgba(214,236,255,'+a0.toFixed(3)+')');
+      gi.addColorStop(.45,'rgba(150,196,255,'+(a0*0.34).toFixed(3)+')');
+      gi.addColorStop(1,'rgba(120,170,255,0)');
+      cx2.strokeStyle=gi; cx2.lineWidth=Math.max(1,M*0.0035*(0.5+act)); cx2.stroke();
+    }
+    cx2.restore();
+    // 코마
+    const cr=o.r*(2.2+9*act)*(1+0.06*Math.sin(t*2.3));
+    const cg=cx2.createRadialGradient(s.x,s.y,0,s.x,s.y,cr);
+    cg.addColorStop(0,'rgba(255,255,255,'+(lit*(0.28+0.46*act)).toFixed(3)+')');
+    cg.addColorStop(.35,'rgba(205,235,255,'+(lit*(0.18*act+0.04)).toFixed(3)+')');
+    cg.addColorStop(1,'rgba(170,215,255,0)');
+    cx2.fillStyle=cg; cx2.beginPath(); cx2.arc(s.x,s.y,cr,0,TAU); cx2.fill();
+  }
+  // 핵 — 활동이 없으면 이것뿐이다. 알베도 0.04 의 검댕이라 어둡다.
+  const la=Math.atan2(starScr.y-s.y, starScr.x-s.x);
+  drawBody(cx2,s.x,s.y,o.r,o.body,la,lit,{spinLon:o.spinLon});
 }
 
 /* ==========================================================================
@@ -6931,6 +7116,27 @@ const SHAPE={
   mn_janus   :{ax:[1,0.911,0.754],lump:0.10},
   mn_phoebe  :{ax:[1,0.991,0.932],lump:0.07},
   mn_nereid  :{ax:[1,0.940,0.900],lump:0.10},   // 형상 미확인, 크기상 비구형으로 본다
+  /* 혜성 핵은 자체 중력으로 둥글어질 수 없을 만큼 작다. 탐사선이 직접 찍은
+     넷은 실측 삼축 치수에서 축 비를 뽑았고, 나머지는 그 범위 안에서 잡았다.
+     67P 는 두 덩어리가 목으로 붙은 오리 모양이라 가장 길쭉하다. */
+  cm_67p       :{ax:[1,0.512,0.488],lump:0.20},   // 4.34 × 2.60 × 2.12 km
+  cm_halley    :{ax:[1,0.500,0.469],lump:0.19},   // 15.3 × 7.2 × 7.2 km (지오토)
+  cm_borrelly  :{ax:[1,0.500,0.443],lump:0.18},   // 8.0 × 3.2 × 3.2 km (딥스페이스 1)
+  cm_wild2     :{ax:[1,0.804,0.706],lump:0.17},   // 5.5 × 4.0 × 3.3 km (스타더스트)
+  cm_tempel1   :{ax:[1,0.500,0.500],lump:0.16},   // 7.6 × 4.9 km (딥임팩트)
+  cm_hartley2  :{ax:[1,0.400,0.375],lump:0.21},   // 2.33 × 0.69 km — 땅콩 모양
+  cm_ponsbrooks:{ax:[1,0.860,0.800],lump:0.14},
+  cm_encke     :{ax:[1,0.780,0.720],lump:0.16},
+  cm_sw3       :{ax:[1,0.700,0.640],lump:0.22},   // 쪼개진 파편
+  cm_giacobini :{ax:[1,0.760,0.700],lump:0.17},
+  cm_tempeltuttle:{ax:[1,0.800,0.740],lump:0.15},
+  cm_swifttuttle:{ax:[1,0.880,0.830],lump:0.13},
+  cm_holmes    :{ax:[1,0.870,0.820],lump:0.14},
+  cm_halebopp  :{ax:[1,0.900,0.860],lump:0.11},   // 지름 60 km 급이라 비교적 둥글다
+  cm_hyakutake :{ax:[1,0.820,0.760],lump:0.16},
+  cm_neowise   :{ax:[1,0.850,0.800],lump:0.14},
+  cm_mcnaught  :{ax:[1,0.830,0.780],lump:0.15},
+  cm_ikeyaseki :{ax:[1,0.740,0.680],lump:0.18},   // 근일점에서 쪼개졌다
 };
 const shapeOf=id=>SHAPE[id]||null;
 
@@ -7422,6 +7628,7 @@ $('#btnShoot').onclick=()=>{
    ========================================================================== */
 function isPlaced(id){
   if(S.sys.comp.includes(id))return true;
+  if(S.sys.comets.includes(id))return true;      // 혜성 자리도 배치다
   return S.sys.slots.some(sl=>sl.p===id||sl.m.includes(id));
 }
 function unplacedOf(bn){
@@ -7458,9 +7665,16 @@ function renderSystem(){
     <div class="slotList">
       ${S.sys.slots.map((sl,i)=>slotRow(sl,i)).join('')}
     </div>
+
+    <div class="secLbl">혜성 <span style="color:var(--txt-3);font-weight:400">· 최대 ${MAX_COMET}</span></div>
+    <div class="slotList">
+      ${S.sys.comets.map((id,i)=>cometRow(id,i)).join('')}
+    </div>
+
     <div class="pickerHint" style="margin-top:14px">
       가장 바깥 궤도의 행성이 타이머 시간 동안 정확히 <b>1바퀴</b>를 돕니다.
       안쪽 행성은 케플러 제3법칙에 따라 더 빠르게 공전합니다.
+      혜성은 궤도가 아주 길쭉해 중심별에 가까울 때만 꼬리가 보입니다.
     </div>`;
 
   paintPreview($('#sysStarCv'),starLook(),performance.now()/1000);
@@ -7476,6 +7690,8 @@ function renderSystem(){
         const sl=S.sys.slots[i];sl.p=null;sl.m=[null,null];saveNow();renderSystem();}
       else if(a==='setM')    openPick('moon',b=>{S.sys.slots[i].m[k]=b.id;saveNow();renderSystem();});
       else if(a==='delM'){S.sys.slots[i].m[k]=null;saveNow();renderSystem();}
+      else if(a==='setCm')   openPick('comet',b=>{S.sys.comets[i]=b.id;saveNow();renderSystem();});
+      else if(a==='delCm'){S.sys.comets[i]=null;saveNow();renderSystem();}
     };
   });
   $$('canvas[data-body]',body).forEach(c=>{
@@ -7483,6 +7699,26 @@ function renderSystem(){
     if(b) paintThumb(c,b,c.dataset.kind);
   });
   updateTimerUI();
+}
+/** 혜성 한 칸. 족과 근일점을 함께 보여 준다 — 궤도가 어디까지 가는지가
+    이 천체에서는 곧 성격이다. */
+function cometRow(id,i){
+  const b=id?BY_ID[id]:null;
+  const FAM={jup:'목성족',hal:'핼리형',long:'장주기'};
+  let sub='';
+  if(b){
+    const el=cometEl(b.id);
+    sub=`${FAM[b.fam]||''} · 근일점 ${b.q} AU · 주기 ${b.per<1?'—':b.per.toLocaleString()+'년'}`;
+  }
+  return `<div class="slot"><div class="slotMain">
+    <div class="idx">☄</div>
+    ${b?`<canvas width="80" height="80" data-body="${b.id}" data-kind="comet"></canvas>`
+       :`<div style="width:40px;height:40px;border-radius:50%;border:1px dashed var(--line);flex:0 0 auto"></div>`}
+    <div class="nm">${b?`<div class="a">${b.n}</div><div class="b">${esc(sub)}</div>`
+                      :`<div class="empty">비어 있음</div>`}</div>
+    ${b?`<button class="mini danger" data-act="delCm" data-i="${i}">해제</button>`
+       :`<button class="mini" data-act="setCm" data-i="${i}">배치</button>`}
+  </div></div>`;
 }
 function compRow(id,i){
   const b=id?BY_ID[id]:null;
