@@ -150,7 +150,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
     <li><a href="#bary">질량중심</a></li>
     <li><a href="#camera">카메라</a></li>
     <li><a href="#timer">타이머</a></li>
-    <li><a href="#gacha">가챠</a></li>
+    <li><a href="#gacha">완주 보상</a></li>
     <li><a href="#cloud">계정</a></li>
     <li><a href="#code">코드 지도</a></li>
     <li><a href="#gotcha">함정</a></li>
@@ -168,7 +168,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
   <figure>
     <svg viewBox="0 0 860 190" xmlns="http://www.w3.org/2000/svg" role="img"
-         aria-label="집중 완료가 토큰을 낳고 토큰이 가챠를, 가챠가 천체를, 천체 배치가 다시 항성계를 키우는 순환">
+         aria-label="집중 완료가 천체 하나를 낳고, 그 천체를 궤도에 배치하면 다시 항성계가 커지는 순환">
       <defs>
         <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
           <path d="M0,0 L7,3.2 L0,6.4 z" fill="#5f7099"/>
@@ -182,34 +182,37 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
         </g>
         <line x1="172" y1="90" x2="212" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
         <g>
-          <rect x="220" y="52" width="146" height="76" rx="14" fill="rgba(255,198,92,.10)" stroke="rgba(255,198,92,.38)"/>
-          <text x="293" y="84" fill="#ffc65c" font-size="15" font-weight="700">◈ 토큰 +1</text>
-          <text x="293" y="105" fill="#9aa8ca" font-size="11.5">7초 팝업 후 자동 보관</text>
+          <rect x="220" y="52" width="176" height="76" rx="14" fill="rgba(255,198,92,.10)" stroke="rgba(255,198,92,.38)"/>
+          <text x="308" y="82" fill="#ffc65c" font-size="15" font-weight="700">천체 1종</text>
+          <text x="308" y="104" fill="#9aa8ca" font-size="11.5">집중 연출이 종류를 정한다</text>
         </g>
-        <line x1="374" y1="90" x2="414" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="404" y1="90" x2="434" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
         <g>
-          <rect x="422" y="52" width="146" height="76" rx="14" fill="rgba(195,150,255,.10)" stroke="rgba(195,150,255,.38)"/>
-          <text x="495" y="84" fill="#c9a6ff" font-size="15" font-weight="700">가챠 1회</text>
-          <text x="495" y="105" fill="#9aa8ca" font-size="11.5">항성 / 행성 / 위성</text>
+          <rect x="442" y="52" width="146" height="76" rx="14" fill="rgba(195,150,255,.10)" stroke="rgba(195,150,255,.38)"/>
+          <text x="515" y="82" fill="#c9a6ff" font-size="15" font-weight="700">발견 연출</text>
+          <text x="515" y="104" fill="#9aa8ca" font-size="11.5">4.2초 · 끌 수 있다</text>
         </g>
-        <line x1="576" y1="90" x2="616" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="596" y1="90" x2="616" y2="90" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
         <g>
           <rect x="624" y="52" width="146" height="76" rx="14" fill="rgba(111,230,176,.10)" stroke="rgba(111,230,176,.34)"/>
           <text x="697" y="84" fill="#6fe6b0" font-size="15" font-weight="700">궤도에 배치</text>
-          <text x="697" y="105" fill="#9aa8ca" font-size="11.5">행성 7 · 위성 14 · 동반성 2</text>
+          <text x="697" y="105" fill="#9aa8ca" font-size="10">행성 7 · 위성 14 · 동반성 2 · 혜성 1</text>
         </g>
         <path d="M770 90 L806 90 Q824 90 824 108 L824 156 Q824 172 806 172 L112 172 Q91 172 91 154 L91 136"
               fill="none" stroke="#5f7099" stroke-width="1.6" stroke-dasharray="5 5" marker-end="url(#ar)"/>
         <text x="450" y="166" fill="#66739a" font-size="11.5">항성계가 커질수록 다음 세션의 화면이 화려해진다</text>
       </g>
     </svg>
-    <figcaption>보상이 화면에 그대로 쌓이는 구조라, 집중할수록 볼거리가 늘어납니다.</figcaption>
+    <figcaption>보상이 화면에 그대로 쌓이는 구조라, 집중할수록 볼거리가 늘어납니다.
+      중간에 뽑기가 없어서, 완주하면 반드시 새 천체가 하나 나옵니다.</figcaption>
   </figure>
 
   <div class="card">
-    <div class="t">집중 중에는 천체가 검은 구체입니다</div>
-    <p>세션이 끝나기 전까지 행성·위성·동반성은 색 없는 검은 공으로만 보입니다.
-       완료하는 순간 중심별에서 빛의 파동이 퍼져 나가며 바깥쪽으로 차례차례 색이 돌아옵니다.
+    <div class="t">집중 중에는 천체가 어두워집니다</div>
+    <p>세션이 흐르는 동안 행성·위성·동반성의 밝기가 <code>0.62</code>로 떨어집니다.
+       색과 표면은 보이되 완주했을 때보다 어둡습니다 — 처음에는 완전한 검은 구체였는데,
+       흐림과 모눈이 깔리는 관측 화면에서는 아예 보이지 않아 중간값으로 바꿨습니다.
+       완료하는 순간 중심별에서 빛의 파동이 퍼져 나가며 바깥쪽으로 차례차례 밝아집니다.
        <strong>중심별만은 예외로 항상 밝게 켜져 있습니다</strong> — 화면의 기준점이 사라지면
        허전해지기 때문입니다.</p>
   </div>
@@ -227,21 +230,21 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
   <figure>
     <svg viewBox="0 0 860 330" xmlns="http://www.w3.org/2000/svg" role="img"
-         aria-label="브라우저 안에서 상태·렌더러·타이머·가챠가 동작하고 저장은 로컬과 선택적 클라우드로 나뉘는 구조">
+         aria-label="브라우저 안에서 상태·렌더러·타이머·보상이 동작하고 저장은 로컬과 선택적 클라우드로 나뉘는 구조">
       <g font-family="inherit">
         <rect x="16" y="14" width="828" height="196" rx="16" fill="rgba(138,180,255,.045)" stroke="rgba(138,180,255,.22)"/>
         <text x="34" y="40" fill="#8ab4ff" font-size="11.5" font-weight="800" letter-spacing="1.4">브라우저 (index.html)</text>
 
         <rect x="36" y="54" width="240" height="66" rx="12" fill="rgba(255,198,92,.10)" stroke="rgba(255,198,92,.34)"/>
         <text x="52" y="80" fill="#ffc65c" font-size="14" font-weight="700">상태 S</text>
-        <text x="52" y="101" fill="#9aa8ca" font-size="11.5">중심별 · 보관함 · 배치 · 토큰 · 통계</text>
+        <text x="52" y="101" fill="#9aa8ca" font-size="11.5">중심별 · 보관함 · 배치 · 기록</text>
 
         <rect x="292" y="54" width="264" height="66" rx="12" fill="rgba(195,150,255,.10)" stroke="rgba(195,150,255,.34)"/>
         <text x="308" y="80" fill="#c9a6ff" font-size="14" font-weight="700">렌더러 (캔버스)</text>
         <text x="308" y="101" fill="#9aa8ca" font-size="11.5">케플러 궤도 · 3D 카메라 · 천체 그리기</text>
 
         <rect x="572" y="54" width="252" height="66" rx="12" fill="rgba(111,230,176,.10)" stroke="rgba(111,230,176,.30)"/>
-        <text x="588" y="80" fill="#6fe6b0" font-size="14" font-weight="700">타이머 · 가챠 · UI</text>
+        <text x="588" y="80" fill="#6fe6b0" font-size="14" font-weight="700">타이머 · 보상 · UI</text>
         <text x="588" y="101" fill="#9aa8ca" font-size="11.5">세션 진행 · 추첨 · 모달</text>
 
         <rect x="36" y="134" width="788" height="56" rx="12" fill="rgba(255,255,255,.03)" stroke="rgba(140,175,255,.18)"/>
@@ -279,7 +282,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
   <figure>
     <svg viewBox="0 0 860 420" xmlns="http://www.w3.org/2000/svg" role="img"
-         aria-label="화면 네 모서리에 시계·계정, 토큰·가챠, 타이머 위젯, 시점 조작·항성계 설정이 배치되고 가운데에 항성계가 있는 배치도">
+         aria-label="화면 네 모서리에 시계·계정, 알림·메뉴, 타이머 위젯, 시점 조작이 배치되고 가운데에 항성계가 있는 배치도">
       <rect x="14" y="14" width="832" height="392" rx="18" fill="rgba(8,11,22,.7)" stroke="rgba(140,175,255,.2)"/>
 
       <!-- 항성계 -->
@@ -308,9 +311,9 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
         <!-- 우상단 -->
         <rect x="640" y="34" width="186" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(255,198,92,.34)"/>
-        <text x="733" y="54" fill="#ffc65c" font-size="12" font-weight="700" text-anchor="middle">◈ 4  가챠 토큰</text>
+        <text x="733" y="54" fill="#ffc65c" font-size="12" font-weight="700" text-anchor="middle">🔔  알림</text>
         <rect x="686" y="72" width="140" height="30" rx="10" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
-        <text x="756" y="92" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="middle">✦ 가챠 배너</text>
+        <text x="756" y="92" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="middle">항성계 · 도감 · 촬영 · 설정</text>
 
         <!-- 좌하단 -->
         <rect x="34" y="216" width="176" height="170" rx="13" fill="rgba(16,21,38,.94)" stroke="rgba(140,175,255,.3)"/>
@@ -520,7 +523,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
   <p>1초마다 남은 시간에서 1초를 빼는 방식은 탭이 백그라운드로 내려가면 어긋납니다.
      대신 "언제 끝나는지"를 저장해 두고 매번 현재 시각과의 차이를 계산합니다. 폰을 잠갔다
      풀어도, 브라우저를 껐다 켜도 시간이 정확합니다. 앱을 다시 열었을 때 이미 끝난 세션이면
-     그 자리에서 완료 처리하고 토큰을 줍니다.</p>
+     그 자리에서 완료 처리하고 천체를 줍니다.</p>
 
   <figure>
     <svg viewBox="0 0 860 250" xmlns="http://www.w3.org/2000/svg" role="img"
@@ -534,13 +537,13 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
         <rect x="206" y="96" width="150" height="56" rx="13" fill="rgba(138,180,255,.13)" stroke="rgba(138,180,255,.42)"/>
         <text x="281" y="122" fill="#e8eefc" font-size="14" font-weight="700">집중</text>
-        <text x="281" y="140" fill="#8ab4ff" font-size="10">천체가 검은 구체 · 메뉴 잠김</text>
+        <text x="281" y="140" fill="#8ab4ff" font-size="10">천체가 어두워짐 · 메뉴 잠김</text>
 
         <line x1="362" y1="124" x2="404" y2="124" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
         <text x="383" y="112" fill="#66739a" font-size="10">완료</text>
 
         <rect x="412" y="88" width="160" height="72" rx="13" fill="rgba(255,198,92,.12)" stroke="rgba(255,198,92,.4)"/>
-        <text x="492" y="114" fill="#ffc65c" font-size="14" font-weight="700">◈ 토큰 지급</text>
+        <text x="492" y="114" fill="#ffc65c" font-size="14" font-weight="700">천체 지급</text>
         <text x="492" y="132" fill="#9aa8ca" font-size="10">빛의 파동으로 리빌</text>
         <text x="492" y="148" fill="#66739a" font-size="10">7초 팝업 (타이머는 계속 흐름)</text>
 
@@ -563,9 +566,9 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
     <tr><th>규칙</th><th>값</th></tr>
     <tr><td>최소 집중 시간</td><td>10분 (관리자 계정은 1분)</td></tr>
     <tr><td>입력 형식</td><td>자연수만. 소수점·문자는 경고 후 되돌림</td></tr>
-    <tr><td>완료 보상</td><td>토큰 1개. 포모도로 <em>N</em>회차마다 보너스 포함 2개</td></tr>
-    <tr><td>중도 종료</td><td>토큰 없음</td></tr>
-    <tr><td>집중 중 잠금</td><td>가챠·항성계 설정·시간 변경 불가. 종료만 가능</td></tr>
+    <tr><td>완료 보상</td><td>천체 1종. 포모도로 <em>N</em>회차마다 보너스로 2종</td></tr>
+    <tr><td>중도 종료</td><td>보상 없음</td></tr>
+    <tr><td>집중 중 잠금</td><td>항성계 설정·도감·기록·시간 변경 불가. 타이머는 일시정지·종료 가능</td></tr>
   </table></div>
 
   <div class="card">
@@ -577,32 +580,61 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
 <!-- ===================== 8 ===================== -->
 <section id="gacha">
-  <h2><span class="num">08</span> 가챠</h2>
-  <p class="lede">배너 세 개, 등급 세 단계, <strong>중복 없음</strong>.</p>
+  <h2><span class="num">08</span> 완주 보상</h2>
+  <p class="lede">뽑기가 없습니다. 완주하면 천체가 하나 나오고,
+     <strong>무엇이 나올지는 고른 집중 연출이 정합니다.</strong></p>
+
+  <p>연출을 고르는 것이 곧 수집 방향을 고르는 것이 됩니다. 짝은
+     <strong>실제로 그 방법이 밝혀내는 대상</strong>에 맞췄습니다.</p>
 
   <div class="tbl"><table>
-    <tr><th>등급</th><th>확률</th><th>천장</th><th>수록</th></tr>
-    <tr><td><span class="pill s5">★★★★★</span></td><td class="mono">4%</td><td class="mono">30회</td><td>전설급 천체</td></tr>
-    <tr><td><span class="pill s4">★★★★</span></td><td class="mono">22%</td><td class="mono">10회</td><td>희귀 천체</td></tr>
-    <tr><td><span class="pill s3">★★★</span></td><td class="mono">74%</td><td>—</td><td>기본 천체</td></tr>
+    <tr><th>집중 연출</th><th>얻는 것</th><th>왜 그 짝인가</th></tr>
+    <tr><td>엄폐(식) 관측</td><td class="mono">행성 25</td><td>실제로 외계행성을 찾는 바로 그 방법</td></tr>
+    <tr><td>벨트 탐사</td><td class="mono">왜소행성 12</td><td>카이퍼 벨트 탐사가 잡아내는 것</td></tr>
+    <tr><td>탐사선 항해</td><td class="mono">위성 28</td><td>보이저·카시니가 위성을 가장 많이 밝혀냄</td></tr>
+    <tr><td>혜성 근일점</td><td class="mono">혜성 18</td><td>근일점 통과를 지켜보는 것이 새 혜성을 확정하는 일</td></tr>
+    <tr><td>분광 관측</td><td class="mono">항성 29</td><td>실제로 별을 분류하는 바로 그 방법</td></tr>
+    <tr><td>없음</td><td class="mono">남은 종류에서</td><td>연출을 껐다고 빈손으로 보내지 않음</td></tr>
   </table></div>
 
-  <p>천장은 <strong>배너마다 따로</strong> 셉니다. 행성 배너에서 10번 헛돌았다고 위성 배너가
-     보장되지는 않습니다. 총 46종(항성 12 · 행성 18 · 위성 16)을 모으면 도감이 완성됩니다.</p>
+  <p>모두 <strong>112종</strong>입니다. 그 종류를 다 모으면 아직 남은 다른 종류로 넘어가므로,
+     한 연출만 켜 두어도 언젠가는 도감이 찹니다.</p>
 
   <h3>중복이 나오지 않는 원리</h3>
   <ol class="steps">
-    <li>확률표로 등급을 먼저 뽑습니다. 단, 천장 조건에 걸렸으면 등급을 올려 확정합니다.</li>
-    <li>그 등급에서 <strong>아직 갖지 않은 천체만</strong> 골라 그중 하나를 균등하게 뽑습니다.</li>
-    <li>해당 등급을 이미 다 모았다면 더 높은 등급부터 순서대로 대체합니다.</li>
+    <li>연출이 정한 종류를 봅니다. 그 종류가 이미 다 찼으면 아직 남은 종류 중에서 고릅니다.</li>
+    <li>그 종류에서 <strong>아직 갖지 않은 천체만</strong> 추려 그중 하나를 균등하게 뽑습니다.</li>
+    <li>등급이 없으므로 어느 천체도 다른 천체보다 귀하지 않습니다.</li>
     <li>뽑은 천체는 보관함에 들어갑니다. 배치는 나중에 직접 합니다.</li>
   </ol>
 
   <div class="card">
-    <div class="t">연출 중에는 버튼이 잠깁니다</div>
-    <p>연타하면 애니메이션이 여러 개 겹쳐 돌면서 결과가 즉시 튀어나오는 문제가 있었습니다.
-       지금은 연출이 끝날 때까지 뽑기 버튼이 잠기고, 기다리기 싫으면
-       <strong>건너뛰기</strong>로 바로 결과를 볼 수 있습니다.</p>
+    <div class="t">등급을 없앤 이유</div>
+    <p>예전에는 ★3~★5 등급과 확률·천장이 있었습니다. 실존 천체 사이에 서열을 매기는 것은
+       근거가 없고 — <strong>어떤 기준으로 명왕성이 세레스보다 위인가</strong> — 애초에 뽑기에서
+       귀함을 드러내려고 둔 값이었습니다. 뽑기가 사라지면서 아무 일도 하지 않게 되어 걷어냈습니다.
+       그 자리에는 서열 대신 <strong>종류</strong>를 적습니다 — <code>왜소행성 (Dwarf Planet)</code>.</p>
+  </div>
+
+  <h3>발견 연출 — 연출마다 결말이 다르다</h3>
+  <p>완주하면 4.2초짜리 발견 연출이 뜹니다. 넷이 같은 망원경 시야로 끝나면 집중 내내 본
+     연출과 결말이 끊기므로, <strong>그 관측이 실제로 어떻게 천체를 밝혀내는지</strong>를
+     결말로 삼았습니다.</p>
+  <div class="tbl"><table>
+    <tr><th>연출</th><th>결말</th><th>완료 문구</th></tr>
+    <tr><td>벨트 탐사</td><td>집중 내내 보던 마지막 표적으로 배율을 올린다 (점 → 원반 → 해상)</td><td class="mono">RESOLVED</td></tr>
+    <tr><td>엄폐(식)</td><td>별이 물러나고 검은 실루엣에 종결선이 쓸고 지나간다</td><td class="mono">RESOLVED</td></tr>
+    <tr><td>혜성 근일점</td><td>관측점 셋에서 궤도가 풀리고 제원이 확정된다</td><td class="mono">ORBIT DETERMINED</td></tr>
+    <tr><td>탐사선 항해</td><td>이미지가 주사선 단위로 내려온다. 안 온 부분은 잡음이다</td><td class="mono">IMAGE COMPLETE</td></tr>
+    <tr><td>분광 관측</td><td>계측 화면이 물러나고 방금 분류한 별이 앞으로 나온다</td><td class="mono">CLASSIFIED</td></tr>
+  </table></div>
+  <p>설정에서 끄면 결과 카드만 뜹니다. 연출 중 아무 곳이나 누르면 건너뜁니다.</p>
+
+  <div class="card">
+    <div class="t">분광 관측이 보여 주는 별이 곧 받을 별입니다</div>
+    <p>대상 별은 <strong>세션이 시작될 때</strong> 정해집니다. 25분 내내 흡수선이 하나씩 떠오르는
+       것을 보고 나서 다른 별을 받으면 이야기가 끊기기 때문입니다. 새로고침해도 같은 별이
+       나오도록 씨앗을 세션 종료 시각에 묶어 두었습니다.</p>
   </div>
 </section>
 
@@ -622,7 +654,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
         <text x="122" y="100" fill="#e8eefc" font-size="14" font-weight="700" text-anchor="middle">브라우저</text>
         <text x="122" y="124" fill="#9aa8ca" font-size="11" text-anchor="middle">공개 키를 들고 있음</text>
         <text x="122" y="146" fill="#66739a" font-size="10.5" text-anchor="middle">아이디 + PIN 4~6자리</text>
-        <text x="122" y="172" fill="#66739a" font-size="10.5" text-anchor="middle">로그인하면 토큰을 받아</text>
+        <text x="122" y="172" fill="#66739a" font-size="10.5" text-anchor="middle">로그인하면 인증 토큰을 받아</text>
         <text x="122" y="188" fill="#66739a" font-size="10.5" text-anchor="middle">이후 요청에 씀</text>
 
         <line x1="230" y1="135" x2="286" y2="135" stroke="#5f7099" stroke-width="1.6" marker-end="url(#ar)"/>
@@ -666,8 +698,8 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
      조용히 덮어쓰지 않습니다. 비교할 때 타이머의 진행 상태는 제외합니다 — 기기마다 다른 게 당연하니까요.</p>
 
   <h3>관리자 계정</h3>
-  <p>토큰 무제한, 집중 시간 1분부터 설정 가능, 천체 종류별 도감 초기화가 열립니다.
-     가챠 확률과 천장을 반복 검증하려고 만든 <strong>테스트 편의 기능</strong>이며,
+  <p>집중 시간을 1분부터 설정할 수 있고, 천체 종류별 도감 초기화가 열립니다.
+     지급 경로를 반복 검증하려고 만든 <strong>테스트 편의 기능</strong>이며,
      브라우저 쪽에서만 판정하므로 진짜 권한 통제는 아닙니다.</p>
 </section>
 
@@ -681,14 +713,14 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
   <div class="tbl"><table>
     <tr><th>구역</th><th>하는 일</th><th>대표 함수</th></tr>
     <tr><td class="mono">0</td><td>색·난수·시간 유틸</td><td><code>toHex</code> <code>mulberry</code> <code>lsGet</code></td></tr>
-    <tr><td class="mono">1</td><td>천체 데이터 (46종)</td><td><code>STAR_POOL</code> <code>PLANET_POOL</code> <code>MOON_POOL</code></td></tr>
+    <tr><td class="mono">1</td><td>천체 데이터 (112종)</td><td><code>STAR_POOL</code> <code>PLANET_POOL</code> <code>DWARF_POOL</code> <code>MOON_POOL</code> <code>COMET_POOL</code></td></tr>
     <tr><td class="mono">2</td><td>상태와 저장</td><td><code>freshState</code> <code>load</code> <code>save</code></td></tr>
     <tr><td class="mono">3</td><td>천체 그리기</td><td><code>drawBody</code> <code>drawStar</code> <code>drawRing</code></td></tr>
     <tr><td class="mono">4</td><td>궤도·카메라·화면</td><td><code>orbitPos</code> <code>project</code> <code>render</code></td></tr>
     <tr><td class="mono">5</td><td>타이머</td><td><code>startPhase</code> <code>onPhaseDone</code> <code>isLocked</code></td></tr>
     <tr><td class="mono">6</td><td>모달·확인창</td><td><code>open</code> <code>close</code> <code>ask</code></td></tr>
     <tr><td class="mono">7</td><td>중심별 생성</td><td><code>buildPalette</code> <code>paintPreview</code></td></tr>
-    <tr><td class="mono">8</td><td>가챠</td><td><code>pull</code> <code>showPull</code> <code>renderGacha</code></td></tr>
+    <tr><td class="mono">8</td><td>완주 보상</td><td><code>REWARD</code> <code>rewardKind</code> <code>takeOne</code></td></tr>
     <tr><td class="mono">9</td><td>항성계 편집</td><td><code>renderSystem</code> <code>openPick</code></td></tr>
     <tr><td class="mono">10</td><td>완료 팝업</td><td><code>showTokenPopup</code></td></tr>
     <tr><td class="mono">11</td><td>위젯 이벤트 연결</td><td><code>setMode</code> <code>updateViewUI</code></td></tr>
@@ -703,9 +735,9 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
   <div class="tbl"><table>
     <tr><th>항목</th><th>내용</th></tr>
     <tr><td>중심별</td><td>이름과 색</td></tr>
-    <tr><td>보관함</td><td>보유한 천체 id 목록 (배너별)</td></tr>
+    <tr><td>보관함</td><td>보유한 천체 id 목록 (종류별 다섯)</td></tr>
     <tr><td>배치</td><td>궤도 슬롯 7개 + 슬롯별 위성 2칸 + 동반성 2칸</td></tr>
-    <tr><td>토큰 · 천장</td><td>보유 토큰, 배너별 천장 카운터</td></tr>
+    <tr><td>혜성 배치</td><td><code>sys.comets</code> — 한 칸</td></tr>
     <tr><td>통계</td><td>총 세션 수, 누적 집중 시간, 오늘 집중 시간</td></tr>
     <tr><td>타이머 설정</td><td>모드, 시간, 포모도로 회차</td></tr>
   </table></div>

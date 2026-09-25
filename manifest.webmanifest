@@ -1,7 +1,7 @@
 {
   "name": "Stellar Focus · 나만의 항성계",
   "short_name": "Stellar Focus",
-  "description": "집중한 시간만큼 나의 항성계가 정확히 한 바퀴를 돕니다. 완주하면 가챠 토큰을 얻어 실존 천체 87종을 모읍니다.",
+  "description": "집중한 시간만큼 나의 항성계가 정확히 한 바퀴를 돕니다. 완주하면 실존 천체를 하나 얻어 112종을 모읍니다.",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./",
