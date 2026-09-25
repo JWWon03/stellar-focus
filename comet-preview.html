@@ -16,36 +16,31 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;font-size:14px;line-
   font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
   -webkit-font-smoothing:antialiased}
 button,input,select{font-family:inherit;color:var(--txt);touch-action:manipulation}
-.wrap{max-width:660px;margin:0 auto;padding:20px 16px 60px}
+.wrap{max-width:680px;margin:0 auto;padding:20px 16px 60px}
 h1{font-size:19px;font-weight:700;margin-bottom:3px}
 .sub{font-size:12.5px;color:var(--txt-3);margin-bottom:16px}
+h2{font-size:15px;font-weight:700;margin:26px 0 4px}
+.lead{font-size:12.5px;color:var(--txt-3);margin-bottom:11px}
 
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px}
-.tab{padding:9px 3px;border-radius:11px;cursor:pointer;font-size:12px;font-weight:700;
-  background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt-2);line-height:1.3}
-.tab .kd{display:block;font-size:9.5px;font-weight:600;color:var(--txt-3);margin-top:2px}
-.tab.on{background:linear-gradient(160deg,rgba(58,90,180,.42),rgba(40,60,140,.3));
-  border-color:var(--line-2);color:#fff}
-.tab.on .kd{color:var(--acc)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pane{position:relative;border-radius:14px;overflow:hidden;background:#04050b;
+  border:1px solid var(--line);transition:border-color .2s}
+.pane.off{border-color:rgba(255,155,125,.55)}
+.pane canvas{display:block;width:100%;aspect-ratio:1/1}
+.cap{position:absolute;left:0;right:0;top:0;padding:7px 9px;font-size:11px;font-weight:700;
+  background:linear-gradient(#04050bcc,#04050b00);pointer-events:none}
+.cap em{display:block;font-style:normal;font-size:9.5px;font-weight:500;color:var(--txt-3);margin-top:1px}
+.flag{position:absolute;right:8px;bottom:8px;font-size:9.5px;font-weight:700;
+  color:var(--warn);opacity:0;transition:opacity .2s;pointer-events:none}
+.pane.off .flag{opacity:1}
 
-.seg{display:flex;gap:6px;margin-bottom:10px}
-.seg button{flex:1;padding:9px 6px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;
-  background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt-3);line-height:1.35}
-.seg button .kd{display:block;font-size:9.5px;font-weight:500;color:var(--txt-3);margin-top:2px}
-.seg button.on{border-color:var(--line-2);color:#fff;background:rgba(138,180,255,.12)}
-.seg button.on .kd{color:var(--acc)}
-
-.stage{position:relative;width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;
-  background:#04050b;border:1px solid var(--line)}
-.stage canvas{display:block;width:100%;height:100%}
-
-.ctl{display:flex;align-items:center;gap:11px;margin-top:12px}
-.play{width:42px;height:42px;flex:0 0 auto;border-radius:12px;cursor:pointer;
+.ctl{display:flex;align-items:center;gap:11px;margin-top:11px}
+.play{width:40px;height:40px;flex:0 0 auto;border-radius:11px;cursor:pointer;
   background:linear-gradient(160deg,#3b63c9,#2a3f8f);border:1px solid rgba(160,190,255,.4);
   display:grid;place-items:center}
-.play svg{width:17px;height:17px;fill:#fff}
+.play svg{width:16px;height:16px;fill:#fff}
 input[type=range]{flex:1;accent-color:var(--acc)}
-.pct{font-size:12px;color:var(--txt-3);font-variant-numeric:tabular-nums;min-width:62px;text-align:right}
+.pct{font-size:11.5px;color:var(--txt-3);font-variant-numeric:tabular-nums;min-width:70px;text-align:right}
 
 .row2{display:flex;gap:8px;margin-top:9px;align-items:center}
 .row2 label{font-size:11.5px;color:var(--txt-3);white-space:nowrap}
@@ -53,8 +48,8 @@ select{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--line);bord
   padding:8px 10px;font-size:12.5px}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:14px 16px;margin-top:14px}
-.card h3{font-size:13.5px;font-weight:700;margin-bottom:7px}
+  padding:14px 16px;margin-top:13px}
+.card h3{font-size:13px;font-weight:700;margin-bottom:7px}
 .card p{font-size:12.5px;color:var(--txt-2);margin-bottom:9px}
 .card p:last-child{margin-bottom:0}
 .card b{color:var(--txt)}
@@ -70,72 +65,94 @@ td{padding:6px;border-bottom:1px solid rgba(140,175,255,.07);color:var(--txt-2);
   text-align:right;font-variant-numeric:tabular-nums}
 td:first-child{text-align:left;color:var(--txt)}
 tr.hi td{color:var(--gold)}
-.note{font-size:11.5px;color:var(--txt-3);line-height:1.75;margin-top:18px;
+.note{font-size:11.5px;color:var(--txt-3);line-height:1.75;margin-top:22px;
   border-top:1px solid var(--line);padding-top:14px}
 .note b{color:var(--txt-2)}
+.trip{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+@media (max-width:520px){ .trip{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>혜성 궤도 미리보기</h1>
-  <div class="sub">3단계 · 축척을 어떻게 잡을지 · <b>본편에는 적용하지 않았습니다</b></div>
+  <div class="sub">3단계 · 저절로 재생됩니다 · <b>본편에는 적용하지 않았습니다</b></div>
 
-  <div class="tabs" id="tabs"></div>
-
-  <div class="seg" id="scaleSeg">
-    <button data-s="A" class="on">A · 화면 안에 담는다<span class="kd">장주기 원일점이 벨트 바로 바깥</span></button>
-    <button data-s="B">B · 벨트를 넘어간다<span class="kd">기본 배율에서 잘린다</span></button>
+  <!-- ══ 질문 1 · 축척 ══ -->
+  <h2>① 장주기 혜성이 어디까지 나가야 하나</h2>
+  <div class="lead">둘 다 <b>본편과 같은 카메라</b>입니다 — 카이퍼 벨트까지 담는 기본 배율.
+    혜성에 맞춰 당기지 않았습니다.</div>
+  <div class="pair">
+    <div class="pane"><canvas id="cvA"></canvas>
+      <div class="cap">A · 화면 안에 담는다<em>원일점이 벨트 바로 바깥</em></div>
+      <div class="flag">화면 밖</div></div>
+    <div class="pane"><canvas id="cvB"></canvas>
+      <div class="cap">B · 벨트를 넘어간다<em>나갔다가 돌아온다</em></div>
+      <div class="flag">화면 밖</div></div>
   </div>
-
-  <div class="stage"><canvas id="cv"></canvas></div>
-
   <div class="ctl">
-    <button class="play" id="play" title="재생"><svg id="playIco" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
-    <input type="range" id="sl" min="0" max="1000" value="120">
-    <span class="pct" id="pct">0.00</span>
+    <button class="play" id="play"><svg id="playIco" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+    <input type="range" id="sl" min="0" max="1000" value="0">
+    <span class="pct" id="pct">0.00 바퀴</span>
   </div>
-
   <div class="row2">
     <label>혜성</label>
     <select id="pick"></select>
   </div>
+  <div class="card" id="scaleCard"></div>
 
-  <div class="card" id="desc"></div>
+  <!-- ══ 질문 2 · 성간 천체 ══ -->
+  <h2>② 보리소프는 돌아오지 않는다</h2>
+  <div class="lead">실측 이심률 <b>3.356</b> — 태양계에 묶여 있지 않은 쌍곡선입니다.
+    셋 다 같은 시간축으로 돕니다.</div>
+  <div class="trip">
+    <div class="pane"><canvas id="cvI1"></canvas>
+      <div class="cap">가 · 있는 그대로<em>한 번 지나가고 끝</em></div></div>
+    <div class="pane"><canvas id="cvI2"></canvas>
+      <div class="cap">나 · 반대편에서 다시<em>배치 자리가 안 빈다</em></div></div>
+    <div class="pane"><canvas id="cvI3"></canvas>
+      <div class="cap">다 · 아주 납작한 타원<em>돌아오되 거의 직선</em></div></div>
+  </div>
+  <div class="card" id="intCard"></div>
 
+  <!-- ══ 질문 3 · 시간 ══ -->
+  <h2>③ 꼬리를 얼마나 자주 보게 할까</h2>
+  <div class="lead">케플러 제2법칙대로면 혜성은 <b>대부분의 시간을 멀리서</b> 보냅니다.
+    왼쪽이 그대로, 오른쪽은 근일점 부근을 늘려 잡은 것입니다.</div>
+  <div class="pair">
+    <div class="pane"><canvas id="cvT1"></canvas>
+      <div class="cap">케플러 그대로<em>근일점에서 확 빨라진다</em></div></div>
+    <div class="pane"><canvas id="cvT2"></canvas>
+      <div class="cap">근일점을 늘린다<em>꼬리 보는 시간이 길어진다</em></div></div>
+  </div>
+  <div class="card" id="timeCard"></div>
+
+  <!-- ══ 축척 표 ══ -->
+  <h2>축척을 어떻게 옮기나</h2>
   <div class="card">
-    <h3>축척을 어떻게 옮기나</h3>
     <p>실측 장반경을 그대로 쓰면 <b>엔케(2.2 AU)</b>는 중심별에 붙고
-      <b>맥노트(1710 AU)</b>는 화면 밖 35배 거리로 나갑니다. 774배 차이입니다.</p>
+      <b>맥노트(1710 AU)</b>는 화면 밖 35배 거리로 나갑니다. <b>774배</b> 차이입니다.</p>
     <p>그래서 <b>족(族)이 화면 예산을 정하고</b>, 그 안에서
       <b>근일점의 순서와 벌어진 정도</b>를 실측대로 지킵니다. 버리는 것은 절대 크기뿐이고,
       실제 값은 도감 제원표에 그대로 남습니다.</p>
+    <div class="row2" style="margin-bottom:4px"><label>족</label>
+      <select id="famSel"></select></div>
     <div id="famTbl"></div>
-  </div>
-
-  <div class="card">
-    <h3>이심률은 왜 그대로 못 쓰나</h3>
-    <p>목성족은 실측 이심률(0.43~0.85)이 화면에 <b>거의 그대로</b> 들어맞습니다 —
-      원래 행성들 사이를 도는 궤도라 예산이 넉넉합니다.
-      하지만 장주기 혜성은 0.995~0.9999 라, 원일점을 화면에 맞추면
-      근일점이 <b>중심별 안쪽</b>으로 들어가 버립니다.</p>
-    <div class="warn" id="eWarn"></div>
-    <p>그래서 핼리형과 장주기만 이심률을 눌렀습니다. <b>순서는 그대로</b>입니다 —
-      실측에서 더 납작한 궤도가 화면에서도 더 납작합니다.</p>
+    <div class="warn" id="eWarn" style="margin-top:10px"></div>
   </div>
 
   <div class="note">
-    <b>무대 구성과 축척을 보는 용도입니다.</b> 핵 표면은 간단한 그림으로 대신했고,
+    <b>무대와 축척을 보는 용도입니다.</b> 핵 표면은 간단한 그림으로 대신했고,
     본편에 넣으면 도감과 같은 요철 렌더로 그립니다.<br><br>
     <b>배치 자리는 하나입니다.</b> 한 번에 한 혜성만 돌므로 궤도가 서로 겹칠 일은 없습니다.<br><br>
-    <b>꼬리는 근일점 가까이에서만 보입니다.</b> 실제로도 얼음이 녹기 시작하는
-    거리 안쪽에서만 코마와 꼬리가 생깁니다 — 바깥에서는 어두운 점 하나입니다.
+    <b>꼬리는 근일점 가까이에서만 보입니다.</b> 근일점의 6배 안쪽에서 켜집니다 —
+    실제로도 얼음이 녹기 시작하는 거리 안쪽에서만 코마와 꼬리가 생기고,
+    바깥에서는 어두운 점 하나입니다.
   </div>
 </div>
 
 <script>
 'use strict';
 const $=s=>document.querySelector(s);
-const $$=s=>[...document.querySelectorAll(s)];
 const TAU=Math.PI*2;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -158,13 +175,6 @@ function kepler(M,e){
   for(let i=0;i<6;i++){ const d=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E)); E-=d; if(Math.abs(d)<1e-9)break; }
   return E;
 }
-function orbitPos(el,revs){
-  const E=kepler(el.M0+revs*TAU,el.e);
-  const x0=el.a*(Math.cos(E)-el.e);
-  const y0=el.a*Math.sqrt(1-el.e*el.e)*Math.sin(E);
-  return orient(x0,y0,el);
-}
-/** 궤도면 좌표 → 월드 (근점·경사·승교점 적용) */
 function orient(x0,y0,el){
   const cw=Math.cos(el.peri),sw=Math.sin(el.peri);
   let x=x0*cw-y0*sw, y=x0*sw+y0*cw;
@@ -173,204 +183,138 @@ function orient(x0,y0,el){
   const cn=Math.cos(el.node),sn=Math.sin(el.node);
   return {x:x*cn-y*sn, y:x*sn+y*cn, z};
 }
-const VIEW={tilt:0.90, az:0};
-function project(p){
-  const ca=Math.cos(VIEW.az), sa=Math.sin(VIEW.az);
-  const x=p.x*ca-p.y*sa, y=p.x*sa+p.y*ca;
-  const c=Math.cos(VIEW.tilt), s=Math.sin(VIEW.tilt);
-  return {sx:x, sy:y*c, depth:-y*s};
+function orbitPos(el,revs){
+  const E=kepler(el.M0+revs*TAU,el.e);
+  return orient(el.a*(Math.cos(E)-el.e), el.a*Math.sqrt(1-el.e*el.e)*Math.sin(E), el);
 }
-let W=0,H=0,G={cx:0,cy:0,R:1},ZOOM=1;
-function toScreen(p){
-  const q=project(p), k=G.R*ZOOM;
-  return {x:G.cx+q.sx*k, y:G.cy+q.sy*k, depth:q.depth};
+const TILT=0.90;
+function project(p){
+  const c=Math.cos(TILT);
+  return {sx:p.x, sy:p.y*c};
 }
 const KB_MID=1.43, KB_TUBE=0.19, KB_OUT=KB_MID+KB_TUBE;
+/** 본편의 기본 카메라 — 카이퍼 벨트 바깥까지 담는다 */
+const FIT=0.94/KB_OUT;
+const EDGE=1/FIT;                 // 화면 가장자리에 닿는 월드 거리 ≈ 1.72
 
 /* ══ 혜성 데이터 — 본편 COMET_POOL 의 궤도 제원 ═══════════════════ */
 const COMETS=[
- {id:'cm_encke',       n:'엔케',            q:0.336, e:0.848,  per:3.3,     fam:'jup'},
- {id:'cm_sw3',         n:'슈바스만–바흐만 3', q:0.972, e:0.685,  per:5.4,    fam:'jup'},
- {id:'cm_tempel1',     n:'템펠 1',          q:1.542, e:0.512,  per:5.6,     fam:'jup'},
- {id:'cm_67p',         n:'추류모프–게라시멘코',q:1.243,e:0.641,  per:6.4,    fam:'jup'},
- {id:'cm_wild2',       n:'빌트 2',          q:1.598, e:0.538,  per:6.4,     fam:'jup'},
- {id:'cm_giacobini',   n:'자코비니–지너',    q:1.013, e:0.707,  per:6.5,    fam:'jup'},
- {id:'cm_hartley2',    n:'하틀리 2',        q:1.064, e:0.694,  per:6.5,     fam:'jup'},
- {id:'cm_borrelly',    n:'보렐리',          q:1.352, e:0.624,  per:6.8,     fam:'jup'},
- {id:'cm_holmes',      n:'홈스',            q:2.058, e:0.432,  per:6.9,     fam:'jup'},
- {id:'cm_tempeltuttle',n:'템펠–터틀',       q:0.976, e:0.906,  per:33.2,    fam:'hal'},
- {id:'cm_halley',      n:'핼리',            q:0.586, e:0.967,  per:75.3,    fam:'hal'},
- {id:'cm_swifttuttle', n:'스위프트–터틀',    q:0.960, e:0.963,  per:133,    fam:'hal'},
- {id:'cm_ikeyaseki',   n:'이케야–세키',      q:0.0078,e:0.9999, per:880,    fam:'long'},
- {id:'cm_halebopp',    n:'헤일–밥',         q:0.914, e:0.995,  per:2530,    fam:'long'},
- {id:'cm_neowise',     n:'네오와이즈',       q:0.295, e:0.9990, per:6800,   fam:'long'},
- {id:'cm_hyakutake',   n:'햐쿠타케',        q:0.230, e:0.9998, per:70000,   fam:'long'},
- {id:'cm_mcnaught',    n:'맥노트',          q:0.171, e:0.9999, per:92600,   fam:'long'},
- {id:'cm_borisov',     n:'보리소프',        q:2.007, e:3.356,  per:0,       fam:'int'}
+ {id:'cm_encke',       n:'엔케',             q:0.336, e:0.848,  per:3.3,   fam:'jup'},
+ {id:'cm_sw3',         n:'슈바스만–바흐만 3', q:0.972, e:0.685,  per:5.4,   fam:'jup'},
+ {id:'cm_tempel1',     n:'템펠 1',           q:1.542, e:0.512,  per:5.6,   fam:'jup'},
+ {id:'cm_67p',         n:'추류모프–게라시멘코',q:1.243,e:0.641,  per:6.4,   fam:'jup'},
+ {id:'cm_wild2',       n:'빌트 2',           q:1.598, e:0.538,  per:6.4,   fam:'jup'},
+ {id:'cm_giacobini',   n:'자코비니–지너',     q:1.013, e:0.707,  per:6.5,   fam:'jup'},
+ {id:'cm_hartley2',    n:'하틀리 2',         q:1.064, e:0.694,  per:6.5,   fam:'jup'},
+ {id:'cm_borrelly',    n:'보렐리',           q:1.352, e:0.624,  per:6.8,   fam:'jup'},
+ {id:'cm_holmes',      n:'홈스',             q:2.058, e:0.432,  per:6.9,   fam:'jup'},
+ {id:'cm_tempeltuttle',n:'템펠–터틀',        q:0.976, e:0.906,  per:33.2,  fam:'hal'},
+ {id:'cm_halley',      n:'핼리',             q:0.586, e:0.967,  per:75.3,  fam:'hal'},
+ {id:'cm_swifttuttle', n:'스위프트–터틀',     q:0.960, e:0.963,  per:133,   fam:'hal'},
+ {id:'cm_ikeyaseki',   n:'이케야–세키',       q:0.0078,e:0.9999, per:880,   fam:'long'},
+ {id:'cm_halebopp',    n:'헤일–밥',          q:0.914, e:0.995,  per:2530,  fam:'long'},
+ {id:'cm_neowise',     n:'네오와이즈',        q:0.295, e:0.9990, per:6800,  fam:'long'},
+ {id:'cm_hyakutake',   n:'햐쿠타케',         q:0.230, e:0.9998, per:70000, fam:'long'},
+ {id:'cm_mcnaught',    n:'맥노트',           q:0.171, e:0.9999, per:92600, fam:'long'},
+ {id:'cm_borisov',     n:'보리소프',         q:2.007, e:3.356,  per:0,     fam:'int'}
 ];
 const FAM_LB={jup:'목성족',hal:'핼리형',long:'장주기',int:'성간'};
-const FAM_KD={jup:'목성이 붙잡은 것',hal:'수십~수백 년',long:'수천~수만 년',int:'한 번 지나간다'};
 
-/* 족마다 화면 예산. q 는 근일점, Q 는 원일점 (기준 궤도 = 1.0 단위) */
 const BUDGET={
   A:{ jup:{q:[0.08,0.38], Q:[0.72,0.98]},
       hal:{q:[0.10,0.16], Q:[1.25,1.50]},
-      long:{q:[0.055,0.13],Q:[1.95,2.30]},
-      int:{q:0.20, Q:3.2} },
+      long:{q:[0.055,0.13],Q:[1.95,2.30]} },
   B:{ jup:{q:[0.08,0.38], Q:[0.72,0.98]},
       hal:{q:[0.09,0.15], Q:[1.55,1.85]},
-      long:{q:[0.05,0.12], Q:[2.55,3.00]},
-      int:{q:0.20, Q:4.0} }
+      long:{q:[0.05,0.12], Q:[2.55,3.00]} }
 };
-let SCALE='A';
+function rankLog(v,lo,hi){ return hi<=lo?0.5:(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo)); }
 
-/** 족 안에서 log 로 순위를 매긴다 — q 가 100배까지 벌어져 선형은 뭉갠다 */
-function rankLog(v,lo,hi){
-  if(hi<=lo) return 0.5;
-  return (Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo));
-}
 const _ce={};
-function cometEl(id){
-  const key=SCALE+':'+id;
+/** scale 'A'|'B' · intMode 'raw'|'wrap'|'flat' (성간만) */
+function cometEl(id,scale,intMode){
+  const key=id+'|'+scale+'|'+(intMode||'');
   if(_ce[key]) return _ce[key];
   const b=COMETS.find(c=>c.id===id);
-  const bud=BUDGET[SCALE][b.fam];
-  let q,Q,e;
+  const r=mulberry(fnv('comet#'+id));
+  const base={inc:(r()-0.5)*0.62, node:r()*TAU, peri:r()*TAU, M0:r()*TAU, body:b};
+  let el;
   if(b.fam==='int'){
-    q=bud.q; Q=bud.Q; e=1.28;                       // 쌍곡선 — 닫히지 않는다
+    if(intMode==='flat'){                       // 아주 납작한 타원 — 닫혀 있어 돌아온다
+      const q=0.20, Q=2.95;
+      el={q,Q,e:(Q-q)/(Q+q),a:(q+Q)/2,hyper:false,wrap:false};
+    }else{                                      // 쌍곡선 (가·나 공통)
+      const e=1.28, q=0.20;
+      el={q, Q:Infinity, e, a:q/(e-1), hyper:true, wrap:intMode==='wrap'};
+    }
   }else{
+    const bud=BUDGET[scale][b.fam];
     const sib=COMETS.filter(c=>c.fam===b.fam);
     const qs=sib.map(c=>c.q), as=sib.map(c=>c.q/(1-c.e));
-    const tq=rankLog(b.q, Math.min(...qs), Math.max(...qs));
-    const ta=rankLog(b.q/(1-b.e), Math.min(...as), Math.max(...as));
-    q=lerp(bud.q[0],bud.q[1],tq);                   // 근일점 순서·간격을 지킨다
-    Q=lerp(bud.Q[0],bud.Q[1],ta);                   // 원일점은 실측 장반경 순서
-    e=(Q-q)/(Q+q);
+    const q=lerp(bud.q[0],bud.q[1],rankLog(b.q,Math.min(...qs),Math.max(...qs)));
+    const Q=lerp(bud.Q[0],bud.Q[1],rankLog(b.q/(1-b.e),Math.min(...as),Math.max(...as)));
+    el={q,Q,e:(Q-q)/(Q+q),a:(q+Q)/2,hyper:false,wrap:false};
   }
-  const r=mulberry(fnv('comet#'+id));
-  return _ce[key]={
-    q, Q, e, a:b.fam==='int'?q/(e-1):(q+Q)/2,
-    inc:(r()-0.5)*0.62,                             // 혜성은 궤도면이 제멋대로다
-    node:r()*TAU, peri:r()*TAU, M0:r()*TAU,
-    hyper:b.fam==='int', body:b
-  };
+  return _ce[key]=Object.assign(el,base);
 }
-/** 진근점이각 nu 에서의 위치 (타원·쌍곡선 공통) */
 function cometPos(el,nu){
-  const p=el.q*(1+el.e);
-  const r=p/(1+el.e*Math.cos(nu));
-  return {r, ...orient(Math.cos(nu)*r, Math.sin(nu)*r, el)};
+  const p=el.q*(1+el.e), r=p/(1+el.e*Math.cos(nu));
+  return Object.assign({r}, orient(Math.cos(nu)*r, Math.sin(nu)*r, el));
 }
-/** 시간(0~1) → 진근점이각. 케플러 제2법칙을 따른다 */
-function cometNu(el,t){
+function cometNu(el,t,warp){
   if(el.hyper){
     const nuMax=Math.acos(-1/el.e)*0.985;
-    return -nuMax + 2*nuMax*t;                      // 쌍곡선은 한 번 지나간다
+    return -nuMax + 2*nuMax*t;                  // 한 번 지나간다
   }
-  const M=(t*TAU+el.M0)%TAU;
-  const E=kepler(M,el.e);
+  let M=t*TAU+el.M0;
+  if(warp) M=warpM(M);
+  const E=kepler(M, el.e);
   return 2*Math.atan2(Math.sqrt(1+el.e)*Math.sin(E/2), Math.sqrt(1-el.e)*Math.cos(E/2));
 }
-/** 활동도 — 근일점 가까이에서만 꼬리가 산다 */
+/** 근일점 부근을 늘려 잡는다. 휘는 것은 시간뿐이라 궤도 모양은 그대로다.
+    **t 를 휘면 안 된다** — 근일점은 혜성마다 `M0` 만큼 어긋나 있어 엉뚱한 곳이
+    늘어난다(핼리가 13.6%→3% 로 되레 줄었다). 근일점이 0 인 **평균근점이각**을 휜다. */
+const WARP_P=2.2;                          // 1 보다 크면 근일점 둘레가 늘어난다
+function warpM(M){
+  let m=((M+Math.PI)%TAU+TAU)%TAU-Math.PI;         // -π..π, 0 이 근일점
+  const u=m/Math.PI;
+  return Math.sign(u)*Math.PI*Math.pow(Math.abs(u), WARP_P);
+}
 function activity(el,r){
-  const on=Math.min(el.Q, el.q*6);                  // 근일점의 6배 안쪽에서 켜진다
+  const on=Math.min(isFinite(el.Q)?el.Q:el.q*8, el.q*6);
   return Math.pow(clamp((on-r)/(on-el.q),0,1), 1.4);
 }
 
-/* ══ 그리기 ═══════════════════════════════════════════════════ */
-const cv=$('#cv'), x=cv.getContext('2d');
-function fit(){
-  const R=cv.getBoundingClientRect(), d=Math.min(devicePixelRatio||1,2);
-  cv.width=Math.round(R.width*d); cv.height=Math.round(R.height*d);
-  x.setTransform(d,0,0,d,0,0);
-  W=R.width; H=R.height;
-  G={cx:W/2, cy:H/2, R:Math.min(W,H)*0.5};
-}
-addEventListener('resize',()=>{fit();draw();});
+/* ══ 한 장면을 아무 캔버스에나 그린다 ═══════════════════════════ */
+const _belt=(()=>{ const r=mulberry(fnv('kuiper#p')), out=[];
+  for(let i=0;i<820;i++){
+    const th=r()*TAU, rt=Math.sqrt(r())*KB_TUBE, ph=r()*TAU, rad=KB_MID+Math.cos(th)*rt;
+    out.push({x:Math.cos(ph)*rad, y:Math.sin(ph)*rad,
+              s:0.35+r()*0.9, a:0.22+r()*0.4});
+  } return out; })();
 
-function strokePath(pts,style,wd,dash){
-  if(pts.length<2)return;
-  x.save(); if(dash)x.setLineDash(dash);
-  x.strokeStyle=style; x.lineWidth=wd; x.beginPath();
-  pts.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y));
-  x.stroke(); x.restore();
-}
-function planetOrbit(i){
-  const el=orbitEl(i), pts=[];
-  for(let k=0;k<=110;k++) pts.push(toScreen(orbitPos(el,k/110)));
-  strokePath(pts,'rgba(150,180,255,.15)',1);
-}
-function belt(){
-  const r=mulberry(fnv('kuiper#p'));
-  x.save();
-  for(let i=0;i<900;i++){
-    const th=r()*TAU, rt=Math.sqrt(r())*KB_TUBE, ph=r()*TAU;
-    const rad=KB_MID+Math.cos(th)*rt;
-    const p={x:Math.cos(ph)*rad, y:Math.sin(ph)*rad, z:Math.sin(th)*rt};
-    const s=toScreen(p);
-    if(s.x<-20||s.x>W+20||s.y<-20||s.y>H+20)continue;
-    const sz=0.35+r()*0.9;
-    x.fillStyle='rgba(176,186,200,'+(0.22+r()*0.4).toFixed(2)+')';
-    x.fillRect(s.x,s.y,sz,sz);
-  }
-  x.restore();
-}
-function star(){
-  const s=toScreen({x:0,y:0,z:0}), R=G.R*ZOOM*0.035;
-  const g=x.createRadialGradient(s.x,s.y,0,s.x,s.y,R*4.2);
-  g.addColorStop(0,'rgba(255,243,208,.95)'); g.addColorStop(.2,'rgba(255,200,97,.5)');
-  g.addColorStop(1,'rgba(255,200,97,0)');
-  x.fillStyle=g; x.beginPath(); x.arc(s.x,s.y,R*4.2,0,TAU); x.fill();
-  x.fillStyle='#fff3d0'; x.beginPath(); x.arc(s.x,s.y,R,0,TAU); x.fill();
-}
-/** 혜성 궤도선 — 지나온 쪽은 또렷하게 */
-function cometOrbit(el,nuNow){
-  const lim=el.hyper?Math.acos(-1/el.e)*0.985:Math.PI*0.999;
-  const pts=[],past=[];
-  for(let k=0;k<=220;k++){
-    const nu=-lim+2*lim*k/220;
-    const s=toScreen(cometPos(el,nu));
-    pts.push(s);
-    if(nu<=nuNow) past.push(s);
-  }
-  strokePath(pts,'rgba(150,180,255,.20)',1,[5,7]);
-  strokePath(past,'rgba(168,208,255,.46)',1.3);
-}
-/** 핵 + 코마 + 꼬리 두 갈래 */
-function comet(el,nu,t){
-  const p=cometPos(el,nu), s=toScreen(p);
-  const act=activity(el,p.r);
-  const st=toScreen({x:0,y:0,z:0});
+function comet(x,W,H,S,st,s,el,nu,act,t){
   const dx=s.x-st.x, dy=s.y-st.y, dl=Math.hypot(dx,dy)||1;
   const ux=dx/dl, uy=dy/dl, qx=-uy, qy=ux;
-  const M=Math.min(W,H);
-  const ionL=M*(0.02+0.40*act);
-
+  const M=Math.min(W,H), ionL=M*(0.02+0.40*act);
   x.save(); x.lineCap='round';
   // 먼지 꼬리 — 지나온 궤도에서 뿌려져 뒤처지며 휜다
   const dustL=ionL*0.62;
   for(let L=0;L<5;L++){
     const w=(L/4)*2-1, pts=[];
     for(let k=0;k<=22;k++){
-      const age=k/22;
-      const back=cometPos(el, nu-age*0.55*(1-act*0.4));
-      const c=toScreen(back);
+      const age=k/22, c=S(cometPos(el, nu-age*0.55*(1-act*0.4)));
       const bx=c.x-st.x, by=c.y-st.y, bl=Math.hypot(bx,by)||1;
       const push=dustL*Math.pow(age,0.85), spread=push*0.12*w;
       pts.push({x:c.x+bx/bl*push+(-by/bl)*spread, y:c.y+by/bl*push+(bx/bl)*spread});
     }
-    const fade=1-Math.abs(w)*0.55;
-    x.beginPath(); pts.forEach((q,i)=>i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y));
-    /* 끝을 뭉툭하게 자르면 빗자루처럼 보인다 — 바깥으로 갈수록 사라지게 한다 */
-    const e0=pts[0], e1=pts[pts.length-1];
-    const gd=x.createLinearGradient(e0.x,e0.y,e1.x,e1.y);
-    const a1=(0.20*act*fade);
+    const fade=1-Math.abs(w)*0.55, e0=pts[0], e1=pts[pts.length-1];
+    const gd=x.createLinearGradient(e0.x,e0.y,e1.x,e1.y), a1=0.20*act*fade;
     gd.addColorStop(0,'rgba(255,232,190,'+a1.toFixed(3)+')');
     gd.addColorStop(.45,'rgba(255,220,168,'+(a1*0.62).toFixed(3)+')');
     gd.addColorStop(1,'rgba(240,205,150,0)');
-    x.strokeStyle=gd;
-    x.lineWidth=Math.max(2,M*0.016*(0.4+act))*fade;
-    x.stroke();
+    x.beginPath(); pts.forEach((q,i)=>i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y));
+    x.strokeStyle=gd; x.lineWidth=Math.max(2,M*0.016*(0.4+act))*fade; x.stroke();
   }
   // 이온 꼬리 — 곧게 뻗는다
   for(let i=0;i<4;i++){
@@ -390,119 +334,195 @@ function comet(el,nu,t){
     x.strokeStyle=gi; x.lineWidth=Math.max(1,M*0.004*(0.5+act)); x.stroke();
   }
   x.restore();
-
   // 코마와 핵
-  const hr=Math.max(1.5,M*0.0030);
+  const hr=Math.max(act>0.05?1.5:2,M*0.0034);
   if(act>0.01){
-    const comaR=hr*(2.2+9*act)*(1+0.06*Math.sin(t*2.3));
-    const cg=x.createRadialGradient(s.x,s.y,0,s.x,s.y,comaR);
+    const cr=hr*(2.2+9*act)*(1+0.06*Math.sin(t*2.3));
+    const cg=x.createRadialGradient(s.x,s.y,0,s.x,s.y,cr);
     cg.addColorStop(0,'rgba(255,255,255,'+(0.30+0.5*act).toFixed(3)+')');
     cg.addColorStop(.35,'rgba(205,235,255,'+(0.20*act+0.04).toFixed(3)+')');
     cg.addColorStop(1,'rgba(170,215,255,0)');
-    x.fillStyle=cg; x.beginPath(); x.arc(s.x,s.y,comaR,0,TAU); x.fill();
+    x.fillStyle=cg; x.beginPath(); x.arc(s.x,s.y,cr,0,TAU); x.fill();
   }
-  // 핵 — 알베도 0.04 의 검댕이다. 활동이 없으면 이것뿐이다
   x.fillStyle=act>0.3?'#fff':'#8e8478';
   x.beginPath(); x.arc(s.x,s.y,hr,0,TAU); x.fill();
-  return {s,act,r:p.r};
 }
 
-let curFam='hal', curId='cm_halley', T=0.12, playing=false, raf=0;
-function draw(){
-  const el=cometEl(curId);
-  // 배율 — 원일점이 화면에 얼마나 담기는가
-  const want=Math.max(KB_OUT, el.hyper?el.q*3.4:el.Q)*1.06;
-  ZOOM=0.94/want;            // 원일점(또는 벨트 바깥)이 화면 가장자리에 닿게
+/** opt = {id, scale, intMode, t, clock} */
+function scene(x,W,H,opt){
+  const G={cx:W/2, cy:H/2, R:Math.min(W,H)*0.5};
+  const S=p=>{ const q=project(p); return {x:G.cx+q.sx*G.R*FIT, y:G.cy+q.sy*G.R*FIT}; };
+  const M=Math.min(W,H);
+  const el=cometEl(opt.id, opt.scale, opt.intMode);
+
   x.fillStyle='#04050b'; x.fillRect(0,0,W,H);
-  belt();
-  for(let i=0;i<7;i++) planetOrbit(i);
-  cometOrbit(el, cometNu(el,T));
-  star();
-  // 행성 일곱
+  _belt.forEach(o=>{ const s=S(o);
+    if(s.x<-10||s.x>W+10||s.y<-10||s.y>H+10)return;
+    x.fillStyle='rgba(176,186,200,'+o.a.toFixed(2)+')';
+    x.fillRect(s.x,s.y,o.s,o.s); });
+
   for(let i=0;i<7;i++){
-    const s=toScreen(orbitPos(orbitEl(i), T*Math.pow(1.0/orbitEl(i).a,1.5)));
+    const e2=orbitEl(i);
+    x.save(); x.strokeStyle='rgba(150,180,255,.15)'; x.lineWidth=1; x.beginPath();
+    for(let k=0;k<=110;k++){ const s=S(orbitPos(e2,k/110)); k?x.lineTo(s.x,s.y):x.moveTo(s.x,s.y); }
+    x.stroke(); x.restore();
+  }
+
+  const nuNow=cometNu(el, opt.t, opt.warp);
+  const lim=el.hyper?Math.acos(-1/el.e)*0.985:Math.PI*0.999;
+  const all=[],past=[];
+  for(let k=0;k<=240;k++){
+    const nu=-lim+2*lim*k/240, s=S(cometPos(el,nu));
+    all.push(s); if(nu<=nuNow) past.push(s);
+  }
+  const line=(pts,st,wd,dash)=>{ if(pts.length<2)return;
+    x.save(); if(dash)x.setLineDash(dash);
+    x.strokeStyle=st; x.lineWidth=wd; x.beginPath();
+    pts.forEach((p,i)=>i?x.lineTo(p.x,p.y):x.moveTo(p.x,p.y)); x.stroke(); x.restore(); };
+  line(all,'rgba(150,180,255,.20)',1,[5,7]);
+  line(past,'rgba(168,208,255,.46)',1.3);
+
+  const st=S({x:0,y:0}), R=G.R*FIT*0.035;
+  const g=x.createRadialGradient(st.x,st.y,0,st.x,st.y,R*4.2);
+  g.addColorStop(0,'rgba(255,243,208,.95)'); g.addColorStop(.2,'rgba(255,200,97,.5)');
+  g.addColorStop(1,'rgba(255,200,97,0)');
+  x.fillStyle=g; x.beginPath(); x.arc(st.x,st.y,R*4.2,0,TAU); x.fill();
+  x.fillStyle='#fff3d0'; x.beginPath(); x.arc(st.x,st.y,R,0,TAU); x.fill();
+
+  for(let i=0;i<7;i++){
+    const e2=orbitEl(i), s=S(orbitPos(e2, opt.t*Math.pow(1.0/e2.a,1.5)));
     x.fillStyle='rgba(190,205,235,.75)';
-    x.beginPath(); x.arc(s.x,s.y,Math.max(1.4,G.R*ZOOM*0.016),0,TAU); x.fill();
+    x.beginPath(); x.arc(s.x,s.y,Math.max(1.4,G.R*FIT*0.016),0,TAU); x.fill();
   }
-  const info=comet(el, cometNu(el,T), performance.now()/1000);
 
-  // 수치
-  x.save();
-  x.font='500 10px '+MONO; x.fillStyle='rgba(168,208,255,.66)'; x.textAlign='left';
-  const AU=30;                                  // 기준 궤도 = 30 AU (본편과 같다)
-  [ el.body.n+'  '+FAM_LB[el.body.fam],
-    '실측  q '+el.body.q+' AU   e '+el.body.e+(el.body.per?'   '+el.body.per.toLocaleString()+'년':''),
-    '화면  q '+el.q.toFixed(3)+'   '+(el.hyper?'쌍곡선':'Q '+el.Q.toFixed(2))+'   e '+el.e.toFixed(3),
-    '지금  '+info.r.toFixed(3)+' 단위   활동 '+(info.act*100|0)+'%'
-  ].forEach((s2,i)=>x.fillText(s2, Math.min(W,H)*0.055, Math.min(W,H)*0.075+i*15));
+  const p=cometPos(el,nuNow), s=S(p), act=activity(el,p.r);
+  const gone = el.hyper && !el.wrap && opt.t>0.985;    // '가' 는 나가면 끝이다
+  if(!gone) comet(x,W,H,S,st,s,el,nuNow,act,opt.clock);
+
+  x.save(); x.font='500 '+Math.max(9,M*0.026)+'px '+MONO;
+  x.fillStyle='rgba(168,208,255,.62)'; x.textAlign='left';
+  const L=[ (isFinite(el.Q)?'Q '+el.Q.toFixed(2):'쌍곡선')+'   q '+el.q.toFixed(3),
+            gone?'궤도를 벗어났다':'e '+el.e.toFixed(3)+'   활동 '+(act*100|0)+'%' ];
+  L.forEach((t2,i)=>x.fillText(t2, M*0.06, H-M*0.105+i*(M*0.036)));
   x.restore();
+  const pad=M*0.02;
+  return {off: s.x<pad||s.x>W-pad||s.y<pad||s.y>H-pad, act, r:p.r, gone};
+}
 
+/* ══ 화면 ═══════════════════════════════════════════════════ */
+const PANES=[
+  {cv:'cvA', get:()=>({id:curId, scale:'A'})},
+  {cv:'cvB', get:()=>({id:curId, scale:'B'})},
+  {cv:'cvI1',get:()=>({id:'cm_borisov', scale:'A', intMode:'raw'})},
+  {cv:'cvI2',get:()=>({id:'cm_borisov', scale:'A', intMode:'wrap'})},
+  {cv:'cvI3',get:()=>({id:'cm_borisov', scale:'A', intMode:'flat'})},
+  {cv:'cvT1',get:()=>({id:curId, scale:'A'})},
+  {cv:'cvT2',get:()=>({id:curId, scale:'A', warp:true})}
+];
+let curId='cm_hyakutake', T=0, playing=true, raf=0, last=0;
+function fit(){
+  PANES.forEach(p=>{ const c=$('#'+p.cv), R=c.getBoundingClientRect();
+    const d=Math.min(devicePixelRatio||1,2);
+    c.width=Math.round(R.width*d); c.height=Math.round(R.height*d);
+    c.getContext('2d').setTransform(d,0,0,d,0,0);
+    c._w=R.width; c._h=R.height; });
+}
+addEventListener('resize',()=>{fit();paint();});
+function paint(){
+  const clock=performance.now()/1000, res={};
+  PANES.forEach(p=>{ const c=$('#'+p.cv);
+    res[p.cv]=scene(c.getContext('2d'), c._w, c._h, Object.assign(p.get(),{t:T,clock})); });
   $('#pct').textContent=T.toFixed(2)+' 바퀴';
+  $('#cvA').parentNode.classList.toggle('off', res.cvA.off);
+  $('#cvB').parentNode.classList.toggle('off', res.cvB.off);
 }
-function loop(){
+function loop(now){
   if(!playing)return;
-  T=(T+0.0016)%1; $('#sl').value=Math.round(T*1000);
-  draw(); raf=requestAnimationFrame(loop);
+  if(!last)last=now;
+  T=(T+(now-last)/16000)%1; last=now;          // 한 바퀴 ≈ 16초
+  $('#sl').value=Math.round(T*1000);
+  paint(); raf=requestAnimationFrame(loop);
 }
-
-/* ══ UI ═══════════════════════════════════════════════════════ */
-$('#tabs').innerHTML=['jup','hal','long','int'].map(f=>
-  `<div class="tab${f===curFam?' on':''}" data-f="${f}">${FAM_LB[f]}<span class="kd">${FAM_KD[f]}</span></div>`).join('');
-function fillPick(){
-  const list=COMETS.filter(c=>c.fam===curFam);
-  $('#pick').innerHTML=list.map(c=>`<option value="${c.id}">${c.n}</option>`).join('');
-  if(!list.find(c=>c.id===curId)) curId=list[0].id;
-  $('#pick').value=curId;
-}
-$$('.tab').forEach(t=>t.onclick=()=>{
-  curFam=t.dataset.f; $$('.tab').forEach(q=>q.classList.toggle('on',q===t));
-  fillPick(); refresh();
-});
-$('#pick').onchange=()=>{ curId=$('#pick').value; refresh(); };
-$$('#scaleSeg button').forEach(b=>b.onclick=()=>{
-  SCALE=b.dataset.s; $$('#scaleSeg button').forEach(q=>q.classList.toggle('on',q===b)); refresh();
-});
-$('#sl').oninput=e=>{ T=e.target.value/1000; draw(); };
 $('#play').onclick=()=>{
-  playing=!playing;
+  playing=!playing; last=0;
   $('#playIco').innerHTML=playing?'<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>':'<path d="M7 4l13 8-13 8z"/>';
-  if(playing) loop(); else cancelAnimationFrame(raf);
+  if(playing) raf=requestAnimationFrame(loop); else cancelAnimationFrame(raf);
 };
+$('#sl').oninput=e=>{ T=e.target.value/1000; last=0; paint(); };
 
-function refresh(){
-  const el=cometEl(curId), b=el.body;
-  $('#desc').innerHTML=`<h3>${b.n} · ${FAM_LB[b.fam]}</h3>`+
-    (b.fam==='int'
-      ? `<p>태양계에 묶여 있지 않습니다. <b>쌍곡선 궤도</b>로 한 번 들어왔다 영영 나갑니다 —
-           실측 이심률이 <b>3.356</b>입니다.</p>
-         <div class="warn">배치 자리에 두면 <b>돌아오지 않습니다.</b> 이것만 다르게 다뤄야 합니다 —
-           한 바퀴 돌면 반대편에서 다시 들어오게 할지, 아예 배치 대상에서 뺄지 정해야 합니다.</div>`
-      : `<p>근일점이 <b>${el.q.toFixed(3)} 단위</b>, 원일점이 <b>${el.Q.toFixed(2)} 단위</b>입니다.
-           첫 행성 궤도가 0.30, 마지막이 1.00, 카이퍼 벨트가 1.24~1.62 입니다.</p>
-         <div class="why">${
-           el.Q<1.05 ? '행성들 사이에서만 돕니다 — 목성이 붙잡아 둔 궤도라 실제로도 그렇습니다.'
-           : el.Q<1.7 ? '벨트까지 나갔다가 행성 안쪽으로 파고듭니다.'
-           : '벨트를 넘어 한참 나갔다가 돌아옵니다.'}</div>`);
-  const tbl=COMETS.filter(c=>c.fam===curFam).map(c=>{
-    const e2=cometEl(c.id);
-    return `<tr class="${c.id===curId?'hi':''}"><td>${c.n}</td><td>${c.q}</td><td>${c.e}</td>
-      <td>${e2.q.toFixed(3)}</td><td>${e2.hyper?'—':e2.Q.toFixed(2)}</td><td>${e2.e.toFixed(3)}</td></tr>`;
-  }).join('');
+$('#pick').innerHTML=['long','hal','jup'].map(f=>
+  `<optgroup label="${FAM_LB[f]}">`+COMETS.filter(c=>c.fam===f)
+    .map(c=>`<option value="${c.id}"${c.id===curId?' selected':''}>${c.n}</option>`).join('')+'</optgroup>').join('');
+$('#pick').onchange=()=>{ curId=$('#pick').value; cards(); timeCard(); paint(); };
+$('#famSel').innerHTML=['jup','hal','long'].map(f=>
+  `<option value="${f}"${f==='long'?' selected':''}>${FAM_LB[f]}</option>`).join('');
+$('#famSel').onchange=cards;
+
+function cards(){
+  const a=cometEl(curId,'A'), b=cometEl(curId,'B'), bd=a.body;
+  const diff=((b.Q/a.Q-1)*100).toFixed(0);
+  const same=Math.abs(b.Q-a.Q)<1e-6;
+  $('#scaleCard').innerHTML=`<h3>${bd.n} · ${FAM_LB[bd.fam]}</h3>
+    <p>첫 행성 궤도가 <b>0.30</b>, 마지막이 <b>1.00</b>, 카이퍼 벨트가 <b>1.24~1.62</b> 입니다.
+      화면 가장자리가 <b>${EDGE.toFixed(2)}</b> 입니다.</p>
+    <table><tr><th></th><th>근일점 q</th><th>원일점 Q</th><th>이심률</th><th>화면 밖</th></tr>
+      <tr><td>A</td><td>${a.q.toFixed(3)}</td><td>${a.Q.toFixed(2)}</td><td>${a.e.toFixed(3)}</td>
+        <td>${a.Q>EDGE?'나감':'안 나감'}</td></tr>
+      <tr><td>B</td><td>${b.q.toFixed(3)}</td><td>${b.Q.toFixed(2)}</td><td>${b.e.toFixed(3)}</td>
+        <td>${b.Q>EDGE?'나감':'안 나감'}</td></tr></table>
+    <div class="why">${ same
+      ? '목성족은 A·B 예산이 같아 차이가 없습니다 — 장주기나 핼리형을 골라 보세요.'
+      : `B 는 A 보다 원일점이 <b>${diff}%</b> 멉니다. 그만큼 오래 화면 밖에 머뭅니다.` }</div>`;
+
+  const f=$('#famSel').value, sib=COMETS.filter(c=>c.fam===f);
   $('#famTbl').innerHTML=`<table><tr><th>혜성</th><th>실측 q</th><th>실측 e</th>
-    <th>화면 q</th><th>화면 Q</th><th>화면 e</th></tr>${tbl}</table>`;
-  // 이심률을 그대로 썼을 때 근일점이 어디로 가는지
-  const bud=BUDGET[SCALE][curFam];
-  if(curFam==='int'){ $('#eWarn').textContent='성간 천체는 쌍곡선이라 이 표가 적용되지 않습니다.'; }
-  else{
-    const worst=COMETS.filter(c=>c.fam===curFam).reduce((a,c)=>c.e>a.e?c:a);
-    const Q=bud.Q[1], qIf=Q*(1-worst.e)/(1+worst.e);
-    $('#eWarn').innerHTML=`${worst.n}의 실측 이심률 <b>${worst.e}</b>를 그대로 쓰면,
-      원일점을 ${Q.toFixed(2)} 단위에 맞췄을 때 근일점이 <b>${qIf.toFixed(4)} 단위</b>가 됩니다 —
-      중심별이 그려지는 반지름이 <b>0.035</b>입니다. ${qIf<0.035?'별 안으로 들어갑니다.':'가까스로 스칩니다.'}`;
-  }
-  draw();
+    <th>화면 q</th><th>화면 Q</th><th>화면 e</th></tr>`+
+    sib.map(c=>{ const e2=cometEl(c.id,'A');
+      return `<tr class="${c.id===curId?'hi':''}"><td>${c.n}</td><td>${c.q}</td><td>${c.e}</td>
+        <td>${e2.q.toFixed(3)}</td><td>${e2.Q.toFixed(2)}</td><td>${e2.e.toFixed(3)}</td></tr>`;
+    }).join('')+'</table>';
+  const worst=sib.reduce((p,c)=>c.e>p.e?c:p);
+  const Q=BUDGET.A[f].Q[1], qIf=Q*(1-worst.e)/(1+worst.e);
+  $('#eWarn').innerHTML=`${worst.n}의 실측 이심률 <b>${worst.e}</b>를 그대로 쓰면,
+    원일점을 ${Q.toFixed(2)} 에 맞췄을 때 근일점이 <b>${qIf.toFixed(4)}</b> 가 됩니다 —
+    중심별이 그려지는 반지름이 <b>0.035</b> 입니다.
+    ${qIf<0.035?'<b>별 안으로 들어갑니다.</b>':'가까스로 스칩니다.'}`;
 }
-fit(); fillPick(); refresh();
+function timeCard(){
+  const el=cometEl(curId,'A');
+  const meas=(warp)=>{ let on=0,strong=0;
+    for(let i=0;i<2000;i++){
+      const p=cometPos(el, cometNu(el, i/2000, warp));
+      const a=activity(el,p.r);
+      if(a>0.05)on++; if(a>0.35)strong++; }
+    return [on/20, strong/20]; };
+  const [a1,s1]=meas(false), [a2,s2]=meas(true);
+  $('#timeCard').innerHTML=`<h3>${el.body.n} — 한 바퀴 중 꼬리가 보이는 시간</h3>
+    <table><tr><th></th><th>꼬리 보임</th><th>뚜렷함</th></tr>
+      <tr><td>케플러 그대로</td><td>${a1.toFixed(1)}%</td><td>${s1.toFixed(1)}%</td></tr>
+      <tr><td>근일점을 늘린다</td><td>${a2.toFixed(1)}%</td><td>${s2.toFixed(1)}%</td></tr></table>
+    <p style="margin-top:10px">케플러대로면 근일점에서 확 빨라져 <b>순식간에 지나갑니다.</b>
+      사실에 맞고 근일점 통과가 '사건'이 되지만, 평소에는 어두운 점 하나만 보입니다.</p>
+    <div class="why">늘려도 <b>궤도 모양은 그대로</b>입니다 — 휘는 것은 시간뿐입니다.
+      집중 연출의 혜성 근일점이 이미 같은 수를 씁니다.</div>`;
+}
+$('#intCard').innerHTML=`
+  <h3>세 갈래가 무엇이 다른가</h3>
+  <p><b>가 · 있는 그대로</b> — 실측대로 쌍곡선입니다. 들어와서 중심별을 스치고
+    반대편으로 나가면 <b>끝</b>입니다. 그 뒤로는 배치 자리에 아무것도 없습니다.</p>
+  <p><b>나 · 반대편에서 다시</b> — 궤도는 같은 쌍곡선인데, 나가고 나면 다시 들어옵니다.
+    사실과 다르지만 배치 자리가 비지 않습니다.</p>
+  <p><b>다 · 아주 납작한 타원</b> — 이심률을 <b>0.87</b> 로 내려 닫힌 궤도로 만듭니다.
+    돌아오긴 하는데, 그러면 성간 천체라는 성질이 사라집니다.</p>
+  <div class="warn">보리소프는 <b>이 앱에서 유일한 성간 천체</b>입니다.
+    태양계 밖에서 와서 한 번 지나갔다는 것이 이 천체의 전부라,
+    '다'를 고르면 그냥 장주기 혜성이 하나 더 생기는 셈입니다.</div>`;
+
+fit(); cards(); timeCard(); paint(); raf=requestAnimationFrame(loop);
+/* 녹화용 — 밖에서 장면을 원하는 크기로 다시 그릴 수 있게 열어 둔다 */
+window.__scene=scene; window.__cometEl=cometEl; window.__COMETS=COMETS;
+window.__warpM=warpM; window.__cometPos=cometPos; window.__cometNu=cometNu;
+window.__activity=activity;
 </script>
 </body>
 </html>
