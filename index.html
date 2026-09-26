@@ -5204,14 +5204,13 @@ function onPhaseDone(fromBoot){
     if(next) startPhase(next);
     else T.phase='idle';
     saveNow();
-    /* 발견 연출 — 망원경 시야를 열어 그 자리에서 천체를 발견한다.
-       두 종이면 등급이 높은 쪽으로 한 번만 탄다(연속 뽑기와 같은 규칙). */
-    const lead=got[0];        // 등급이 없으니 먼저 받은 것으로 연출한다
-    /* 연출을 '없음' 으로 둔 사람에게는 발견 연출도 열지 않는다 — 연출을
-       껐다는 뜻이다. RV 에 없는 키가 들어오면 조용히 벨트 탐사로 떨어지고
-       있었다. */
-    if(lead && !fromBoot && S.fxReveal!==false && RV[S.intro])
-      revealStart(lead.b, S.intro, ()=>showRewardPopup(got,bonus,doneMs));
+    /* 발견 연출은 첫 보상을 대상으로 한 번 실행한다. */
+    const lead=got[0];        // 먼저 받은 천체를 발견 연출 대상으로 삼는다
+    /* '없음'을 선택했거나 등록되지 않은 연출이면 보상 카드만 보여 준다. */
+    const revealFx=(S.intro!=='none'&&RV[S.intro]&&lead)
+      ? REVEAL_FOR_KIND[lead.kind] : null;
+    if(lead && !fromBoot && S.fxReveal!==false && revealFx)
+      revealStart(lead.b, revealFx, ()=>showRewardPopup(got,bonus,doneMs));
     else showRewardPopup(got,bonus,doneMs);
   }else{
     // 휴식 끝
@@ -5718,6 +5717,8 @@ function remainOf(bn){return POOLS[bn].filter(b=>!S.owned[bn].includes(b.id));}
      분광 관측 → 항성       실제로 별을 분류하는 바로 그 방법이다 */
 const REWARD={transit:'planet', scope:'dwarf', probe:'moon',
               comet:'comet', spectro:'star'};
+const REVEAL_FOR_KIND={planet:'transit',dwarf:'scope',moon:'probe',
+                       comet:'comet',star:'spectro'};
 const FX_LB={none:'관측',scope:'벨트 탐사',comet:'혜성 근일점',transit:'엄폐 관측',
              probe:'탐사선 항해',spectro:'분광 관측'};
 /* 그 종류를 다 모았거나 연출이 '없음' 이면 여기서 고른다.
@@ -7832,7 +7833,9 @@ function josaRo(w){
 function showRewardPopup(got,bonus,doneMs){
   got=got||[];
   const el=$('#tokenPop');
-  const fx=FX_LB[S.intro||'scope']||'';
+  const fx=got.length
+    ? (S.intro==='none'?'':FX_LB[REVEAL_FOR_KIND[got[0].kind]]||'')
+    : (FX_LB[S.intro||'scope']||'');
   const sub=got.length
     ? `${fx?fx+josaRo(fx)+' ':''}새 ${KIND_LB[got[0].kind]||'천체'}을 찾았습니다`
     : `${esc(S.star.name)} 항성계가 한 바퀴 공전을 마쳤습니다`;
@@ -8121,9 +8124,14 @@ function renderSettings(){
     const cur=S.intro||'scope';
     $$('#introPick button').forEach(b=>b.classList.toggle('on',cur===b.dataset.fx));
     const k=REWARD[cur];
-    $('#introGain').innerHTML = k
-      ? `완주하면 <b style="color:var(--gold)">${KIND_LB[k]}</b>${josaEul(KIND_LB[k])} 얻습니다 · 도감 ${S.owned[k].length}/${POOLS[k].length}`
-      : `완주하면 <b style="color:var(--gold)">남은 종류에서 무작위</b>로 얻습니다`;
+    const left=KINDS.some(kind=>remainOf(kind).length);
+    $('#introGain').innerHTML = !left
+      ? `모든 천체를 모았습니다 · 완주 기록만 추가됩니다`
+      : k&&remainOf(k).length
+        ? `완주하면 <b style="color:var(--gold)">${KIND_LB[k]}</b>${josaEul(KIND_LB[k])} 얻습니다 · 도감 ${S.owned[k].length}/${POOLS[k].length}`
+        : k
+          ? `${KIND_LB[k]} 도감을 완성했습니다 · 완주하면 남은 종류에서 무작위로 얻습니다`
+          : `완주하면 <b style="color:var(--gold)">남은 종류에서 무작위</b>로 얻습니다`;
   };
   $$('#introPick button').forEach(b=>b.onclick=()=>{
     S.intro=b.dataset.fx; save(); syncIntro();
