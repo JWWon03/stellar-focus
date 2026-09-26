@@ -3317,11 +3317,14 @@ function render(t){
   const g=geom();
   const os=outerSlot();
   const T=S.timer;
+  /* 분광 관측 배경에 흐릿한 궤도가 수평 줄무늬처럼 남지 않게 한다.
+     별의 분광 분류와 관계없는 선이라 이 모드에서는 궤도선을 생략한다. */
+  const hideOrbits=focusFxMode()==='spectro';
   const bodies=sceneBodies(g);
   const primary=bodies[0];
 
   // ---- 궤도 경로 ----
-  if(showOrbits){
+  if(showOrbits&&!hideOrbits){
   ctx.save();
   ctx.lineWidth=1;
   for(let i=0;i<MAX_PLANET;i++){
@@ -3365,7 +3368,7 @@ function render(t){
   drawBelt(g);
 
   // ---- 진행 궤적 (기준 궤도) ----
-  if(showOrbits && os>=0 && T.phase==='focus' && T.total>0){
+  if(showOrbits&&!hideOrbits && os>=0 && T.phase==='focus' && T.total>0){
     const el=orbitEl(os);
     const prog=clamp(1-remainMs()/T.total,0,1);
     ctx.save();
@@ -3379,7 +3382,7 @@ function render(t){
   // ---- 위성 궤도 ----
   // 행성 궤도와 같은 방식의 실선. 예전에는 짧은 꼬리만 그렸는데 궤도가
   // 어디인지 읽히지 않았다.
-  if(showOrbits){
+  if(showOrbits&&!hideOrbits){
     ctx.save();
     ctx.lineWidth=1;
     ctx.strokeStyle='rgba(150,180,255,.13)';
