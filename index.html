@@ -5445,6 +5445,13 @@ function chime(bonus){
    ========================================================================== */
 function open(id){$('#'+id).classList.add('on');}
 function close(id){$('#'+id).classList.remove('on');hideInfo();}
+let _logoutLoginPending=false;
+function closeAccountAfterLogout(){
+  close('mAccount');
+  if(!_logoutLoginPending)return;
+  _logoutLoginPending=false;
+  openCenterStarSetup();
+}
 
 /* ⓘ 설명 풍선.
    본문이 스크롤되는 창 안에서 열리는데 풍선은 fixed 라 같이 움직이지
@@ -5504,10 +5511,16 @@ function ask(title,msg,okLabel,danger){
     open('mAsk');
   });
 }
-$$('[data-close]').forEach(b=>b.onclick=()=>{close(b.dataset.close);if(b.dataset.close==='mDetail')stopGlobe();});
+$$('[data-close]').forEach(b=>b.onclick=()=>{
+  if(b.dataset.close==='mAccount')closeAccountAfterLogout();else close(b.dataset.close);
+  if(b.dataset.close==='mDetail')stopGlobe();
+});
 $$('.mask').forEach(m=>m.addEventListener('mousedown',e=>{
   const noOutside=['mIntro','mDone','mAsk','mShot'];
-  if(e.target===m && noOutside.indexOf(m.id)<0){close(m.id);if(m.id==='mDetail')stopGlobe();}
+  if(e.target===m && noOutside.indexOf(m.id)<0){
+    if(m.id==='mAccount')closeAccountAfterLogout();else close(m.id);
+    if(m.id==='mDetail')stopGlobe();
+  }
 }));
 
 /* ==========================================================================
@@ -5661,16 +5674,28 @@ function introLoop(){
 introLoop();
 
 buildStarPicker($('#palette'),pickSel);
+function openCenterStarSetup(){
+  const existing=!!S.created;
+  pickSel={color:existing?S.star.color:PALETTE[4].c,skin:existing?(S.star.skin||null):null};
+  $('#inStarName').value=existing?(S.star.name||''):'';
+  $('#mIntro h2').textContent=existing?'중심별 이름 지정':'중심별을 만들어 주세요';
+  $('#mIntro .mHead p').textContent=existing?'항성계의 중심별 이름과 모습을 설정합니다.':'당신의 항성계가 이 별을 중심으로 시작됩니다.';
+  $('#btnCreate').textContent=existing?'중심별 저장':'항성계 시작하기';
+  buildStarPicker($('#palette'),pickSel);
+  open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);
+}
 $('#btnCreate').onclick=()=>{
   const nm=$('#inStarName').value.trim();
   if(!nm){toast('중심별의 이름을 입력해 주세요');$('#inStarName').focus();return;}
+  const isFirstStar=!S.created;
   S.created=true;S.star.name=nm;S.star.color=pickSel.color;S.star.skin=pickSel.skin;
   /* 첫 천체 하나를 바로 준다. 예전에는 토큰 1개를 줘서 곧장 뽑게 했다 —
      그 자리다. 없으면 첫 세션을 완주할 때까지 궤도가 비어 있다. */
-  const k0=rewardKind(), b0=k0?takeOne(k0):null;
+  const k0=isFirstStar?rewardKind():null, b0=k0?takeOne(k0):null;
   saveNow();close('mIntro');
   updateTimerUI();
   if(b0)toast(`${b0.n} 을(를) 얻었습니다 — 항성계 설정에서 배치해 보세요`);
+  else if(!isFirstStar)toast('중심별을 저장했습니다');
 };
 $('#inStarName').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnCreate').click();});
 
@@ -5997,12 +6022,12 @@ function rvSpaced(x,txt,cx,y,font,sp){
 /** 판독 완료 도장. 문구는 연출마다 다르다 — 그 관측이 실제로 무엇을
     끝냈는지가 다르기 때문이다. 색은 넷 다 같은 초록으로 두어 '완료'
     표시임이 한눈에 읽히게 한다. */
-function rvDone(x,W,H,t,now,LO,txt){
+function rvDone(x,W,H,t,now,LO,txt,color){
   if(t<=0)return;
   const M=Math.min(W,H);
   const pulse=0.88+0.12*Math.sin(now/760);        // 레이더 갱신처럼 아주 느리게
   x.save(); x.globalAlpha=scOut(t)*pulse; x.textAlign='left';
-  x.fillStyle=rgba(RV_GREEN,.6);
+  x.fillStyle=rgba(color||RV_GREEN,.6);
   rvSpaced(x,txt, LO?LO.midX:W/2, LO?LO.botY:H-M*0.055,
            '500 10px '+RV_MONO, 3.2);
   x.restore();
@@ -6124,17 +6149,16 @@ function rvNameSide(x,W,H,b,t,LO,accent){
    그대로 붙들어 배율을 올린다 — 가짜 표적을 새로 만들면 세션 내내 보던
    것과 결말이 끊긴다. */
 
-/** 완주 직후의 좌표·수치를 얼어붙인다. `phase` 는 세션이 끝나도 계속
-    흐르므로 그때그때 다시 재면 표적이 제자리에 없다. */
+/** 마지막 표적과 주변 천체를 붙들어 둔다. 천체 참조도 보관해 위상은 계속 흐르게 한다. */
 function rvCaptureBelt(g){
   const b=kbelt(), out=[];
-  /* 처음 한 순간이 집중 화면과 같아 보여야 하므로 성글면 안 된다.
-     2000 개에서 벨트 그리기가 0.4ms 안팎이라 그대로 감당된다. */
+  /* 첫 프레임 밀도는 집중 화면과 같게 유지한다. 일부 점만 실제 위상을
+     다시 계산해 확대 중 정지 화면처럼 보이는 것을 막는다. */
   const stride=Math.max(1,Math.ceil(b.length/2000));
   for(let i=0;i<b.length;i+=stride){
     const sc=toScreen(kbPos(b[i]),g);
     if(sc.x<-40||sc.x>W+40||sc.y<-40||sc.y>H+40)continue;
-    out.push({x:sc.x, y:sc.y, r:Math.max(.5,b[i].sz*1.5),
+    out.push({o:b[i], x:sc.x, y:sc.y, animate:(i%3===0), r:Math.max(.5,b[i].sz*1.5),
               big:b[i].sz>1.25});
   }
   return out;
@@ -6157,13 +6181,16 @@ function rvCaptureTarget(){
 function rvScope(x,W,H,p,now,b){
   const cx=W/2, cy=H/2, M=Math.min(W,H);
   const T=SC.tgt;
+  const accent=T?toHex(...T.spec.col.split(',').map(Number)):'#ffc440';
   const zoom=lerp(1,7.5,scEase(scSeg(p,.15,.62)));
 
   /* 표적을 화면 중앙으로 데려오며 배율을 올리고, 끝에 좌우 배치 자리로
      옮긴다. **처음 한 순간은 집중 화면과 똑같아야** 이어진다 — 그래서
      시작 지점이 표적의 그때 화면 좌표다. */
   const LO=rvSideLayout(x,W,H,b);
-  const T0=T?T.sc:{x:cx,y:cy};
+  const g=geom();
+  const liveTarget=T?toScreen(kbPos(T.o),g):null;
+  const T0=liveTarget?{x:liveTarget.x,y:liveTarget.y}:(T?T.sc:{x:cx,y:cy});
   const toC=scOut(scSeg(p,.12,.48));
   const mx=lerp(T0.x,cx,toC), my=lerp(T0.y,cy,toC);
   const e=scOut(scSeg(p,.84,.96));
@@ -6174,12 +6201,13 @@ function rvScope(x,W,H,p,now,b){
     const fade=clamp(1.15-zoom/8,0,1);
     if(fade>.02){
       x.save();
+      const liveBelt=T.belt.map(q=>({q,sc:q.animate?toScreen(kbPos(q.o),g):q}));
       [false,true].forEach(big=>{
         x.fillStyle=rgba('#c8d2e0',(big?.72:.42)*fade);
         x.beginPath();
-        for(let i=0;i<T.belt.length;i++){
-          const q=T.belt[i]; if(!!q.big!==big)continue;
-          const qx=bx+(q.x-T0.x)*zoom, qy=by+(q.y-T0.y)*zoom;
+        for(let i=0;i<liveBelt.length;i++){
+          const {q,sc}=liveBelt[i]; if(!!q.big!==big)continue;
+          const qx=bx+(sc.x-T0.x)*zoom, qy=by+(sc.y-T0.y)*zoom;
           if(qx<-8||qx>W+8||qy<-8||qy>H+8)continue;
           const r=Math.min(3.2,q.r*Math.min(2.2,zoom*.5));
           x.moveTo(qx+r,qy); x.arc(qx,qy,r,0,TAU);
@@ -6192,17 +6220,17 @@ function rvScope(x,W,H,p,now,b){
 
   const grow=scEase(scSeg(p,.18,.70)), R=lerp(M*.006,M*.245,grow);
   const res=scSeg(p,.34,.80), bR=lerp(R,LO.R,e);
-  if(grow<.02){ x.fillStyle=rgba('#ffc440',.95);
+  if(grow<.02){ x.fillStyle=rgba(accent,.95);
     x.beginPath(); x.arc(bx,by,M*.006,0,TAU); x.fill(); }
   else rvGlobe(x,bx,by,bR,b,24*(1-res));
 
-  /* 브래킷은 **표적과 함께 커지지 않는다**(사용자 요청). 포착한 틀은 그
-     자리에 가만히 있고 표적만 배율을 따라 자란다 — 그래야 확대되는 것이
-     읽힌다. 표적이 틀을 채우는 때(0.43 안팎)에는 이미 사라져 있어야 한다. */
+  /* 브래킷은 화면 배율과 함께 커진다. 시작 크기는 집중 화면의 표적 틀과
+     같고, 표적 원반이 프레임에 닿을 즈음 자연스럽게 걷힌다. */
   const bAl=clamp(1-scSeg(p,.30,.43),0,1);
-  if(bAl>0) scBracket(x,bx,by,M*.22,'#ffc440',.85*bAl,1.6);
+  if(bAl>0) scBracket(x,bx,by,RADAR_HALF*2*zoom,accent,.85*bAl,1.6);
 
-  rvChrome(x,W,H,'#ffc440',clamp(1-scSeg(p,.80,.95),0,1));
+  // grid/vignette hue matches the blue scope overlay; the target keeps its own hue.
+  rvChrome(x,W,H,'#8ab4ff',clamp(1-scSeg(p,.80,.95),0,1));
   // 수치는 집중 화면이 보여 주던 그 표적의 실제 값이다
   rvReadout(x,W,H, T?[
     T.o.id+'   TARGET LOCKED',
@@ -6213,14 +6241,14 @@ function rvScope(x,W,H,p,now,b){
   ]:[
     'TARGET LOCKED',
     'RESOLVE '+Math.round(res*100)+'%'
-  ],'#ffc440',clamp(scSeg(p,.05,.18)-scSeg(p,.76,.85),0,1));
+  ],accent,clamp(scSeg(p,.05,.18)-scSeg(p,.76,.85),0,1));
 
   const done=scSeg(p,.84,.94);
   if(done<=0) rvStatus(x,W,H, p<.18?'TRACKING · 표적 1/1'
                             : p<.70?'APPROACHING · ×'+zoom.toFixed(1)
-                            : 'RESOLVING…', '#ffc440');
-  else rvDone(x,W,H,done,now,LO,'RESOLVED');
-  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,'#ffc440');
+                            : 'RESOLVING…', accent);
+  else rvDone(x,W,H,done,now,LO,'RESOLVED',accent);
+  rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,accent);
 }
 
 /* ---- 혜성 근일점 → 관측점 셋에서 궤도가 풀린다 ----
@@ -6531,7 +6559,8 @@ function revealDraw(p){
 function revealStart(body,fx,onDone){
   const k=RV[fx]?fx:'scope';
   /* 벨트 탐사는 **마지막 남은 그 표적**을 그대로 이어받는다. phase 는
-     세션이 끝나도 계속 흐르므로 지금 좌표를 얼어붙여 두어야 한다. */
+     세션이 끝나도 계속 흐른다. 첫 프레임은 포착 위치에 맞추고, 확대하는 동안
+     표적과 주변 벨트도 그 위상을 따라가도록 천체 참조를 함께 보관한다. */
   const tgt=(k==='scope')?rvCaptureTarget():null;
   _rvTick=0; _rvLastGlobe=null;
   SC={ body, onDone, fx:k, tgt, tg:[], win:0,
@@ -8375,6 +8404,7 @@ async function onBack(){
     // 확인창을 버튼 말고 다른 방법으로 닫으면 약속이 영원히 안 풀려
     // _exiting 이 참으로 굳고, 그때부터 뒤로가기가 통째로 죽는다.
     if(m.id==='mAsk'){ if(_askRes)_askRes(); else close('mAsk'); pushTrap(); return; }
+    if(m.id==='mAccount'){closeAccountAfterLogout();pushTrap();return;}
     /* 기록 창은 화면이 둘이다. 달력에서 뒤로가기는 하루 보기로 한 단계만
        물러난다 — 머리의 `←` 와 같은 동작이라야 헷갈리지 않는다. */
     if(m.id==='mRecord'&&recView==='cal'){ renderRecordDay(); pushTrap(); return; }
@@ -8623,7 +8653,7 @@ function afterAccountSwitch(){
   paintAccount();renderAccount();
   if(!S.created){
     close('mAccount');close('mSystem');   // 인트로가 다른 창과 겹치지 않게
-    open('mIntro');setTimeout(()=>$('#inStarName').focus(),300);
+    openCenterStarSetup();
   }
   else close('mIntro');
 }
@@ -8653,8 +8683,12 @@ function doLogout(silent){
   clearTimeout(cloudT);         // 예약된 푸시가 AUTH=null 로 터지는 것을 막는다
   AUTH=null;saveAuth();setCloudState('idle');
   load();                       // 게스트 저장본으로 되돌아간다
-  close('mAccount');            // 결과가 보이도록 계정 창을 닫는다
   afterAccountSwitch();
+  close('mIntro');close('mAccount');
+  renderAccount();
+  _logoutLoginPending=true;
+  open('mAccount');
+  setTimeout(()=>$('#acId')?.focus(),100);
   if(!silent) toast('로그아웃했습니다 · 게스트 항성계로 돌아갑니다');
 }
 

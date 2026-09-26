@@ -622,7 +622,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
      결말로 삼았습니다.</p>
   <div class="tbl"><table>
     <tr><th>연출</th><th>결말</th><th>완료 문구</th></tr>
-    <tr><td>벨트 탐사</td><td>집중 내내 보던 마지막 표적으로 배율을 올린다 (점 → 원반 → 해상)</td><td class="mono">RESOLVED</td></tr>
+    <tr><td>벨트 탐사</td><td>마지막 표적의 위치와 색을 이어받아 주변 벨트가 움직이는 가운데 확대한다 (점 → 원반 → 해상)</td><td class="mono">RESOLVED</td></tr>
     <tr><td>엄폐(식)</td><td>별이 물러나고 검은 실루엣에 종결선이 쓸고 지나간다</td><td class="mono">RESOLVED</td></tr>
     <tr><td>혜성 근일점</td><td>관측점 셋에서 궤도가 풀리고 제원이 확정된다</td><td class="mono">ORBIT DETERMINED</td></tr>
     <tr><td>탐사선 항해</td><td>이미지가 주사선 단위로 내려온다. 안 온 부분은 잡음이다</td><td class="mono">IMAGE COMPLETE</td></tr>
@@ -645,6 +645,8 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
   <p>로그인하지 않아도 게임은 완전히 동작합니다. 데이터가 이 기기에만 남을 뿐입니다.
      로그인하면 PC에서 키우던 항성계를 폰에서 이어받을 수 있습니다.</p>
+  <p>로그아웃하면 로그인 창이 바로 열립니다. 그 창을 닫으면 중심별 이름 설정으로 이어집니다.
+     이미 만든 항성계에서는 현재 중심별 정보가 미리 채워지고, 저장해도 첫 항성계 보상이 다시 지급되지 않습니다.</p>
 
   <figure>
     <svg viewBox="0 0 860 290" xmlns="http://www.w3.org/2000/svg" role="img"
@@ -700,6 +702,7 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
   <h3>관리자 계정</h3>
   <p>집중 시간을 1분부터 설정할 수 있고, 천체 종류별 도감 초기화가 열립니다.
      지급 경로를 반복 검증하려고 만든 <strong>테스트 편의 기능</strong>이며,
+     현재 테스트 아이디는 <code>__selftest__</code>입니다. PIN은 가입 때 직접 정하는 값이며,
      브라우저 쪽에서만 판정하므로 진짜 권한 통제는 아닙니다.</p>
 </section>
 
