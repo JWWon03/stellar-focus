@@ -6051,24 +6051,32 @@ function rvWrap(x,text,maxW){
   return fin;
 }
 
-/** 좌우 배치 결말의 자리. **천체와 글을 한 덩어리로 보고 화면 가운데 놓는다** —
-    각각을 화면 비율로 두면 넓은 화면에서 둘 사이가 벌어져 따로 논다. */
+/** 좌우 배치 결말의 자리. 천체와 실제 글 너비를 합쳐 화면 가운데 놓는다.
+    사용 가능한 오른쪽 여백 전체를 글 너비로 간주하면 짧은 문구가 왼쪽에 몰려 보인다. */
 function rvSideLayout(x,W,H,b){
   const M=Math.min(W,H), pad=M*0.05, avail=W-pad*2;
   const R=Math.min(avail*0.20, M*0.19);
   const gap=Math.min(M*0.055, avail*0.05);
-  const tw=avail-R*2-gap;
-  const x0=pad+(avail-(R*2+gap+tw))/2;
-  const F=clamp(tw*0.155, 15, M*0.058);
+  const textAvail=avail-R*2-gap;
+  const F=clamp(textAvail*0.155, 15, M*0.058);
   /* 폰에서는 이름이 21px 남짓이라 비율만 따르면 설명이 8px 이 된다.
      읽을 수 있는 바닥값을 각각 따로 둔다. */
   const starF=Math.max(12,F*0.52), enF=Math.max(11,F*0.42),
         clsF=Math.max(12,F*0.40), dF=Math.max(11.5,F*0.36);
   const lh=dF*1.62;
-  /* 줄바꿈과 블록 높이를 여기서 미리 잰다 — 이름표뿐 아니라 그 아래 문구도
-     같은 값을 써야 자리가 어긋나지 않는다. */
+  /* 긴 설명은 화면 높이에 맞는 폭에서 줄바꿈하고, 실제 글자 폭으로
+     오른쪽 칸을 정한다. 여백 전부를 글 칸으로 잡으면 시각적 중심이 왼쪽으로 쏠린다. */
+  const wrapW=Math.min(textAvail,Math.max(M*0.72,W*0.30));
   x.save(); x.font=dF+'px Pretendard,system-ui,sans-serif';
-  const desc=rvWrap(x,b.d,tw); x.restore();
+  const desc=rvWrap(x,b.d,wrapW);
+  let contentW=desc.reduce((m,line)=>Math.max(m,x.measureText(line).width),0);
+  x.font=starF+'px '+RV_MONO; contentW=Math.max(contentW,x.measureText(kindTag(b)).width);
+  x.font='700 '+F+'px Pretendard,system-ui,sans-serif'; contentW=Math.max(contentW,x.measureText(b.n).width);
+  x.font=enF+'px '+RV_MONO; contentW=Math.max(contentW,x.measureText(b.en).width);
+  x.font=clsF+'px Pretendard,system-ui,sans-serif'; contentW=Math.max(contentW,x.measureText(b.cls||'').width);
+  x.restore();
+  const tw=Math.min(textAvail,Math.max(M*0.32,contentW+M*0.025));
+  const groupW=R*2+gap+tw, x0=(W-groupW)/2;
   const h={star:starF*1.5, name:F*1.12, en:enF*1.5, sep:M*0.028,
            cls:clsF*1.5, gap:M*0.022, desc:desc.length*lh};
   const textH=h.star+h.name+h.en+h.sep+h.cls+h.gap+h.desc;
@@ -6076,7 +6084,7 @@ function rvSideLayout(x,W,H,b){
   return {R, tw, nameF:F, starF, enF, clsF, dF, lh, desc, h, textH, cy,
           bodyCx:x0+R, textX:x0+R*2+gap,
           // 천체와 글을 합친 덩어리의 가로 가운데와 그 아래
-          midX:x0+(R*2+gap+tw)/2,
+          midX:x0+groupW/2,
           botY:cy+Math.max(R,textH/2)+M*0.085};
 }
 
@@ -6100,7 +6108,7 @@ function rvNameSide(x,W,H,b,t,LO,accent){
 
   y+=h.sep*0.5;
   x.strokeStyle=rgba(accent,.42); x.lineWidth=1;
-  x.beginPath(); x.moveTo(LO.textX,y); x.lineTo(LO.textX+LO.tw*0.36,y); x.stroke();
+  x.beginPath(); x.moveTo(LO.textX,y); x.lineTo(LO.textX+LO.tw*0.70,y); x.stroke();
   y+=h.sep*0.5+LO.clsF;
 
   x.font=LO.clsF+'px Pretendard,system-ui,sans-serif'; x.fillStyle=rgba(accent,.92);
