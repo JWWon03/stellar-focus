@@ -680,9 +680,9 @@ body.capture #hint{display:none}
   background:rgba(111,230,176,.16);color:var(--ok);border:1px solid rgba(111,230,176,.3);font-weight:700
 }
 
-/* 가챠 연출 — 화면 전체 망원경 시야.
-   모달(z-index 60)과 확인창(90) 위에 덮는다. */
-#scopeFx{position:fixed;inset:0;z-index:95;display:none;background:#000;touch-action:none}
+/* 발견 연출 캔버스는 관측 장면을 확대한다.
+   HUD(z-index 20)가 위에 남도록 그 아래에 둔다. */
+#scopeFx{position:fixed;inset:0;z-index:10;display:none;background:transparent;touch-action:none}
 #scopeFx.on{display:block}
 #scopeFx canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .newTag2{position:absolute;top:4px;left:4px;font-size:8px;font-weight:800;letter-spacing:.1em;
@@ -2245,7 +2245,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.27-r27';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.27-r28';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -6173,6 +6173,7 @@ function rvCaptureTarget(){
 }
 
 function rvScope(x,W,H,p,now,b){
+  if(SC.snapshot){ rvScopeFromFrame(x,W,H,p,now,b); return; }
   const cx=W/2, cy=H/2, M=Math.min(W,H);
   const T=SC.tgt;
   const accent=T?toHex(...T.spec.col.split(',').map(Number)):'#ffc440';
@@ -6243,6 +6244,43 @@ function rvScope(x,W,H,p,now,b){
                             : 'RESOLVING…', accent);
   else rvDone(x,W,H,done,now,LO,'RESOLVED',accent);
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,accent);
+}
+
+/** 벨트 탐사는 마지막 관측 화면의 픽셀을 그대로 확대한다.
+    전용 검은 무대나 새 모눈으로 갈아타지 않고, 방금 보던 표적·색·배경에서
+    카메라가 다가간 다음 실물 천체와 정보를 그 위에 이어 붙인다. */
+function rvScopeFromFrame(x,W,H,p,now,b){
+  const T=SC.tgt, snap=SC.snapshot, M=Math.min(W,H), cx=W/2, cy=H/2;
+  const LO=rvSideLayout(x,W,H,b);
+  const accent=T?toHex(...T.spec.col.split(',').map(Number)):'#ffc440';
+  const ax=T?T.sc.x*W/(SC.frameW||W):cx;
+  const ay=T?T.sc.y*H/(SC.frameH||H):cy;
+
+  // 원본 프레임은 첫 순간 1:1이다. 확대와 이동을 함께 걸어 표적을
+  // 화면 가운데로 끌어오고, 원본 이미지 바깥이 드러나지 않게 가장자리만 제한한다.
+  const approach=scEase(scSeg(p,.02,.62));
+  const zoom=lerp(1,4.6,approach);
+  const fx=lerp(ax,cx,scEase(scSeg(p,.10,.56)));
+  const fy=lerp(ay,cy,scEase(scSeg(p,.10,.56)));
+  const dx=clamp(fx-ax*zoom,W*(1-zoom),0);
+  const dy=clamp(fy-ay*zoom,H*(1-zoom),0);
+  x.save(); x.imageSmoothingEnabled=true;
+  // 원본 관측 글자는 카메라가 표적에 초점을 맞추며 자연스럽게 흐려진다.
+  const soften=scSeg(p,.12,.82);
+  if(soften>0)x.filter='blur('+(zoom*3.5*soften).toFixed(1)+'px)';
+  x.drawImage(snap,0,0,snap.width,snap.height,dx,dy,W*zoom,H*zoom);
+  x.restore();
+
+  const target={x:ax*zoom+dx,y:ay*zoom+dy};
+  const settle=scEase(scSeg(p,.78,.96));
+  const bx=lerp(target.x,LO.bodyCx,settle), by=lerp(target.y,LO.cy,settle);
+  const reveal=scEase(scSeg(p,.36,.82));
+  const R=lerp(Math.max(2,M*.004),LO.R,reveal);
+  rvGlobe(x,bx,by,R,b,lerp(12,0,reveal),clamp((p-.34)/.13,0,1));
+
+  // 천체가 자리 잡은 뒤 정보가 천천히 들어온다. 별도 배경·색조 레이어는 얹지 않는다.
+  const info=scOut(scSeg(p,.80,.97));
+  rvNameSide(x,W,H,b,info,LO,accent);
 }
 
 /* ---- 혜성 근일점 → 관측점 셋에서 궤도가 풀린다 ----
@@ -6552,12 +6590,21 @@ function revealDraw(p){
     연출이 '없음'이면 여기까지 오지 않는다 — onPhaseDone 이 카드만 띄운다. */
 function revealStart(body,fx,onDone){
   const k=RV[fx]?fx:'scope';
-  /* 벨트 탐사는 **마지막 남은 그 표적**을 그대로 이어받는다. phase 는
-     세션이 끝나도 계속 흐른다. 첫 프레임은 포착 위치에 맞추고, 확대하는 동안
-     표적과 주변 벨트도 그 위상을 따라가도록 천체 참조를 함께 보관한다. */
+  /* 벨트 탐사는 **완주 직전 관측 화면**과 마지막 남은 표적을 이어받는다.
+     화면 픽셀 스냅샷과 표적의 위치를 포착해 같은 화면에서 확대를 시작한다. */
   const tgt=(k==='scope')?rvCaptureTarget():null;
+  let snapshot=null;
+  if(k==='scope'){
+    const live=$('#sky');
+    try{
+      snapshot=document.createElement('canvas');
+      snapshot.width=live.width;snapshot.height=live.height;
+      snapshot.getContext('2d').drawImage(live,0,0);
+    }catch(e){snapshot=null;}
+  }
   _rvTick=0; _rvLastGlobe=null;
-  SC={ body, onDone, fx:k, tgt, tg:[], win:0,
+  SC={ body, onDone, fx:k, tgt, snapshot,
+       frameW:innerWidth, frameH:innerHeight, tg:[], win:0,
        t0:performance.now(), last:performance.now(), spin:0,
        held:false, dismiss:0, done:false };
   /* 텍스처 굽기를 **지금** 예약한다. 결말에야 부르면 그때부터 굽기 시작이라
