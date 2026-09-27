@@ -2245,7 +2245,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.27-r28';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.27-r31';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -3902,6 +3902,7 @@ function kbSpec(o){
   };
 }
 let _radarMax=RADAR_MIN;
+let _suppressRadarLabels=false;
 function rollRadarMax(){
   const seed=(S.timer&&S.timer.endAt)||0;
   _radarMax=RADAR_MIN+Math.floor(mulberry(fnv('radar#'+seed))()*(RADAR_TOP-RADAR_MIN+1));
@@ -4153,6 +4154,9 @@ function fxRadar(ctx,prog,now){
       ctx.lineTo(cx-sx*arm, cy);
       ctx.stroke();
     });
+
+    // 종료 프레임은 표적 브래킷만 남겨 발견 연출로 넘긴다.
+    if(_suppressRadarLabels)return;
 
     // 관측 수치 — 좌표·거리·크기·신호대잡음비·상태
     const rr=Math.hypot(w.x,w.y,w.z)||1e-6;
@@ -6246,9 +6250,8 @@ function rvScope(x,W,H,p,now,b){
   rvNameSide(x,W,H,b,scSeg(p,.92,1),LO,accent);
 }
 
-/** 벨트 탐사는 마지막 관측 화면의 픽셀을 그대로 확대한다.
-    전용 검은 무대나 새 모눈으로 갈아타지 않고, 방금 보던 표적·색·배경에서
-    카메라가 다가간 다음 실물 천체와 정보를 그 위에 이어 붙인다. */
+/** 벨트 탐사는 마지막 관측 화면과 브래킷을 그대로 이어 확대한다.
+    수치 라벨은 빼고 배경을 검정으로 페이드해 천체 정보로 연결한다. */
 function rvScopeFromFrame(x,W,H,p,now,b){
   const T=SC.tgt, snap=SC.snapshot, M=Math.min(W,H), cx=W/2, cy=H/2;
   const LO=rvSideLayout(x,W,H,b);
@@ -6265,10 +6268,11 @@ function rvScopeFromFrame(x,W,H,p,now,b){
   const dx=clamp(fx-ax*zoom,W*(1-zoom),0);
   const dy=clamp(fy-ay*zoom,H*(1-zoom),0);
   x.save(); x.imageSmoothingEnabled=true;
-  // 원본 관측 글자는 카메라가 표적에 초점을 맞추며 자연스럽게 흐려진다.
-  const soften=scSeg(p,.12,.82);
-  if(soften>0)x.filter='blur('+(zoom*3.5*soften).toFixed(1)+'px)';
   x.drawImage(snap,0,0,snap.width,snap.height,dx,dy,W*zoom,H*zoom);
+  // 접근할수록 관측 배경은 검정으로 가라앉힌다. 브래킷은 별도 획으로
+  // 다시 얹어 색과 선명도를 지키고, 천체 원반이 자라며 자연스럽게 덮는다.
+  const darkness=scEase(scSeg(p,.10,.94));
+  if(darkness>0){x.fillStyle='rgba(0,0,0,'+darkness.toFixed(3)+')';x.fillRect(0,0,W,H);}
   x.restore();
 
   const target={x:ax*zoom+dx,y:ay*zoom+dy};
@@ -6277,6 +6281,18 @@ function rvScopeFromFrame(x,W,H,p,now,b){
   const reveal=scEase(scSeg(p,.36,.82));
   const R=lerp(Math.max(2,M*.004),LO.R,reveal);
   rvGlobe(x,bx,by,R,b,lerp(12,0,reveal),clamp((p-.34)/.13,0,1));
+
+  // 브래킷도 배경이 검정으로 페이드되는 속도에 맞춰 함께 사라진다.
+  if(T){
+    const half=lerp(RADAR_HALF*zoom,R+8,reveal), arm=half*.42;
+    x.save();x.globalAlpha=1-darkness;
+    x.strokeStyle='rgba('+T.spec.col+',.95)';x.lineWidth=Math.min(2.4,1.4*zoom);x.lineCap='butt';
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
+      const px=bx+sx*half, py=by+sy*half;
+      x.beginPath();x.moveTo(px,py-sy*arm);x.lineTo(px,py);x.lineTo(px-sx*arm,py);x.stroke();
+    });
+    x.restore();
+  }
 
   // 천체가 자리 잡은 뒤 정보가 천천히 들어온다. 별도 배경·색조 레이어는 얹지 않는다.
   const info=scOut(scSeg(p,.80,.97));
@@ -6599,7 +6615,19 @@ function revealStart(body,fx,onDone){
     try{
       snapshot=document.createElement('canvas');
       snapshot.width=live.width;snapshot.height=live.height;
-      snapshot.getContext('2d').drawImage(live,0,0);
+      const clean=snapshot.getContext('2d');
+      // 타이머 종료 직전의 동일한 장면을 다시 그리되 표적 수치 라벨만 생략한다.
+      // 브래킷과 배경은 원래 렌더 경로를 그대로 사용한다.
+      const timer=S.timer;
+      try{
+        S.timer={...timer,phase:'focus',total:1,remain:0,running:false};
+        _suppressRadarLabels=true;
+        render(performance.now());
+      }finally{
+        S.timer=timer;
+        _suppressRadarLabels=false;
+      }
+      clean.drawImage(live,0,0);
     }catch(e){snapshot=null;}
   }
   _rvTick=0; _rvLastGlobe=null;
