@@ -57,7 +57,7 @@ button,input,select{font-family:inherit;color:inherit}
 /* 터치에서 브라우저가 더블탭 확대를 기다리느라 탭이 늦게 먹는 것을 막는다.
    기본값(auto)이면 기기에 따라 300ms 가량 밀려 "한 번 눌러선 안 된다"로
    느껴진다. 확대는 캔버스의 핀치로만 하므로 버튼에서는 잃을 것이 없다. */
-button,.tTab,.capBtn,.setRow,[role=button]{touch-action:manipulation}
+button,.tTab,.capBtn,.setRow,.iBtn,[role=button]{touch-action:manipulation}
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-thumb{background:rgba(140,175,255,.22);border-radius:8px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -607,6 +607,21 @@ body.capture #hint{display:none}
 .setRow .txt{flex:1;min-width:0}
 .setRow .txt b{display:block;font-size:13.5px;font-weight:600}
 .setRow .txt span{display:block;font-size:11px;color:var(--txt-3);margin-top:3px;line-height:1.5}
+
+.iBtn{width:16px;height:16px;flex:0 0 auto;padding:0;margin-left:6px;vertical-align:-2px;
+  display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);
+  border-radius:50%;background:rgba(255,255,255,.05);color:var(--txt-3);
+  font:700 10px/1 Pretendard,system-ui,sans-serif;letter-spacing:0;cursor:pointer;transition:.15s}
+.iBtn:hover{border-color:rgba(138,180,255,.55);color:#cfe0ff}
+.iBtn.on{border-color:rgba(138,180,255,.8);color:#cfe0ff;background:rgba(58,110,255,.22)}
+.infoPop{position:fixed;z-index:92;display:none;left:0;top:0;width:max-content;
+  max-width:min(300px,calc(100vw - 28px));padding:11px 13px;border-radius:12px;
+  font-size:11.5px;line-height:1.65;color:var(--txt-2);font-weight:400;letter-spacing:normal;
+  background:linear-gradient(170deg,rgba(30,38,64,.98),rgba(14,19,36,.99));
+  border:1px solid var(--line-2);box-shadow:0 16px 44px rgba(0,0,0,.6);
+  animation:pop .15s cubic-bezier(.2,.9,.3,1)}
+.infoPop.on{display:block}
+@keyframes pop{from{opacity:0;transform:translateY(-5px) scale(.97)}to{opacity:1;transform:none}}
 
 .tgl{width:42px;height:24px;border-radius:20px;background:rgba(255,255,255,.10);
   border:1px solid var(--line);position:relative;flex:0 0 auto;transition:.18s}
@@ -1458,6 +1473,7 @@ body.locked #timerPanel input{cursor:not-allowed}
 </div>
 
 <div id="tokenPop"></div>
+<div class="infoPop" id="infoPop"></div>
 <div id="toast"></div>
 
 <script>
@@ -2229,7 +2245,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.14-r25';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.09.27-r27';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -5426,7 +5442,7 @@ function chime(bonus){
    6. 모달 헬퍼
    ========================================================================== */
 function open(id){$('#'+id).classList.add('on');}
-function close(id){$('#'+id).classList.remove('on');}
+function close(id){$('#'+id).classList.remove('on');hideInfo();}
 let _logoutLoginPending=false;
 function closeAccountAfterLogout(){
   close('mAccount');
@@ -5434,6 +5450,41 @@ function closeAccountAfterLogout(){
   _logoutLoginPending=false;
   openCenterStarSetup();
 }
+
+const INFO={};
+let _infoBtn=null;
+function hideInfo(){
+  if(!_infoBtn)return;
+  _infoBtn.classList.remove('on');_infoBtn=null;
+  $('#infoPop').classList.remove('on');
+}
+function showInfo(btn,html){
+  if(_infoBtn===btn){hideInfo();return;}
+  hideInfo();
+  if(!html)return;
+  const pop=$('#infoPop');
+  pop.style.left=pop.style.top='0px';
+  pop.innerHTML=html;pop.classList.add('on');btn.classList.add('on');_infoBtn=btn;
+  const b=btn.getBoundingClientRect(),r=pop.getBoundingClientRect(),M=10;
+  let x=clamp(b.left+b.width/2-r.width/2,M,Math.max(M,innerWidth-r.width-M));
+  let y=b.bottom+8;
+  if(y+r.height>innerHeight-M)y=Math.max(M,b.top-r.height-8);
+  pop.style.left=x+'px';pop.style.top=y+'px';
+}
+function bindInfo(root){
+  // 아이콘을 포함한 setRow 자체에도 클릭 핸들러가 있으므로 부모에서
+  // 위임 처리하고, 행 토글 쪽에서 iBtn 클릭을 먼저 제외한다.
+  root.addEventListener('click',e=>{
+    const b=e.target.closest('.iBtn');
+    if(!b||!root.contains(b))return;
+    e.preventDefault();e.stopPropagation();showInfo(b,INFO[b.dataset.info]);
+  });
+}
+addEventListener('pointerdown',e=>{
+  if(_infoBtn&&!e.target.closest('.iBtn')&&!e.target.closest('.infoPop'))hideInfo();
+},true);
+addEventListener('resize',hideInfo);
+addEventListener('scroll',hideInfo,true);
 
 /** 앱 내부 확인 다이얼로그.
     브라우저 confirm()은 홈 화면 PWA나 일부 모바일 웹뷰에서 조용히 차단되어
@@ -8049,19 +8100,24 @@ $('#btnSound').onclick=()=>{
 
 /* ---- 설정 ---- */
 const SETTINGS=[
-  {k:'sound',    t:'완료 사운드'},
-  {k:'fxReveal', t:'완주 발견 연출'},
-  {k:'showName', t:'중심별 이름 표시'},
-  {k:'invX',     t:'좌우 드래그 반전'},
-  {k:'invY',     t:'상하 드래그 반전'},
+  {k:'sound',    t:'완료 사운드',      d:'세션이 끝나면 짧은 종소리를 냅니다'},
+  {k:'fxReveal', t:'완주 발견 연출',   d:'세션을 완주하면 망원경 시야가 열리고 그 자리에서 새 천체를 발견합니다. 끄면 결과 카드만 표시합니다'},
+  {k:'showName', t:'중심별 이름 표시', d:'중심별 아래에 이름을 표시합니다. 촬영 중 이름 표시는 촬영 설정에서 따로 정합니다'},
+  {k:'invX',     t:'좌우 드래그 반전', d:'드래그할 때 좌우 시점이 움직이는 방향을 뒤집습니다'},
+  {k:'invY',     t:'상하 드래그 반전', d:'드래그할 때 상하 시점이 움직이는 방향을 뒤집습니다'},
 ];
 function renderSettings(){
+  SETTINGS.forEach(o=>INFO[o.k]=o.d);
+  INFO.intro=`집중 연출을 고르면 완주 보상 종류도 정해집니다.<br><br>
+    <b>벨트 탐사</b> → 왜소행성<br><b>혜성 근일점</b> → 혜성<br>
+    <b>엄폐(식)</b> → 행성<br><b>탐사선 항해</b> → 위성<br>
+    <b>분광 관측</b> → 항성<br><b>없음</b> → 미보유 종류 중 무작위`;
   $('#setBody').innerHTML=SETTINGS.map(o=>`
     <div class="setRow ${S[o.k]?'on':''}" data-k="${o.k}">
-      <div class="txt"><b>${o.t}</b></div>
+      <div class="txt"><b>${o.t}<button class="iBtn" data-info="${o.k}" aria-label="${o.t} 설명">i</button></b></div>
       <div class="tgl"></div>
     </div>`).join('')
-    +`<div class="setSep">집중 연출</div>
+    +`<div class="setSep">집중 연출<button class="iBtn" data-info="intro" aria-label="집중 연출 설명">i</button></div>
       <div class="capRow" id="introPick" style="grid-template-columns:repeat(2,1fr)">
         <button class="capBtn" data-fx="none">없음</button>
         <button class="capBtn" data-fx="scope">벨트 탐사</button>
@@ -8070,14 +8126,15 @@ function renderSettings(){
         <button class="capBtn" data-fx="probe">탐사선 항해</button>
         <button class="capBtn" data-fx="spectro">분광 관측</button>
       </div>
-      <div class="setSep">알림과 설치</div>
+      <div class="setSep">알림과 설치<button class="iBtn" data-info="notify" aria-label="알림과 설치 설명">i</button></div>
       <div id="pwaRows"></div>
       <div class="pickerHint" style="margin-top:16px;text-align:center;opacity:.65">
         버전 ${APP_VER}</div>`;
   // data-k 가 있는 행만 잡는다. 알림 행(#rowNotif)도 .setRow 라서
   // 그냥 훑으면 renderPwaRows 가 건 핸들러를 덮어쓴다 — 권한 요청은
   // 일어나지 않고 S[undefined] 만 토글되어, 켠 것처럼 보였다가 되돌아갔다.
-  $$('#setBody .setRow[data-k]').forEach(el=>el.onclick=()=>{
+  $$('#setBody .setRow[data-k]').forEach(el=>el.onclick=e=>{
+    if(e.target.closest('.iBtn'))return;
     const k=el.dataset.k;
     S[k]=!S[k];
     el.classList.toggle('on',S[k]);
@@ -8094,6 +8151,7 @@ function renderSettings(){
   });
   syncIntro();
   renderPwaRows();          // 알림 행 핸들러는 이 뒤에 걸어야 살아남는다
+  bindInfo($('#setBody'));
 }
 /* ---- 알림 권한 · 홈 화면 설치 ---- */
 let _installPrompt=null;
@@ -8114,6 +8172,16 @@ function renderPwaRows(){
   const el=$('#pwaRows'); if(!el)return;
   const sup=('Notification' in window);
   const perm=sup?Notification.permission:'unsupported';
+  const ios=/iP(hone|ad|od)/.test(navigator.userAgent);
+  INFO.notify=(isNative()
+    ? '안드로이드 앱은 운영체제가 알림을 예약하므로 앱을 닫아도 완료 알림을 받을 수 있습니다.'
+    : isStandalone()
+      ? '홈 화면에서 실행 중입니다. 웹 알림은 앱을 완전히 종료하면 도착하지 않습니다.'
+      : ios
+        ? '아이폰은 사파리 공유 메뉴에서 홈 화면에 추가해야 알림을 사용할 수 있습니다.'
+        : '브라우저 메뉴의 앱 설치 또는 홈 화면에 추가로 설치하면 잠금 화면 알림을 사용할 수 있습니다.')
+    +(isNative()?'':'<br><br>웹에서는 앱을 완전히 종료하면 알림이 오지 않습니다. 화면을 끄거나 다른 앱으로 전환하는 것은 괜찮습니다.')
+    +(perm==='granted'?'<br><br>아래에 알림 자체와 백그라운드 알림을 확인하는 테스트가 나타납니다.':'');
   el.innerHTML=
     `<div class="setRow ${perm==='granted'?'on':''}" id="rowNotif">
        <div class="txt"><b>완료 알림</b></div>
@@ -8289,6 +8357,7 @@ function topMask(){
   return on.length?on[on.length-1]:null;
 }
 async function onBack(){
+  if(_infoBtn){hideInfo();pushTrap();return;}
   const m=topMask();
   if(m){                                   // 열린 창부터 닫는다
     if(m.id==='mIntro'){pushTrap();return;} // 중심별 이름을 정하기 전엔 나갈 데가 없다
