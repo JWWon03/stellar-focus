@@ -680,11 +680,16 @@ body.capture #hint{display:none}
   background:rgba(111,230,176,.16);color:var(--ok);border:1px solid rgba(111,230,176,.3);font-weight:700
 }
 
-/* 발견 연출 캔버스는 관측 장면을 확대한다.
-   HUD(z-index 20)가 위에 남도록 그 아래에 둔다. */
-#scopeFx{position:fixed;inset:0;z-index:10;display:none;background:transparent;touch-action:none}
+/* 발견 연출은 모든 조작부 위를 덮고 탭 입력만 받는다. */
+#scopeFx{position:fixed;inset:0;z-index:95;display:none;background:transparent;touch-action:none}
 #scopeFx.on{display:block}
 #scopeFx canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+body.reveal-active .hud,
+body.reveal-active button,
+body.reveal-active input,
+body.reveal-active select,
+body.reveal-active .hint,
+body.reveal-active .infoPop{visibility:hidden!important;pointer-events:none!important}
 .newTag2{position:absolute;top:4px;left:4px;font-size:8px;font-weight:800;letter-spacing:.1em;
   padding:2px 5px;border-radius:5px;background:linear-gradient(120deg,#ffd77a,#ff9d4d);color:#2a1600}
 .newTag{
@@ -2245,7 +2250,7 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.09.27-r31';                    // 설정 화면에 표시 — 배포 반영 확인용
+const APP_VER='2026.10.05-r32';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
@@ -5869,15 +5874,16 @@ addEventListener('resize',()=>{ if(SC) scopeResize(); });
 function scopeEnd(){
   cancelAnimationFrame(_scopeRaf);
   $('#scopeFx').classList.remove('on');
+  document.body.classList.remove('reveal-active');
   const f=SC&&SC.onDone; SC=null;
   setPulling(false);
   if(f) f();
 }
-/* 아무 곳이나 누르면 — 진행 중이면 건너뛰기, 발견 화면이면 닫기 */
-$('#scopeFx').addEventListener('pointerdown',()=>{
+/* 연출 중 다른 조작은 막고, 화면 탭 한 번으로 연출을 닫는다. */
+$('#scopeFx').addEventListener('pointerdown',e=>{
   if(!SC)return;
-  if(SC.held){ if(!SC.dismiss) SC.dismiss=0.001; }
-  else SC.t0=performance.now()-SCOPE_DUR;
+  e.preventDefault();e.stopPropagation();
+  if(!SC.dismiss) SC.dismiss=0.001;
 });
 
 function scopeLoop(now){
@@ -6639,6 +6645,7 @@ function revealStart(body,fx,onDone){
      빈 원반이 스친다. 여기서 걸어 두면 4.2초 동안 시간 분할로 다 구워진다. */
   readyTexture(body,SC_GLOBE);
   $('#scopeFx').classList.add('on');
+  document.body.classList.add('reveal-active');
   setPulling(true);
   scopeResize();
   cancelAnimationFrame(_scopeRaf);
