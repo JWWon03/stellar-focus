@@ -5879,9 +5879,14 @@ function scopeEnd(){
   setPulling(false);
   if(f) f();
 }
-/* 연출 중 다른 조작은 막고, 화면 탭 한 번으로 연출을 닫는다. */
+/* 연출 중 다른 조작은 막고, 화면 탭이나 Escape로 닫기 페이드를 시작한다. */
 $('#scopeFx').addEventListener('pointerdown',e=>{
   if(!SC)return;
+  e.preventDefault();e.stopPropagation();
+  if(!SC.dismiss) SC.dismiss=0.001;
+});
+addEventListener('keydown',e=>{
+  if(!SC||e.key!=='Escape')return;
   e.preventDefault();e.stopPropagation();
   if(!SC.dismiss) SC.dismiss=0.001;
 });
