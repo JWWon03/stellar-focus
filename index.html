@@ -521,6 +521,7 @@ body.capture #hint{display:none}
   cursor:pointer;font-size:14px;color:var(--txt-2);display:flex;align-items:center;justify-content:center;flex:0 0 auto
 }
 .mClose:hover{border-color:var(--line-2);color:#fff}
+body.entry-gate #mAccount .mClose{display:none}
 .mBody{padding:20px 22px;overflow-y:auto;flex:1}
 .mFoot{padding:14px 22px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;align-items:center}
 .mFoot .spacer{flex:1}
@@ -1396,7 +1397,7 @@ body.locked #timerPanel input{cursor:not-allowed}
 <div class="mask" id="mAccount">
   <div class="modal" style="max-width:430px">
     <div class="mHead">
-      <div style="flex:1"><h2>계정</h2><p>기기 간에 항성계를 이어서 키웁니다</p></div>
+      <div style="flex:1"><h2 id="acTitle">계정</h2><p id="acSub">기기 간에 항성계를 이어서 키웁니다</p></div>
       <button class="mClose" data-close="mAccount">✕</button>
     </div>
     <div class="mBody" id="acBody"></div>
@@ -2250,8 +2251,10 @@ const isAdmin=()=>!!(AUTH&&ADMIN_IDS.includes(AUTH.id));
 
 const LS_BASE='stellarFocus.v1';
 const LS_AUTH='stellarFocus.auth';
-const APP_VER='2026.10.05-r32';                    // 설정 화면에 표시 — 배포 반영 확인용
+const LS_ENTRY='stellarFocus.entryChoice';
+const APP_VER='2026.11.02-r34';                    // 설정 화면에 표시 — 배포 반영 확인용
 let AUTH=null;                                   // {id, token} | null
+let _entryGate=false;
 const lsKey=()=>AUTH?`${LS_BASE}.${AUTH.id}`:LS_BASE;
 const MAX_PLANET=7, MAX_MOON=2, MAX_COMP=2, MAX_COMET=1;
 
@@ -3468,7 +3471,7 @@ function render(t){
     if(VIEW.follow===o.key) drawSelectionRing(o,t);
   });
 
-  drawFocusFx(ctx,performance.now());
+  drawFocusFx(ctx,clock*1000);
 
   // 구도 가이드는 천체 위에 얹혀야 잘릴 부분이 보인다
   if(document.body.classList.contains('capture')){
@@ -3635,7 +3638,7 @@ const easeIO=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
 function beginStartFx(kind){
   if(!kind||kind==='none'){startFx=null;return false;}
   if(!VIEW.zoomTo) VIEW.zoomTo=fitZoom();
-  startFx={t0:performance.now(), z0:VIEW.zoomTo*0.30, az0:VIEW.azTo-0.22};
+  startFx={t0:clock*1000, z0:VIEW.zoomTo*0.30, az0:VIEW.azTo-0.22};
   VIEW.zoom=startFx.z0; VIEW.az=startFx.az0;
   document.body.classList.add('fx');
   return true;
@@ -3649,7 +3652,7 @@ function endStartFx(){
 /** 다가오는 동안 시점을 직접 몬다. 기본 보간은 0.5초면 붙어버린다. */
 function stepStartFx(){
   if(!startFx)return;
-  const p=clamp((performance.now()-startFx.t0)/APPROACH_MS,0,1);
+  const p=clamp((clock*1000-startFx.t0)/APPROACH_MS,0,1);
   const e=easeIO(p);
   VIEW.zoom=startFx.z0+(VIEW.zoomTo-startFx.z0)*e;
   VIEW.az  =startFx.az0+(VIEW.azTo  -startFx.az0)*e;
@@ -3750,7 +3753,7 @@ function spNmColor(nm){
 
 /** 계측 화면 세 판. 집중 연출과 발견 연출이 함께 쓴다.
     (x0,y0,w) 를 받아 그 폭에 맞춰 쌓고, 쓴 높이를 돌려준다. */
-function spPanels(c,x0,y0,w,expo,alpha,tgt){
+function spPanels(c,x0,y0,w,expo,alpha,tgt,now=performance.now()){
   const st=spState(expo), found=Math.min(SP_LINES.length,st.n);
   const nmToX=nm=>x0+w*(nm-SP_NM0)/(SP_NM1-SP_NM0);
   c.save(); c.globalAlpha=alpha;
@@ -3797,7 +3800,7 @@ function spPanels(c,x0,y0,w,expo,alpha,tgt){
   /* 잡음은 한 번 정해지면 그대로다. 노출이 쌓이면 진폭만 준다. */
   /* 잡음은 **판독마다 한 번** 새로 뽑힌다. 진폭은 노출이 쌓일수록 준다 —
      새 프레임이 들어와 그래프가 다시 그려지는 것으로 읽힌다. */
-  const frame=Math.floor(performance.now()/SP_READOUT);
+  const frame=Math.floor(now/SP_READOUT);
   const rn=mulberry((0x5EC7^Math.imul(frame,2654435761))>>>0);
   c.strokeStyle=rgba('#e8eefc',.92); c.lineWidth=1.2;
   c.beginPath();
@@ -3858,12 +3861,12 @@ function spPanels(c,x0,y0,w,expo,alpha,tgt){
 function fxSpectro(ctx,prog,now){
   applyScopeOptics([]);              // 궤도 화면은 통째로 흐린다. 여기선 배경이다
   drawScopeGrid(ctx,'rgba(201,166,255,.062)');   // col 은 알파가 든 rgba 다
-  drawScopeNoise(ctx);
+  drawScopeNoise(ctx,now);
   const tgt=spectroTarget();
   /* 패널은 HUD 아래에 놓는다 — 좌상단 시계 위젯에 가리면 안 된다 */
   const top=Math.max(H*0.17,($('#clock')?$('#clock').getBoundingClientRect().bottom:0)+26);
   const w=Math.min(W*0.74,760), x0=(W-w)/2;
-  const r=spPanels(ctx,x0,top+78,w,prog,1,tgt);   // 수치 다섯 줄 + RAW FRAME 이름표
+  const r=spPanels(ctx,x0,top+78,w,prog,1,tgt,now);   // 수치 다섯 줄 + RAW FRAME 이름표
 
   const mm=Math.floor(prog*(S.timer.total/60000)),
         ss=Math.floor(prog*(S.timer.total/1000))%60;
@@ -3872,7 +3875,7 @@ function fxSpectro(ctx,prog,now){
   ['SPECTROGRAPH  R=48000',
    'EXPOSURE   '+mm+'m '+String(ss).padStart(2,'0')+'s',
    'SNR        '+r.st.snr.toFixed(1),
-   'FRAME      '+(Math.floor(performance.now()/SP_READOUT)%9000),
+   'FRAME      '+(Math.floor(now/SP_READOUT)%9000),
    'LINES      '+r.found+'/'+SP_LINES.length
   ].forEach((t,i)=>ctx.fillText(t,x0,top+i*13));
   ctx.restore();
@@ -4082,14 +4085,14 @@ function noisePattern(){
   x.putImageData(img,0,0);
   return _noisePat=ctx.createPattern(c,'repeat');
 }
-function drawScopeNoise(ctx){
+function drawScopeNoise(ctx,now=performance.now()){
   ctx.save();
   // 스캔라인
   ctx.globalAlpha=0.35;
   ctx.fillStyle=scanPattern();
   ctx.fillRect(0,0,W,H);
   // 노이즈 — 매 프레임 타일을 어긋나게 밀어 지글거리게 한다
-  _noiseN=(_noiseN+1)%97;
+  _noiseN=Math.floor(now/33)%97;
   ctx.globalAlpha=0.035;
   ctx.globalCompositeOperation='lighter';
   ctx.translate(-(_noiseN*13)%96,-(_noiseN*29)%96);
@@ -4119,7 +4122,7 @@ function fxRadar(ctx,prog,now){
   applyScopeOptics(spots.map(s=>({x:s.sc.x-H2,y:s.sc.y-H2,w:H2*2,h:H2*2})));
   if(_starRim) strokeStarRim(_starRim.x,_starRim.y,_starRim.r,_starRim.c);
   drawScopeGrid(ctx);
-  drawScopeNoise(ctx);
+  drawScopeNoise(ctx,now);
   const tg=radarTargets(prog);
   ctx.save();
   ctx.font='500 10px ui-monospace,SFMono-Regular,Menlo,monospace';
@@ -4399,7 +4402,7 @@ function fxComet(ctx,prog,now){
   ctx.fillStyle=cg;ctx.beginPath();ctx.arc(s.x,s.y,comaR,0,TAU);ctx.fill();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,hr,0,TAU);ctx.fill();
 
-  drawScopeNoise(ctx);
+  drawScopeNoise(ctx,now);
   // 화면 밖에 있으면 표식도 수치도 띄우지 않는다
   if(s.x>6&&s.x<W-6&&s.y>6&&s.y<H-6){
     const auR=r*auPerUnit(), auA=cmPeri()/(1-CM.e)*auPerUnit();
@@ -4487,7 +4490,7 @@ function fxTransit(ctx,prog,now){
   ctx.fillText('RELATIVE FLUX  '+flux.toFixed(5),gx0+2,gy0-6);
   ctx.restore();
 
-  drawScopeNoise(ctx);
+  drawScopeNoise(ctx,now);
   drawTargetBox({x:px,y:py},'96,220,140',['UNKNOWN BODY','FLUX '+flux.toFixed(5)],
                 Math.max(RADAR_HALF,pr+8));
 
@@ -4817,7 +4820,7 @@ function fxProbe(ctx,prog,now){
   ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,3.2);ctx.lineTo(-4,-3.2);ctx.closePath();ctx.fill();
   ctx.restore();
 
-  drawScopeNoise(ctx);
+  drawScopeNoise(ctx,now);
   const MY=24, au=p.r*auPerUnit(), lag=au*499;
   drawTargetBox(s,'96,214,255',[
     'SF-VOYAGER',
@@ -4995,9 +4998,11 @@ cv.addEventListener('touchend',()=>{_pinch=0;},{passive:true});
 /* ---- 루프 ---- */
 let last=performance.now(), clock=0;
 function frame(now){
-  const dt=Math.min(.1,(now-last)/1000);last=now;clock+=dt;
+  const dt=Math.min(.1,(now-last)/1000);last=now;
   tickTimer();
   const T=S.timer;
+  const pausedFocus=T.phase==='focus'&&!T.running&&T.remain>0;
+  if(!pausedFocus)clock+=dt;
   if(T.phase==='focus'&&T.total>0&&(T.running||T.remain>0)){
     phase=(T._startPhase||0)+clamp(1-remainMs()/T.total,0,1);
   }else{
@@ -5209,7 +5214,7 @@ function onPhaseDone(fromBoot){
                day:S.stats.dayMs,total:S.stats.sessions,
                got:got.map(g=>({id:g.b.id,n:g.b.n,kind:g.kind}))});
     paintInbox();
-    notifyDone(got,bonus);
+    notifyDone();
     // 요구사항 9 — 카드가 떠 있는 동안에도 타이머는 멈추지 않는다
     if(next) startPhase(next);
     else T.phase='idle';
@@ -5259,11 +5264,9 @@ async function showNotif(title,opt){
   try{ new Notification(title,o); return 'page'; }catch(e){}
   return 'fail';
 }
-function notifyDone(got,bonus){
-  const names=(got||[]).map(g=>g.b.n).join(' · ');
+function notifyDone(){
   showNotif('집중 완료 ✦',{
-    body:names?`${names} 발견${bonus?' (보너스 포함)':''} · ${S.star.name} 항성계가 한 바퀴를 돌았습니다`
-              :`${S.star.name} 항성계가 한 바퀴를 돌았습니다`,
+    body:'항성계가 한 바퀴를 돌았습니다',
     tag:'sf-done',renotify:true});
 }
 function notifyBreakDone(){
@@ -5317,7 +5320,7 @@ function armNotify(){
   const wasFocus=T.phase==='focus';
   const title=wasFocus?'집중 완료 ✦':'휴식 종료 ☾';
   const body=wasFocus
-    ?`${S.star.name} 항성계가 한 바퀴를 돌았습니다 · 앱을 열어 토큰을 받으세요`
+    ?'항성계가 한 바퀴를 돌았습니다'
     :'다음 집중 세션을 시작할 시간입니다';
   // 네이티브가 잡아주면 OS 예약이 더 정확하다. 실패하면 웹 경로로 떨어진다.
   nativeArm(T.endAt,title,body).then(ok=>{ if(ok)return; });
@@ -5452,12 +5455,33 @@ function chime(bonus){
    ========================================================================== */
 function open(id){$('#'+id).classList.add('on');}
 function close(id){$('#'+id).classList.remove('on');hideInfo();}
-let _logoutLoginPending=false;
 function closeAccountAfterLogout(){
+  if(_entryGate)return;
   close('mAccount');
-  if(!_logoutLoginPending)return;
-  _logoutLoginPending=false;
-  openCenterStarSetup();
+}
+function leaveEntryGate(){
+  _entryGate=false;
+  document.body.classList.remove('entry-gate');
+  $('#acTitle').textContent='계정';
+  $('#acSub').textContent='기기 간에 항성계를 이어서 키웁니다';
+  close('mAccount');
+}
+function showEntryGate(){
+  _entryGate=true;
+  document.body.classList.add('entry-gate');
+  $('#acTitle').textContent='로그인';
+  $('#acSub').textContent='계속하려면 로그인하거나 게스트 모드를 선택하세요';
+  renderAccount();open('mAccount');
+  setTimeout(()=>$('#acId')?.focus(),120);
+}
+async function enterGuestMode(){
+  const ok=await ask('게스트 모드로 계속할까요?',
+    '게스트 항성계와 집중 기록은 이 브라우저의 사이트 데이터에만 저장됩니다. 사이트 데이터를 지우거나 다른 기기를 사용하면 복구할 수 없습니다. 계정을 만들거나 로그인해도 게스트 데이터는 자동으로 합쳐지지 않습니다.',
+    '게스트로 계속',true);
+  if(!ok)return;
+  lsSet(LS_ENTRY,'guest');
+  leaveEntryGate();
+  if(!S.created)openCenterStarSetup();
 }
 
 const INFO={};
@@ -8558,9 +8582,9 @@ function mergeStats(a,b){
 }
 /** 시작 시 클라우드와 맞춰본다 */
 function cloudSyncOnBoot(){
-  if(!AUTH||!cloudReady())return;
+  if(!AUTH||!cloudReady())return Promise.resolve();
   setCloudState('sync');
-  api('sf_pull',{p_id:AUTH.id,p_token:AUTH.token}).then(r=>{
+  return api('sf_pull',{p_id:AUTH.id,p_token:AUTH.token}).then(r=>{
     if(!r||!r.ok){
       if(r&&r.error==='auth'){doLogout(true);warn(ERRMSG.auth);}
       else setCloudState('err');
@@ -8718,8 +8742,10 @@ async function doAuth(kind){
       return;
     }
     AUTH={id,token:r.token};saveAuth();
+    lsDel(LS_ENTRY);
     $('#acPin').value='';
     setCloudState('ok');
+    if(_entryGate)leaveEntryGate();
     adoptCloud(r.data&&Object.keys(r.data).length?r.data:null);
     toast(kind==='signup'?`${id} 계정을 만들었습니다`:`${id}(으)로 로그인했습니다`);
   }catch(e){
@@ -8729,14 +8755,12 @@ async function doAuth(kind){
 function doLogout(silent){
   clearTimeout(cloudT);         // 예약된 푸시가 AUTH=null 로 터지는 것을 막는다
   AUTH=null;saveAuth();setCloudState('idle');
+  lsDel(LS_ENTRY);
   load();                       // 게스트 저장본으로 되돌아간다
-  afterAccountSwitch();
+  syncAdminUI();paintInbox();updateTimerUI();updateLockUI();syncPresets();syncLongUI();
   close('mIntro');close('mAccount');
-  renderAccount();
-  _logoutLoginPending=true;
-  open('mAccount');
-  setTimeout(()=>$('#acId')?.focus(),100);
-  if(!silent) toast('로그아웃했습니다 · 게스트 항성계로 돌아갑니다');
+  showEntryGate();
+  if(!silent) toast('로그아웃했습니다 · 로그인 또는 게스트 모드를 선택해 주세요');
 }
 
 /* 관리자: 천체 종류별 도감 초기화 (재지급 테스트용)
@@ -8916,12 +8940,16 @@ function renderRecordCal(){
 }
 function renderAccount(){
   const body=$('#acBody');
+  $('#acTitle').textContent=_entryGate?'로그인':'계정';
+  $('#acSub').textContent=_entryGate
+    ?'계속하려면 로그인하거나 게스트 모드를 선택하세요'
+    :'기기 간에 항성계를 이어서 키웁니다';
   if(!cloudReady()){
     body.innerHTML=`<div class="emptyMsg" style="text-align:left;line-height:1.85">
-      클라우드 동기화가 아직 설정되지 않았습니다.<br><br>
-      리포지토리의 <b>supabase/schema.sql</b> 을 Supabase SQL Editor에서 실행하고,
-      <b>index.html</b> 상단의 <b>CLOUD</b> 상수에 프로젝트 URL과 anon 키를 넣으면 켜집니다.<br><br>
-      설정 전까지 항성계는 이 기기에만 저장되며, 게임은 정상 동작합니다.</div>`;
+      계정 로그인은 현재 사용할 수 없습니다.<br><br>
+      게스트 모드를 선택하면 이 브라우저에 저장하며 이용할 수 있습니다.</div>
+      <button class="cbtn primary" id="acGuest" style="width:100%;margin-top:16px">게스트 모드</button>`;
+    $('#acGuest').onclick=enterGuestMode;
     return;
   }
   if(!AUTH){
@@ -8942,9 +8970,11 @@ function renderAccount(){
       <div class="pickerHint" style="margin:14px 0 0">
         PIN은 서버에 해시로만 저장되고, 10회 틀리면 15분간 잠깁니다.
         다만 자릿수가 짧으니 다른 곳에서 쓰는 비밀번호는 쓰지 마세요.
-      </div>`;
+      </div>
+      <button class="cbtn" id="acGuest" style="width:100%;margin-top:12px">게스트 모드로 계속</button>`;
     $('#acSignup').onclick=()=>doAuth('signup');
     $('#acLogin').onclick=()=>doAuth('login');
+    $('#acGuest').onclick=enterGuestMode;
     $('#acPin').onkeydown=e=>{if(e.key==='Enter')doAuth('login');};
     return;
   }
@@ -9080,11 +9110,16 @@ function boot(){
   }
   updateTimerUI();
 
-  if(!S.created){
-    open('mIntro');
-    setTimeout(()=>$('#inStarName').focus(),350);
+  if(!AUTH){
+    if(lsGet(LS_ENTRY)==='guest'){
+      if(!S.created)openCenterStarSetup();
+    }else showEntryGate();
+  }else{
+    cloudSyncOnBoot().finally(()=>{
+      if(!S.created&&!$('#mAccount').classList.contains('on')&&!$('#mDone').classList.contains('on')&&!$('#mIntro').classList.contains('on'))
+        openCenterStarSetup();
+    });
   }
-  cloudSyncOnBoot();
   registerSW();
   if(T.running){ armNotify(); rollRadarMax(); rollSpectroTarget(); }   // 새로고침해도 이어지게
   requestAnimationFrame(frame);

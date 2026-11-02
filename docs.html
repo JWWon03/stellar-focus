@@ -256,14 +256,14 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 
         <rect x="76" y="252" width="330" height="62" rx="12" fill="rgba(138,180,255,.09)" stroke="rgba(138,180,255,.3)"/>
         <text x="94" y="277" fill="#e8eefc" font-size="13.5" font-weight="700">localStorage — 항상</text>
-        <text x="94" y="297" fill="#9aa8ca" font-size="11.5">이 기기에 저장. 오프라인에서도 완전 동작</text>
+        <text x="94" y="297" fill="#9aa8ca" font-size="11.5">게스트 선택 시 이 기기에 저장 · 오프라인 동작</text>
 
         <rect x="456" y="252" width="330" height="62" rx="12" fill="rgba(255,255,255,.025)" stroke="rgba(140,175,255,.18)" stroke-dasharray="5 4"/>
         <text x="474" y="277" fill="#9aa8ca" font-size="13.5" font-weight="700">Supabase — 선택</text>
-        <text x="474" y="297" fill="#66739a" font-size="11.5">로그인했을 때만. 꺼져도 앱은 그대로 돈다</text>
+        <text x="474" y="297" fill="#66739a" font-size="11.5">계정 로그인·가입을 선택했을 때만 사용</text>
       </g>
     </svg>
-    <figcaption>점선은 선택 경로입니다. 서버가 죽어도 게임은 멈추지 않습니다.</figcaption>
+    <figcaption>첫 진입 때 계정 또는 게스트를 선택합니다. 서버가 없어도 게스트로 이용할 수 있습니다.</figcaption>
   </figure>
 
   <div class="card">
@@ -584,6 +584,12 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
     <p>메뉴는 잠기지만 확대·회전·천체 추적은 그대로 됩니다. 항성계를 들여다보는 것 자체가
        이 앱의 재미이고, 설정을 바꾸는 행위와는 다르다고 보았기 때문입니다.</p>
   </div>
+  <div class="card">
+    <div class="t">일시정지하면 항성계도 잠시 멈춥니다</div>
+    <p>남은 시간뿐 아니라 공전과 집중 관측 연출도 멈춘 화면을 유지합니다. 다시 시작하면
+       정지한 지점부터 이어집니다. 집중이 완료되고 알림 권한이 허용되어 있으면
+       <strong>집중 완료 ✦</strong> — <span class="mono">항성계가 한 바퀴를 돌았습니다</span>라는 알림이 표시됩니다.</p>
+  </div>
 </section>
 
 <!-- ===================== 8 ===================== -->
@@ -649,12 +655,18 @@ footer{border-top:1px solid var(--line);padding-top:26px;color:var(--txt3);font-
 <!-- ===================== 9 ===================== -->
 <section id="cloud">
   <h2><span class="num">09</span> 계정과 클라우드</h2>
-  <p class="lede">아이디와 PIN만으로 기기 사이를 오갑니다. <strong>없어도 되는 기능입니다.</strong></p>
+  <p class="lede">게스트로도 사용할 수 있고, 계정으로 로그인하면 기기 사이에서 이어 할 수 있습니다.</p>
 
-  <p>로그인하지 않아도 게임은 완전히 동작합니다. 데이터가 이 기기에만 남을 뿐입니다.
-     로그인하면 PC에서 키우던 항성계를 폰에서 이어받을 수 있습니다.</p>
-  <p>로그아웃하면 로그인 창이 바로 열립니다. 그 창을 닫으면 중심별 이름 설정으로 이어집니다.
-     이미 만든 항성계에서는 현재 중심별 정보가 미리 채워지고, 저장해도 첫 항성계 보상이 다시 지급되지 않습니다.</p>
+  <p>처음 열면 로그인 화면이 나타납니다. 계정을 만들거나 로그인하면 클라우드 저장을 사용할 수 있고,
+     게스트 모드를 선택하면 이 기기에만 저장하며 이용할 수 있습니다. 게스트 데이터는 사이트 데이터를 지우거나
+     기기를 바꾸면 복구할 수 없고, 계정 데이터와 자동으로 합쳐지지 않습니다.</p>
+  <p>게스트 선택을 확인하면 중심별 이름 설정으로 이어집니다. 계정 로그인 후 항성계가 없다면 중심별을 설정합니다.
+     로그아웃하면 로그인 화면이 다시 열리고, 게스트를 확인하면 로컬 항성계로 돌아갑니다.
+     이미 만든 항성계에서는 현재 중심별 정보가 미리 채워지며 첫 항성계 보상은 다시 지급되지 않습니다.</p>
+  <p><code>sf_saves</code> 테이블은 브라우저가 직접 조회할 수 없도록 잠겨 있고, 앱은 허용된 RPC 함수로만 저장을 요청합니다.
+     따라서 이 테이블에 <code>anon</code> 또는 <code>authenticated</code>의 직접 권한을 추가하지 않습니다.
+     2026년 10월 30일부터 적용되는 Supabase 변경은 새로 만드는 공개 테이블에 대한 기본 권한만 다룹니다.
+     새 테이블을 추가할 때는 그 테이블을 API에 공개할지 먼저 결정하고 필요한 권한만 따로 설정해야 합니다.</p>
 
   <figure>
     <svg viewBox="0 0 860 290" xmlns="http://www.w3.org/2000/svg" role="img"

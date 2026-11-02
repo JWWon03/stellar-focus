@@ -26,9 +26,10 @@ create table if not exists public.sf_saves (
   updated_at    timestamptz not null default now()
 );
 
--- 정책 없이 RLS만 켠다 = anon/authenticated 모두 직접 접근 불가
+-- 앱은 테이블을 직접 호출하지 않고 SECURITY DEFINER RPC 함수만 사용한다.
+-- 따라서 Data API 역할과 PUBLIC에는 테이블 권한을 주지 않는다.
 alter table public.sf_saves enable row level security;
-revoke all on public.sf_saves from anon, authenticated;
+revoke all on public.sf_saves from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- 내부 헬퍼

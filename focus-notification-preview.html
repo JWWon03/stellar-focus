@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>집중 완료 알림 미리보기</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,"Noto Sans KR",system-ui,sans-serif;background:#070910;color:#e8eefc}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#151b2c 0,#080a11 50%,#05060a 100%)}
+.frame{width:min(760px,100%);min-height:420px;border:1px solid #26304a;border-radius:22px;background:#090c15;box-shadow:0 30px 100px #0009;position:relative;overflow:hidden;padding:30px}
+.top{display:flex;align-items:center;justify-content:space-between;color:#7785a6;font-size:12px;letter-spacing:.04em}
+.dot{display:inline-block;width:8px;height:8px;border-radius:99px;background:#68dcb7;margin-right:8px;box-shadow:0 0 14px #68dcb7}
+.scene{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.orbit{width:210px;height:210px;border:1px solid #263451;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 60px #1b345055}
+.sun{width:22px;height:22px;border-radius:50%;background:#ffb46e;box-shadow:0 0 22px #ff9b4f}
+.planet{position:absolute;width:8px;height:8px;border-radius:50%;background:#c1d7ff;transform:translate(103px,-8px);box-shadow:0 0 10px #8db7ff}
+.note{position:absolute;right:22px;top:22px;width:min(360px,calc(100% - 44px));padding:15px 17px 16px;border:1px solid #ffffff28;border-radius:15px;background:linear-gradient(145deg,#202330f5,#11141df5);box-shadow:0 14px 42px #0009;backdrop-filter:blur(18px);animation:arrive .45s cubic-bezier(.2,1,.3,1)}
+@keyframes arrive{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+.head{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:14px;font-weight:650}
+.icon{width:25px;height:25px;border-radius:7px;display:grid;place-items:center;background:#3c4f79;color:#cfe0ff;font-size:14px}
+.body{font-size:13px;line-height:1.55;color:#c0c7d8;padding-left:35px}
+.hint{position:absolute;left:30px;bottom:27px;max-width:calc(100% - 60px);color:#75819d;font-size:12px;line-height:1.7}
+.hint strong{display:block;color:#b8c4df;font-size:13px;margin-bottom:4px}
+@media(max-width:520px){.frame{min-height:520px;padding:20px}.note{top:16px;right:16px;width:calc(100% - 32px)}.hint{left:20px;bottom:20px}.orbit{width:160px;height:160px}.planet{transform:translate(78px,-6px)}}
+</style>
+</head>
+<body>
+<main class="frame" aria-label="집중 타이머 화면에서 완료 알림을 띄운 모습">
+  <div class="top"><span><i class="dot"></i>STELLAR FOCUS</span><span>집중 세션 완료</span></div>
+  <div class="scene" aria-hidden="true"><div class="orbit"><div class="sun"></div><div class="planet"></div></div></div>
+  <aside class="note" role="status">
+    <div class="head"><span class="icon">✦</span><span>집중 완료 ✦</span></div>
+    <div class="body">항성계가 한 바퀴를 돌았습니다</div>
+  </aside>
+  <div class="hint"><strong>언제 표시되나요?</strong>집중 타이머가 끝나고 앱 화면이 열려 있을 때, 알림 권한이 허용되어 있으면 운영체제 알림으로 표시됩니다.</div>
+</main>
+</body>
+</html>
